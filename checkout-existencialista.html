@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout Seguro — O Peso de Existir</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .checkout-container { max-width: 600px; margin: 4rem auto; }
+        .form-group { margin-bottom: 1.5rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem; }
+        .form-control { width: 100%; padding: 0.8rem 1rem; border-radius: 8px; border: 1px solid var(--card-border); background: rgba(0,0,0,0.2); color: var(--text-main); font-family: var(--font-sans); }
+        .form-control:focus { outline: none; border-color: var(--primary); }
+        .summary-box { background: linear-gradient(to right, rgba(59, 130, 246, 0.05), transparent); border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; border: 1px solid var(--primary); }
+        .summary-row { display: flex; justify-content: space-between; margin-bottom: 0.5rem; }
+        .summary-total { border-top: 1px solid var(--card-border); margin-top: 1rem; padding-top: 1rem; font-weight: bold; font-size: 1.2rem; }
+    </style>
+</head>
+<body>
+    <div style="text-align: center; padding: 2rem 0;">
+        <div class="footer-brand">O Peso de Existir</div>
+    </div>
+
+    <div class="container checkout-container">
+        <div class="glass-card glow-wrapper fade-in">
+            <h2 style="font-size: 1.8rem; margin-bottom: 2rem; text-align: center;">Finalizar Compra</h2>
+            
+            <div class="summary-box">
+                <div class="summary-row">
+                    <span style="color: var(--text-muted);">Plano</span>
+                    <strong style="color: var(--primary);">Existencialista (Coleção Completa)</strong>
+                </div>
+                <div class="summary-row">
+                    <span style="color: var(--text-muted);">Acesso</span>
+                    <span style="color: var(--text-main);">Vitalício + Atualizações</span>
+                </div>
+                <div class="summary-row summary-total">
+                    <span>Total a pagar</span>
+                    <span style="color: var(--primary);">R$ 24,90</span>
+                </div>
+            </div>
+
+            <form action="obrigado.html" method="GET">
+                <div class="form-group">
+                    <label for="nome">Nome Completo</label>
+                    <input type="text" id="nome" class="form-control" required placeholder="Digite seu nome">
+                </div>
+                <div class="form-group">
+                    <label for="email">E-mail (para onde enviaremos o acesso)</label>
+                    <input type="email" id="email" class="form-control" required placeholder="seu@email.com">
+                </div>
+                <div class="form-group">
+                    <label for="whatsapp">WhatsApp</label>
+                    <input type="tel" id="whatsapp" class="form-control" required placeholder="(00) 00000-0000">
+                </div>
+                <button type="submit" class="btn-primary" style="width: 100%; margin-top: 1rem; font-size: 1.1rem;">Concluir Pagamento</button>
+            </form>
+            <div style="text-align: center; margin-top: 1.5rem; font-size: 0.8rem; color: var(--text-muted);">
+                Ambiente 100% seguro. Seus dados estão protegidos.
+            </div>
+        </div>
+    </div>
+    <script src="js/main.js"></script>
+</body>
+</html>
