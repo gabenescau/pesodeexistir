@@ -1,3 +1,4 @@
+"use client";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/logo";
@@ -18,21 +19,21 @@ export function Header() {
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 mx-auto w-full max-w-7xl border-transparent border-b px-4 transition-all ease-out sm:px-6 lg:px-8",
-        scrolled && "bg-background/90 backdrop-blur-xl supports-backdrop-filter:bg-background/70",
+        "sticky top-0 z-50 mx-auto w-full max-w-4xl border-transparent border-b md:rounded-md md:border md:transition-all md:ease-out",
+        scrolled && "border-border bg-background/95 backdrop-blur-sm supports-backdrop-filter:bg-background/50 md:top-2 md:max-w-3xl md:shadow",
       )}
     >
       <nav
         className={cn(
-          "flex h-16 w-full items-center justify-between gap-4 md:h-18",
+          "flex h-14 w-full items-center justify-between px-4 md:h-12 md:transition-all md:ease-out",
+          scrolled && "md:px-2",
         )}
       >
-        <Link className="flex items-center gap-2 rounded-full px-2 py-2 hover:bg-white/6" to="/">
-          <Logo className="h-4 w-auto" />
-          <span className="font-bold text-sm tracking-tight text-foreground">OPE Club</span>
+        <Link className="rounded-md p-2 hover:bg-muted" to="/">
+          <Logo className="h-4" />
         </Link>
-        <div className="hidden flex-1 items-center justify-end gap-3 md:flex">
-          <div className="flex items-center gap-1 rounded-full bg-white/[0.04] p-1">
+        <div className="hidden items-center gap-2 md:flex">
+          <div>
             {navLinks.map((link) => (
               <Button
                 key={link.label}
@@ -46,10 +47,23 @@ export function Header() {
               </Button>
             ))}
           </div>
-          <Button size="sm" variant="ghost" className="rounded-full px-4 text-[var(--kvn-fg)] hover:bg-white/[0.08]" render={<Link to="/entrar" />} nativeButton={false}>
+          <Button
+            size="sm"
+            variant="outline"
+            className="rounded-full border-green-600/30 text-green-600 hover:bg-green-600/10"
+            render={<Link to="/entrar" />}
+            nativeButton={false}
+          >
             Entrar
           </Button>
-          <Button size="sm" className="rounded-full px-5">Assinar</Button>
+          <Button
+            size="sm"
+            className="rounded-full bg-green-600 text-white hover:bg-green-700"
+            render={<Link to="/entrar" />}
+            nativeButton={false}
+          >
+            Assinar
+          </Button>
         </div>
         <MobileNav />
       </nav>

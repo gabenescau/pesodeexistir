@@ -1,6 +1,6 @@
-import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import React from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Portal, PortalBackdrop } from "@/components/portal";
 import { navLinks } from "@/components/header";
@@ -28,7 +28,7 @@ export function MobileNav() {
           <div
             className={cn(
               "data-[slot=open]:zoom-in-97 ease-out data-[slot=open]:animate-in",
-              "size-full p-4"
+              "size-full p-4",
             )}
             data-slot={open ? "open" : "closed"}
           >
@@ -49,7 +49,9 @@ export function MobileNav() {
               <Button className="w-full" variant="outline" render={<Link to="/entrar" />} nativeButton={false}>
                 Entrar
               </Button>
-              <Button className="w-full">Assinar</Button>
+              <Button className="w-full bg-green-600 text-white hover:bg-green-700" render={<Link to="/entrar" />} nativeButton={false}>
+                Assinar
+              </Button>
             </div>
           </div>
         </Portal>
