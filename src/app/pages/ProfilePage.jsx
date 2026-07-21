@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
+import { supabase, isSupabaseReady } from "@/app/data/supabase";
 
 function Card({ className, children, ...props }) {
   return (
@@ -19,14 +20,14 @@ function Card({ className, children, ...props }) {
 }
 
 export function ProfilePage() {
-  const { user } = useAuth();
+  const { user, profile: authProfile } = useAuth();
   const { posts, books } = useData();
   const [editing, setEditing] = useState(false);
   const [profile, setProfile] = useState({
-    name: user?.user_metadata?.name || user?.email?.split("@")[0] || "Visitante",
+    name: authProfile?.name || user?.user_metadata?.name || user?.email?.split("@")[0] || "Visitante",
     handle: user?.email?.split("@")[0] || "visitante",
-    bio: "Leitor de filosofia e literatura.",
-    avatar: user?.user_metadata?.avatar_url || null,
+    bio: authProfile?.bio || "Leitor de filosofia e literatura.",
+    avatar: authProfile?.avatar || user?.user_metadata?.avatar_url || null,
   });
   const [editName, setEditName] = useState(profile.name);
   const [editBio, setEditBio] = useState(profile.bio);
@@ -52,8 +53,27 @@ export function ProfilePage() {
     }
   };
 
-  const saveProfile = () => {
-    setProfile({ ...profile, name: editName, bio: editBio, avatar: avatarPreview || profile.avatar });
+  const saveProfile = async () => {
+    const nextProfile = { ...profile, name: editName, bio: editBio, avatar: avatarPreview || profile.avatar };
+
+    if (isSupabaseReady() && user?.id) {
+      await supabase.from("profiles").upsert({
+        id: user.id,
+        email: user.email,
+        name: nextProfile.name,
+        bio: nextProfile.bio,
+        avatar: nextProfile.avatar,
+      });
+
+      await supabase.auth.updateUser({
+        data: {
+          name: nextProfile.name,
+          avatar_url: nextProfile.avatar,
+        },
+      });
+    }
+
+    setProfile(nextProfile);
     setEditing(false);
   };
 
@@ -101,7 +121,7 @@ export function ProfilePage() {
                   className="w-full bg-[var(--bg-canvas)] border border-[var(--border)] rounded-[6px] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-none focus:border-[var(--border-strong)] transition-colors resize-none"
                 />
                 <div className="flex gap-2 pt-1 justify-center sm:justify-start">
-                  <button className="px-5 py-2 rounded-[100px] bg-[var(--text-primary)] text-[var(--bg-card)] text-sm font-medium hover:opacity-90 transition-all">
+                  <button onClick={saveProfile} className="px-5 py-2 rounded-[100px] bg-[var(--text-primary)] text-[var(--bg-card)] text-sm font-medium hover:opacity-90 transition-all">
                     Salvar
                   </button>
                   <button onClick={cancelEdit} className="px-5 py-2 rounded-[100px] border border-[var(--border)] text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-strong)] transition-all">

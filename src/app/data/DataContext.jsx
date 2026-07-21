@@ -11,6 +11,7 @@ export function DataProvider({ children }) {
   const [authors, setAuthors] = useState([]);
   const [posts, setPosts] = useState([]);
   const [subscription, setSubscription] = useState(null);
+  const [subscriptions, setSubscriptions] = useState([]);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -25,11 +26,14 @@ export function DataProvider({ children }) {
     }
 
     async function load() {
-      const [booksRes, authorsRes, postsRes, subRes] = await Promise.all([
+      const { data: authData } = await supabase.auth.getUser();
+      const currentUserId = authData?.user?.id;
+
+      const [booksRes, authorsRes, postsRes, subsRes] = await Promise.all([
         supabase.from("books").select("*, authors(name)").order("created_at", { ascending: false }),
         supabase.from("authors").select("*").order("name"),
         supabase.from("posts").select("*").order("created_at", { ascending: false }),
-        supabase.from("subscriptions").select("*").maybeSingle(),
+        supabase.from("subscriptions").select("*").order("started_at", { ascending: false }),
       ]);
 
       if (!booksRes.error) setBooks(booksRes.data.map(b => ({ ...b, authorName: b.authors?.name || "", author: b.authors?.name || "" })));
@@ -49,8 +53,14 @@ export function DataProvider({ children }) {
       })));
       else setPosts([]);
 
-      if (!subRes.error) setSubscription(subRes.data);
-      else setSubscription(null);
+      if (!subsRes.error) {
+        const list = subsRes.data || [];
+        setSubscriptions(list);
+        setSubscription(list.find((sub) => sub.user_id === currentUserId) || list[0] || null);
+      } else {
+        setSubscriptions([]);
+        setSubscription(null);
+      }
 
       setLoading(false);
     }
@@ -185,7 +195,7 @@ export function DataProvider({ children }) {
 
   return (
     <DataContext.Provider value={{
-      books, authors, posts, subscription, profile, loading,
+      books, authors, posts, subscription, subscriptions, profile, loading,
       addBook, updateBook, deleteBook,
       addAuthor, updateAuthor, deleteAuthor,
       addPost, deletePost,

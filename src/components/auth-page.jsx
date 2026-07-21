@@ -70,7 +70,7 @@ export function AuthPage() {
         }
         setMode("login");
         setPassword("");
-        setError("Conta criada! Faça login com sua senha.");
+        setError("Conta criada! Confirme seu email pela mensagem enviada pelo Supabase e depois faça login com sua senha.");
       }
     } catch (err) {
       setError(getSupabaseErrorMessage(err));
@@ -201,8 +201,8 @@ export function AuthPage() {
               className="text-sm text-[#b8aca0] underline underline-offset-4 transition-colors hover:text-[#c78359]"
             >
               {mode === "login"
-                ? "Não tem conta? Criar conta"
-                : "Já tem conta? Fazer login"}
+                ? "Não tem conta? Assinar agora"
+                : "Já tem conta? Acessar conta"}
             </button>
           </div>
 
