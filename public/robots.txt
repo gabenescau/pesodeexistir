@@ -1,3 +1,7 @@
 User-agent: *
 Allow: /
+Disallow: /app/
+Disallow: /assinar
+Disallow: /pagamento/
+
 Sitemap: https://ope.club/sitemap.xml

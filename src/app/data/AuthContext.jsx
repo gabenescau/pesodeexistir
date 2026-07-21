@@ -6,48 +6,71 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!isSupabaseReady()) {
-      const stored = localStorage.getItem("ope-auth");
-      if (stored) {
-        try { setUser(JSON.parse(stored)); } catch {}
-      }
+      setUser(null);
+      setSession(null);
+      setProfile(null);
       setLoading(false);
       return;
+    }
+
+    async function loadProfile(userId) {
+      if (!userId) {
+        setProfile(null);
+        return null;
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
+
+      if (error) {
+        console.warn("Perfil não encontrado no Supabase:", error.message);
+        setProfile(null);
+        return null;
+      }
+
+      setProfile(data);
+      return data;
     }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      setLoading(false);
+      loadProfile(session?.user?.id).finally(() => setLoading(false));
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
+      loadProfile(session?.user?.id);
     });
 
     return () => subscription?.unsubscribe();
   }, []);
 
-  const login = useCallback(async (email) => {
+  const login = useCallback(async (email, password) => {
     if (!email || !email.includes("@")) {
-      // Fallback: local mode
-      const userData = { id: email, email, name: email.split("@")[0], avatar: email.charAt(0).toUpperCase() };
-      setUser(userData);
-      localStorage.setItem("ope-auth", JSON.stringify(userData));
-      return;
+      throw new Error("Digite um email válido.");
     }
-    if (isSupabaseReady()) {
-      const { error } = await supabase.auth.signInWithOtp({ email });
-      if (error) throw error;
-    } else {
-      const userData = { id: email, email, name: email.split("@")[0], avatar: email.charAt(0).toUpperCase() };
-      setUser(userData);
-      localStorage.setItem("ope-auth", JSON.stringify(userData));
+    if (!password) {
+      throw new Error("Digite sua senha.");
     }
+    if (!isSupabaseReady()) {
+      throw new Error("Supabase não está configurado. Verifique VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.");
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+    if (error) throw error;
   }, []);
 
   const logout = useCallback(async () => {
@@ -56,17 +79,18 @@ export function AuthProvider({ children }) {
     }
     setUser(null);
     setSession(null);
-    localStorage.removeItem("ope-auth");
+    setProfile(null);
   }, []);
 
   const isAdmin = isSupabaseReady()
-    ? session?.user?.app_metadata?.role === 'admin'
+    ? profile?.role === "admin" || session?.user?.app_metadata?.role === "admin"
     : user?.role === 'admin';
 
   return (
     <AuthContext.Provider value={{
       user,
       session,
+      profile,
       loading,
       isAuthenticated: !!user,
       isAdmin,

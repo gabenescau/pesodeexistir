@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { LandingPage } from '@/components/LandingPage'
 import { AuthPage } from '@/components/auth-page'
 import { AppShell } from '@/app/AppShell'
@@ -9,25 +9,31 @@ import { ProcessingPage } from '@/app/pages/ProcessingPage'
 import { useEffect } from 'react'
 
 function SEOHead() {
+  const location = useLocation()
+
   useEffect(() => {
-    const path = window.location.pathname
+    const path = location.pathname
     const titles = {
-      '/': 'OPE Club — Biblioteca e Comunidade de Filosofia & Literatura',
-      '/entrar': 'Entrar — OPE Club',
-      '/assinar': 'Assinar — OPE Club',
-      '/pagamento/processando': 'Processando Pagamento — OPE Club',
-      '/app/inicio': 'Início — OPE Club',
-      '/app/biblioteca': 'Biblioteca — OPE Club',
-      '/app/explorar': 'Explorar — OPE Club',
-      '/app/comunidade': 'Comunidade — OPE Club',
-      '/app/perfil': 'Perfil — OPE Club',
-      '/app/configuracoes': 'Configurações — OPE Club',
-      '/app/admin': 'Painel Admin — OPE Club',
-      '/app/lancamentos': 'Lançamentos Semanais — OPE Club',
+      '/': 'OPE Club | Biblioteca e Comunidade de Filosofia e Literatura',
+      '/entrar': 'Entrar | OPE Club',
+      '/assinar': 'Assinar | OPE Club',
+      '/pagamento/processando': 'Processando Pagamento | OPE Club',
+      '/app/inicio': 'Início | OPE Club',
+      '/app/biblioteca': 'Biblioteca | OPE Club',
+      '/app/explorar': 'Explorar | OPE Club',
+      '/app/comunidade': 'Comunidade | OPE Club',
+      '/app/perfil': 'Perfil | OPE Club',
+      '/app/configuracoes': 'Configurações | OPE Club',
+      '/app/admin': 'Painel Admin | OPE Club',
+      '/app/lancamentos': 'Lançamentos Semanais | OPE Club',
     }
-    const base = Object.keys(titles).find(k => path.startsWith(k))
+    const base = Object.keys(titles)
+      .sort((a, b) => b.length - a.length)
+      .find((key) => path.startsWith(key))
+
     document.title = titles[base] || 'OPE Club'
-  }, [])
+  }, [location.pathname])
+
   return null
 }
 

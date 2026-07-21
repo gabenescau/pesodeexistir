@@ -26,21 +26,18 @@ export function AuthPage() {
     e.preventDefault();
     setError("");
     if (!email.trim()) return;
+    if (!isSupabaseReady()) {
+      setError("Supabase não está configurado. Confira VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.");
+      return;
+    }
     setLoading(true);
 
     try {
       if (mode === "login") {
-        if (password) {
-          if (isSupabaseReady()) {
-            const { error: signInError } = await supabase.auth.signInWithPassword({
-              email: email.trim(),
-              password,
-            });
-            if (signInError) throw signInError;
-          }
-        } else {
-          await login(email.trim());
+        if (!password) {
+          throw new Error("Digite sua senha.");
         }
+        await login(email.trim(), password);
         navigate("/app/inicio");
       } else {
         if (!password || password.length < 6) {
@@ -49,13 +46,26 @@ export function AuthPage() {
         if (!name.trim()) {
           throw new Error("Digite seu nome");
         }
-        if (isSupabaseReady()) {
-          const { error: signUpError } = await supabase.auth.signUp({
-            email: email.trim(),
-            password,
-            options: { data: { name: name.trim() } },
-          });
-          if (signUpError) throw signUpError;
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: { data: { name: name.trim() } },
+        });
+        if (signUpError) throw signUpError;
+
+        if (data.user) {
+          const { error: profileError } = await supabase
+            .from("profiles")
+            .upsert({
+              id: data.user.id,
+              email: email.trim(),
+              name: name.trim(),
+              avatar: name.trim().charAt(0).toUpperCase(),
+            });
+
+          if (profileError) {
+            console.warn("Usuário criado, mas o perfil não foi atualizado:", profileError.message);
+          }
         }
         setMode("login");
         setPassword("");
