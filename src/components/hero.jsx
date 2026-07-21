@@ -6,7 +6,7 @@ import { ArrowRightIcon } from "lucide-react";
 export function HeroSection() {
   return (
     <section>
-      <div className="relative flex min-h-[calc(100svh-3.5rem)] flex-col items-center justify-center gap-5 px-5 py-16 sm:min-h-0 md:px-8 md:py-28 lg:py-32">
+      <div className="relative flex min-h-[calc(100svh-3.5rem)] flex-col items-center justify-center gap-5 px-5 py-12 sm:min-h-0 md:px-8 md:py-20 lg:py-24">
         <div
           aria-hidden="true"
           className="absolute inset-0 -z-1 size-full overflow-hidden"

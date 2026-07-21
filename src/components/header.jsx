@@ -4,8 +4,6 @@ import { Button } from "@/components/ui/button";
 import { MobileNav } from "@/components/mobile-nav";
 
 export const navLinks = [
-  { label: "Acervo", href: "#acervo" },
-  { label: "Comunidade", href: "#comunidade" },
   { label: "Planos", href: "#planos" },
   { label: "FAQ", href: "#faq" },
 ];
