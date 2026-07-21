@@ -1,0 +1,1 @@
+﻿export default { "title": "A Descoberta do Mundo", "image": "/placeholder-book.svg" }

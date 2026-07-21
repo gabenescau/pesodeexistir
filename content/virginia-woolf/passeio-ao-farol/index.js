@@ -1,0 +1,1 @@
+﻿export default { "title": "Passeio ao Farol", "image": "/placeholder-book.svg" }

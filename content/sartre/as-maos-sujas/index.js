@@ -1,0 +1,1 @@
+﻿export default { "title": "As Mãos Sujas", "image": "/placeholder-book.svg" }

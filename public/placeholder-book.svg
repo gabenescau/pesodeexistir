@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" viewBox="0 0 300 450">
+  <rect width="300" height="450" fill="#1a1a2e"/>
+  <rect x="40" y="60" width="220" height="330" rx="4" fill="#2a2a4e" stroke="#444" stroke-width="1"/>
+  <line x1="120" y1="60" x2="120" y2="390" stroke="#333" stroke-width="1"/>
+  <text x="150" y="165" text-anchor="middle" fill="#888" font-family="Inter,sans-serif" font-size="14">sem capa</text>
+  <text x="150" y="285" text-anchor="middle" fill="#666" font-family="Inter,sans-serif" font-size="10">PDF disponível</text>
+</svg>

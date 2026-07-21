@@ -1,0 +1,398 @@
+import { useState } from "react";
+import { useAuth } from "../data/AuthContext";
+import { useData } from "../data/DataContext";
+import { useNavigate } from "react-router-dom";
+import { ChevronLeft, Plus, Trash2, Edit3, X, Check, Crown, BookOpen, Users, MessageSquare, FileText, ShieldAlert } from "lucide-react";
+
+const tabs = [
+  { id: "subscriptions", label: "Assinaturas", icon: Crown },
+  { id: "posts", label: "Posts", icon: MessageSquare },
+  { id: "books", label: "Livros", icon: BookOpen },
+  { id: "authors", label: "Autores", icon: Users },
+];
+
+function FormField({ label, value, onChange, placeholder, type = "text", className }) {
+  return (
+    <div className={className}>
+      <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">{label}</label>
+      {type === "textarea" ? (
+        <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows={3}
+          className="w-full rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-none focus:border-[var(--border-strong)] resize-none" />
+      ) : (
+        <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+          className="w-full rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-none focus:border-[var(--border-strong)]" />
+      )}
+    </div>
+  );
+}
+
+function SubscriptionsTab() {
+  const { subscriptions, cancelSubscription } = useData();
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-[var(--text-secondary)]">{subscriptions.length} assinaturas no total</p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-[var(--border)] text-left text-xs text-[var(--text-muted)] uppercase tracking-wider">
+              <th className="pb-3 pr-4 font-medium">Nome</th>
+              <th className="pb-3 pr-4 font-medium">Email</th>
+              <th className="pb-3 pr-4 font-medium">Plano</th>
+              <th className="pb-3 pr-4 font-medium">Valor</th>
+              <th className="pb-3 pr-4 font-medium">Desde</th>
+              <th className="pb-3 pr-4 font-medium">Status</th>
+              <th className="pb-3 font-medium"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {subscriptions.map(s => (
+              <tr key={s.id} className="border-b border-[var(--border)] hover:bg-[var(--hover-overlay)] transition-colors">
+                <td className="py-3 pr-4 text-[var(--text-primary)] font-medium">{s.name}</td>
+                <td className="py-3 pr-4 text-[var(--text-secondary)]">{s.email}</td>
+                <td className="py-3 pr-4 text-[var(--text-primary)]">{s.plan}</td>
+                <td className="py-3 pr-4 text-[var(--text-primary)]">{s.value}</td>
+                <td className="py-3 pr-4 text-[var(--text-secondary)]">{s.since}</td>
+                <td className="py-3 pr-4">
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                    s.status === "active" ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"
+                  }`}>
+                    {s.status === "active" ? "Ativa" : "Cancelada"}
+                  </span>
+                </td>
+                <td className="py-3">
+                  {s.status === "active" && (
+                    <button onClick={() => cancelSubscription(s.id)}
+                      className="text-xs text-red-400 hover:text-red-300 transition-colors">
+                      Cancelar
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function PostsTab() {
+  const { posts, deletePost } = useData();
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-[var(--text-secondary)]">{posts.length} posts na comunidade</p>
+      {posts.map(p => (
+        <div key={p.id} className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-sm font-semibold text-[var(--text-primary)]">{p.author}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--hover-overlay)] text-[var(--text-muted)] border border-[var(--border)]">{p.tag}</span>
+                <span className="text-xs text-[var(--text-muted)]">{p.time}</span>
+              </div>
+              <p className="text-sm text-[var(--text-secondary)] line-clamp-2">{p.text}</p>
+              <div className="flex items-center gap-3 mt-2 text-xs text-[var(--text-muted)]">
+                <span>{p.likes} curtidas</span>
+                <span>{p.replies} respostas</span>
+              </div>
+            </div>
+            <button onClick={() => deletePost(p.id)}
+              className="shrink-0 size-8 rounded-full flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-colors">
+              <Trash2 className="size-4" />
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BooksTab() {
+  const { books, authors, addBook, updateBook, deleteBook } = useData();
+  const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [form, setForm] = useState({ title: "", authorId: "", image: "", pdfFile: "" });
+  const [uploading, setUploading] = useState(false);
+
+  function openNew() {
+    setEditId(null);
+    setForm({ title: "", authorId: authors[0]?.id || "", image: "", pdfFile: "" });
+    setShowForm(true);
+  }
+
+  function openEdit(book) {
+    setEditId(book.id);
+    setForm({ title: book.title, authorId: book.authorId, image: book.image || "", pdfFile: book.pdfFile || "" });
+    setShowForm(true);
+  }
+
+  function handleFileUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type !== "application/pdf") { alert("Selecione um arquivo PDF."); return; }
+    setUploading(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result;
+      setForm(p => ({ ...p, pdfFile: base64 }));
+      setUploading(false);
+    };
+    reader.onerror = () => { alert("Erro ao ler o arquivo."); setUploading(false); };
+    reader.readAsDataURL(file);
+  }
+
+  function handleSave() {
+    if (!form.title.trim()) return;
+    if (editId) {
+      updateBook(editId, form);
+    } else {
+      addBook(form);
+    }
+    setShowForm(false);
+    setEditId(null);
+    setForm({ title: "", authorId: "", image: "", pdfFile: "" });
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-[var(--text-secondary)]">{books.length} livros cadastrados</p>
+        <button onClick={openNew}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-[var(--text-primary)] text-[var(--bg-card)] text-sm font-medium hover:opacity-90 transition-all">
+          <Plus className="size-4" /> Novo livro
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-5 space-y-4">
+          <h3 className="text-sm font-semibold text-[var(--text-primary)]">{editId ? "Editar" : "Novo"} livro</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <FormField label="Título" value={form.title} onChange={v => setForm(p => ({ ...p, title: v }))} placeholder="Crime e Castigo" />
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Autor</label>
+              <select value={form.authorId} onChange={e => setForm(p => ({ ...p, authorId: e.target.value }))}
+                className="w-full rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-strong)]">
+                <option value="">Selecione um autor</option>
+                {authors.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
+            <FormField label="URL da imagem (capa)" value={form.image} onChange={v => setForm(p => ({ ...p, image: v }))} placeholder="/livros/capa.jpg" />
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Arquivo PDF</label>
+              <div className="flex items-center gap-2">
+                <label className="flex-1 flex items-center gap-2 px-3 py-2 rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] text-sm text-[var(--text-muted)] cursor-pointer hover:border-[var(--border-strong)] transition-colors">
+                  <input type="file" accept=".pdf,application/pdf" onChange={handleFileUpload} className="hidden" />
+                  {uploading ? "Carregando..." : form.pdfFile ? "PDF anexado" : "Selecionar PDF"}
+                </label>
+                {form.pdfFile && (
+                  <button onClick={() => setForm(p => ({ ...p, pdfFile: "" }))}
+                    className="text-xs text-red-400 hover:text-red-300 transition-colors shrink-0">
+                    Remover
+                  </button>
+                )}
+              </div>
+              <p className="text-[10px] text-[var(--text-muted)] mt-1">O PDF será armazenado no navegador.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 pt-2">
+            <button onClick={handleSave}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-[var(--text-primary)] text-[var(--bg-card)] text-sm font-medium hover:opacity-90 transition-all">
+              <Check className="size-4" /> Salvar
+            </button>
+            <button onClick={() => setShowForm(false)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full border border-[var(--border)] text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {books.map(book => {
+          const author = authors.find(a => a.id === book.authorId);
+          return (
+            <div key={book.id} className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4 flex gap-3">
+              <div className="w-12 h-16 rounded-[6px] overflow-hidden shrink-0 bg-[var(--hover-overlay)]">
+                {book.image ? <img src={book.image} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[var(--text-muted)] text-xs">Sem img</div>}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-[var(--text-primary)] truncate">{book.title}</p>
+                <p className="text-xs text-[var(--text-muted)]">{author?.name || book.authorName || "Sem autor"}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  {book.progress != null && <p className="text-[10px] text-[var(--text-muted)]">{book.progress}% completo</p>}
+                  {book.pdfFile && <span className="text-[10px] text-blue-400 font-medium">PDF</span>}
+                </div>
+              </div>
+              <div className="flex flex-col gap-1 shrink-0">
+                <button onClick={() => openEdit(book)} className="size-7 rounded-full flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] transition-all">
+                  <Edit3 className="size-3.5" />
+                </button>
+                <button onClick={() => deleteBook(book.id)} className="size-7 rounded-full flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-all">
+                  <Trash2 className="size-3.5" />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function AuthorsTab() {
+  const { authors, books, addAuthor, updateAuthor, deleteAuthor, getBooksByAuthor } = useData();
+  const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [form, setForm] = useState({ name: "", theme: "", era: "", image: "" });
+
+  function openNew() {
+    setEditId(null);
+    setForm({ name: "", theme: "", era: "", image: "" });
+    setShowForm(true);
+  }
+
+  function openEdit(author) {
+    setEditId(author.id);
+    setForm({ name: author.name, theme: author.theme, era: author.era, image: author.image });
+    setShowForm(true);
+  }
+
+  function handleSave() {
+    if (!form.name.trim()) return;
+    if (editId) {
+      updateAuthor(editId, form);
+    } else {
+      addAuthor(form);
+    }
+    setShowForm(false);
+    setEditId(null);
+    setForm({ name: "", theme: "", era: "", image: "" });
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-[var(--text-secondary)]">{authors.length} autores cadastrados</p>
+        <button onClick={openNew}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-[var(--text-primary)] text-[var(--bg-card)] text-sm font-medium hover:opacity-90 transition-all">
+          <Plus className="size-4" /> Novo autor
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-5 space-y-4">
+          <h3 className="text-sm font-semibold text-[var(--text-primary)]">{editId ? "Editar" : "Novo"} autor</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <FormField label="Nome" value={form.name} onChange={v => setForm(p => ({ ...p, name: v }))} placeholder="Friedrich Nietzsche" />
+            <FormField label="Corrente/Tema" value={form.theme} onChange={v => setForm(p => ({ ...p, theme: v }))} placeholder="Existencialismo" />
+            <FormField label="Época" value={form.era} onChange={v => setForm(p => ({ ...p, era: v }))} placeholder="século XIX" />
+            <FormField label="URL da imagem" value={form.image} onChange={v => setForm(p => ({ ...p, image: v }))} placeholder="/autores/nietzsche.jpg" />
+          </div>
+          <div className="flex items-center gap-2 pt-2">
+            <button onClick={handleSave}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-[var(--text-primary)] text-[var(--bg-card)] text-sm font-medium hover:opacity-90 transition-all">
+              <Check className="size-4" /> Salvar
+            </button>
+            <button onClick={() => setShowForm(false)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full border border-[var(--border)] text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {authors.map(author => {
+          const authorBooks = getBooksByAuthor(author.id);
+          return (
+            <div key={author.id} className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="size-12 rounded-[10px] overflow-hidden shrink-0 bg-[var(--hover-overlay)]">
+                    {author.image ? <img src={author.image} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[var(--text-muted)] text-xs">{author.name.charAt(0)}</div>}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{author.name}</p>
+                    <p className="text-xs text-[var(--text-muted)]">{author.theme} · {author.era}</p>
+                    <p className="text-[11px] text-[var(--text-muted)] mt-1">{authorBooks.length} livros</p>
+                  </div>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <button onClick={() => openEdit(author)} className="size-8 rounded-full flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] transition-all">
+                    <Edit3 className="size-3.5" />
+                  </button>
+                  <button onClick={() => deleteAuthor(author.id)} className="size-8 rounded-full flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-all">
+                    <Trash2 className="size-3.5" />
+                  </button>
+                </div>
+              </div>
+              {authorBooks.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-[var(--border)]">
+                  <p className="text-[11px] font-medium text-[var(--text-muted)] uppercase tracking-wider mb-2">Livros</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {authorBooks.map(b => (
+                      <span key={b.id} className="text-[11px] px-2 py-0.5 rounded-full bg-[var(--hover-overlay)] text-[var(--text-secondary)]">{b.title}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export function AdminPage() {
+  const { isAdmin, user } = useAuth();
+  const [activeTab, setActiveTab] = useState("subscriptions");
+
+  const TabIcon = tabs.find(t => t.id === activeTab)?.icon || Crown;
+
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4">
+        <ShieldAlert className="size-12 text-[var(--text-muted)]" />
+        <h2 className="text-lg font-bold text-[var(--text-primary)]">Acesso restrito</h2>
+        <p className="text-sm text-[var(--text-muted)] text-center max-w-sm">
+          Apenas administradores podem acessar o painel. Se você é admin, certifique-se de que sua conta tem a permissão correta.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)]">Admin</h1>
+        <p className="text-sm text-[var(--text-muted)] mt-1">Gerencie assinaturas, posts, livros e autores.</p>
+      </div>
+
+      <div className="flex gap-1 overflow-x-auto pb-1 border-b border-[var(--border)]" style={{ scrollbarWidth: "none" }}>
+        {tabs.map(tab => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-1.5 shrink-0 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                isActive ? "text-[var(--text-primary)] border-[var(--text-primary)]" : "text-[var(--text-muted)] border-transparent hover:text-[var(--text-secondary)]"
+              }`}>
+              <Icon className="size-4" />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div>
+        {activeTab === "subscriptions" && <SubscriptionsTab />}
+        {activeTab === "posts" && <PostsTab />}
+        {activeTab === "books" && <BooksTab />}
+        {activeTab === "authors" && <AuthorsTab />}
+      </div>
+    </div>
+  );
+}

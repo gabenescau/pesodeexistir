@@ -1,0 +1,1 @@
+﻿export default { "title": "Indigno de Ser Humano", "image": "/placeholder-book.svg" }

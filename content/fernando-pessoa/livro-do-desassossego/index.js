@@ -1,0 +1,1 @@
+﻿export default { "title": "Livro do Desassossego", "image": "/placeholder-book.svg" }

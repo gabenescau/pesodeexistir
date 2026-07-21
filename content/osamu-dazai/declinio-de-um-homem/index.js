@@ -1,0 +1,1 @@
+﻿export default { "title": "Declínio de um Homem", "image": "/placeholder-book.svg" }

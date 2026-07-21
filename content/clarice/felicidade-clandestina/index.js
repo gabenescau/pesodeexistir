@@ -1,0 +1,1 @@
+﻿export default { "title": "Felicidade Clandestina", "image": "/placeholder-book.svg" }
