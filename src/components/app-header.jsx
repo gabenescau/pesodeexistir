@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
@@ -20,6 +21,7 @@ export function AppHeader() {
   const location = useLocation();
   const currentLabel = pathLabels[location.pathname] || "";
   const { theme, toggle } = useTheme();
+  const [notifOpen, setNotifOpen] = useState(false);
 
   return (
     <header
@@ -51,14 +53,30 @@ export function AppHeader() {
         >
           {theme === "dark" ? <SunIcon className="size-4" /> : <MoonIcon className="size-4" />}
         </Button>
-        <Button
-          aria-label="Notificações"
-          size="icon-sm"
-          variant="ghost"
-          className="hover:bg-[var(--hover-overlay)]"
-        >
-          <BellIcon className="size-4" />
-        </Button>
+        <div className="relative">
+          <Button
+            aria-label="Notificações"
+            size="icon-sm"
+            variant="ghost"
+            className="hover:bg-[var(--hover-overlay)]"
+            onClick={() => setNotifOpen(!notifOpen)}
+          >
+            <BellIcon className="size-4" />
+          </Button>
+          {notifOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
+              <div className="absolute right-0 top-full mt-2 w-72 z-50 rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] shadow-lg overflow-hidden">
+                <div className="px-4 py-3 border-b border-[var(--border)]">
+                  <p className="text-sm font-medium text-[var(--text-primary)]">Notificações</p>
+                </div>
+                <div className="p-4 text-center">
+                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>Nenhuma notificação</p>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
         <Separator className="h-4" orientation="vertical" />
         <NavUser />
       </div>

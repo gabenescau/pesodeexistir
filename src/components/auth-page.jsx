@@ -8,21 +8,64 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { FloatingPaths } from "@/components/floating-paths";
-import { ChevronLeftIcon, AtSignIcon } from "lucide-react";
+import { ChevronLeftIcon, AtSignIcon, LockIcon, UserIcon } from "lucide-react";
 import { useAuth } from "@/app/data/AuthContext";
+import { supabase, isSupabaseReady } from "@/app/data/supabase";
 
 export function AuthPage() {
   const navigate = useNavigate();
   const { login } = useAuth();
   const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [mode, setMode] = useState("login");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleEmailSignIn = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
     if (!email.trim()) return;
-    await login(email.trim());
-    setSent(true);
-    setTimeout(() => navigate("/app/inicio"), 1500);
+    setLoading(true);
+
+    try {
+      if (mode === "login") {
+        if (password) {
+          if (isSupabaseReady()) {
+            const { error: signInError } = await supabase.auth.signInWithPassword({
+              email: email.trim(),
+              password,
+            });
+            if (signInError) throw signInError;
+          }
+        } else {
+          await login(email.trim());
+        }
+        navigate("/app/inicio");
+      } else {
+        if (!password || password.length < 6) {
+          throw new Error("A senha deve ter no mínimo 6 caracteres");
+        }
+        if (!name.trim()) {
+          throw new Error("Digite seu nome");
+        }
+        if (isSupabaseReady()) {
+          const { error: signUpError } = await supabase.auth.signUp({
+            email: email.trim(),
+            password,
+            options: { data: { name: name.trim() } },
+          });
+          if (signUpError) throw signUpError;
+        }
+        setMode("login");
+        setPassword("");
+        setError("Conta criada! Faça login com sua senha.");
+      }
+    } catch (err) {
+      setError(err.message || "Erro ao autenticar");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -63,7 +106,7 @@ export function AuthPage() {
 
         <Link
           to="/"
-          className="absolute top-7 left-5 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[50px] text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+          className="absolute top-7 left-5 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[50px] text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <ChevronLeftIcon className="size-4" />Início
         </Link>
@@ -75,27 +118,84 @@ export function AuthPage() {
           </div>
           <div className="flex flex-col space-y-1">
             <h1 className="font-bold text-2xl tracking-wide">
-              {sent ? "Email enviado!" : "Entrar ou criar conta"}
+              {mode === "login" ? "Entrar" : "Criar conta"}
             </h1>
             <p className="text-base text-muted-foreground">
-              {sent ? "Verifique sua caixa de entrada para o link mágico." : "Acesse sua biblioteca e comunidade."}
+              {mode === "login"
+                ? "Acesse sua biblioteca e comunidade."
+                : "Crie sua conta no OPE Club."}
             </p>
           </div>
 
-          <form className="space-y-2" onSubmit={handleEmailSignIn}>
+          <form className="space-y-3" onSubmit={handleSubmit}>
             <p className="text-start text-muted-foreground text-xs">
-              Digite seu email para entrar ou criar uma conta
+              {mode === "login"
+                ? "Digite seu email e senha para entrar"
+                : "Preencha os dados para criar sua conta"}
             </p>
+
+            {mode === "signup" && (
+              <InputGroup>
+                <InputGroupInput
+                  placeholder="Seu nome"
+                  type="text"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                />
+                <InputGroupAddon align="inline-start">
+                  <UserIcon />
+                </InputGroupAddon>
+              </InputGroup>
+            )}
+
             <InputGroup>
-              <InputGroupInput placeholder="seu@email.com" type="email" value={email} onChange={e => setEmail(e.target.value)} />
+              <InputGroupInput
+                placeholder="seu@email.com"
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+              />
               <InputGroupAddon align="inline-start">
                 <AtSignIcon />
               </InputGroupAddon>
             </InputGroup>
-            <Button className="w-full" type="submit" disabled={sent}>
-              {sent ? "Email enviado!" : "Continuar com Email"}
+
+            <InputGroup>
+              <InputGroupInput
+                placeholder="Sua senha"
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+              />
+              <InputGroupAddon align="inline-start">
+                <LockIcon />
+              </InputGroupAddon>
+            </InputGroup>
+
+            {error && (
+              <p className={`text-xs ${error.includes("criada") ? "text-green-500" : "text-red-500"}`}>
+                {error}
+              </p>
+            )}
+
+            <Button className="w-full" type="submit" disabled={loading}>
+              {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
             </Button>
           </form>
+
+          <div className="text-center">
+            <button
+              onClick={() => {
+                setMode(mode === "login" ? "signup" : "login");
+                setError("");
+              }}
+              className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors"
+            >
+              {mode === "login"
+                ? "Não tem conta? Criar conta"
+                : "Já tem conta? Fazer login"}
+            </button>
+          </div>
 
           <p className="mt-8 text-muted-foreground text-sm text-center">
             Ao continuar, você concorda com nossos{" "}

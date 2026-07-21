@@ -23,13 +23,14 @@ export const navGroups = [
       { title: "Configurações", path: "/app/configuracoes", icon: <SettingsIcon />, match: "/app/configuracoes" },
     ],
   },
-  {
-    label: "Administração",
-    items: [
-      { title: "Painel Admin", path: "/app/admin", icon: <ShieldIcon />, match: "/app/admin" },
-    ],
-  },
 ];
+
+export const adminGroup = {
+  label: "Administração",
+  items: [
+    { title: "Painel Admin", path: "/app/admin", icon: <ShieldIcon />, match: "/app/admin" },
+  ],
+};
 
 export const footerNavLinks = [];
 

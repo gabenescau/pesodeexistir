@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   Camera, Heart, MessageCircle, BookOpen, Users,
-  Flame, Trophy, PenLine, Clock, Bookmark, TrendingUp,
+  Trophy, PenLine, Clock, Bookmark, TrendingUp,
 } from "lucide-react";
 import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
@@ -31,6 +31,9 @@ export function ProfilePage() {
   const [editName, setEditName] = useState(profile.name);
   const [editBio, setEditBio] = useState(profile.bio);
   const [avatarPreview, setAvatarPreview] = useState(null);
+
+  const achievements = [];
+  const readingStats = [];
 
   const userPosts = posts.filter(p => p.user_id === user?.id);
   const stats = [

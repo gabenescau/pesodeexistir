@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import NumberFlow from "@number-flow/react";
 import { CheckCircleIcon } from "lucide-react";
@@ -83,7 +84,7 @@ function PricingCard({ plan, className, ...props }) {
       </div>
 
       <div className="mt-auto w-full border-t border-border p-4">
-        <Button className="w-full text-[16px] font-[500] leading-[24px] rounded-[100px] h-12">
+        <Button className="w-full text-[16px] font-[500] leading-[24px] rounded-[100px] h-12" render={<Link to="/entrar" />} nativeButton={false}>
           Assinar agora
         </Button>
       </div>

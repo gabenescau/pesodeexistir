@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRightIcon, CheckIcon } from "lucide-react";
 
@@ -52,7 +53,7 @@ export function PricingMonthly() {
                 ))}
               </ul>
 
-              <Button className="w-full h-12 rounded-full text-sm font-medium">
+              <Button className="w-full h-12 rounded-full text-sm font-medium" render={<Link to="/entrar" />} nativeButton={false}>
                 Entrar para o OPE Club{" "}
                 <ArrowRightIcon data-icon="inline-end" className="size-4" />
               </Button>

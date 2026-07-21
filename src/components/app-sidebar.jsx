@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { LogoIcon } from "@/components/logo";
 import {
@@ -10,12 +10,17 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { footerNavLinks, navGroups } from "@/components/app-shared";
+import { footerNavLinks, navGroups, adminGroup } from "@/components/app-shared";
 import { NavGroup } from "@/components/nav-group";
-import { useLocation } from "react-router-dom";
+import { useAuth } from "@/app/data/AuthContext";
 
 export function AppSidebar() {
   const location = useLocation();
+  const { isAdmin } = useAuth();
+
+  const groups = isAdmin
+    ? [...navGroups, adminGroup]
+    : navGroups;
 
   return (
     <Sidebar
@@ -33,7 +38,7 @@ export function AppSidebar() {
         </SidebarMenuButton>
       </SidebarHeader>
       <SidebarContent>
-        {navGroups.map((group, index) => (
+        {groups.map((group, index) => (
           <NavGroup key={`sidebar-group-${index}`} {...group} />
         ))}
       </SidebarContent>

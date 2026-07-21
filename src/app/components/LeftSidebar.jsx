@@ -1,3 +1,4 @@
+import { useAuth } from "@/app/data/AuthContext";
 import { Home, MessageCircle, Library, Compass, Users, Calendar, Mail, Bell, User, Settings } from "lucide-react";
 
 const navItems = [
@@ -14,6 +15,10 @@ const navItems = [
 ];
 
 export function LeftSidebar({ activePage, onNavigate }) {
+  const { user } = useAuth();
+  const name = user?.user_metadata?.name || user?.email?.split("@")[0] || "Usuário";
+  const initial = name.charAt(0).toUpperCase();
+
   return (
     <aside className="hidden lg:flex w-[260px] shrink-0 flex-col h-screen sticky top-0 border-r border-[var(--border)] bg-[var(--bg-card)]">
       <div className="px-5 pt-6 pb-4">
@@ -47,10 +52,10 @@ export function LeftSidebar({ activePage, onNavigate }) {
       <div className="px-3 py-4 border-t border-[var(--border)]">
         <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[var(--hover-overlay)] transition-colors">
           <div className="size-8 rounded-xl bg-[var(--hover-overlay)] flex items-center justify-center text-sm font-bold text-[var(--text-primary)]">
-            V
+            {initial}
           </div>
           <div className="text-left">
-            <p className="text-sm font-medium text-[var(--text-primary)]">Visitante</p>
+            <p className="text-sm font-medium text-[var(--text-primary)]">{name}</p>
             <p className="text-xs text-[var(--text-muted)]">ver perfil</p>
           </div>
         </button>
