@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { supabase, isSupabaseReady } from "./supabase";
+import { getSupabaseErrorMessage } from "@/lib/supabase-error";
 
 const AuthContext = createContext(null);
 
@@ -28,7 +29,7 @@ export function AuthProvider({ children }) {
         .from("profiles")
         .select("*")
         .eq("id", userId)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.warn("Perfil não encontrado no Supabase:", error.message);
@@ -70,7 +71,7 @@ export function AuthProvider({ children }) {
       email: email.trim(),
       password,
     });
-    if (error) throw error;
+    if (error) throw new Error(getSupabaseErrorMessage(error));
   }, []);
 
   const logout = useCallback(async () => {

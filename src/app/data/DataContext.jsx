@@ -28,8 +28,8 @@ export function DataProvider({ children }) {
       const [booksRes, authorsRes, postsRes, subRes] = await Promise.all([
         supabase.from("books").select("*, authors(name)").order("created_at", { ascending: false }),
         supabase.from("authors").select("*").order("name"),
-        supabase.from("posts").select("*, profiles(name,avatar), books(title,image)").order("created_at", { ascending: false }),
-        supabase.from("subscriptions").select("*").single(),
+        supabase.from("posts").select("*").order("created_at", { ascending: false }),
+        supabase.from("subscriptions").select("*").maybeSingle(),
       ]);
 
       if (!booksRes.error) setBooks(booksRes.data.map(b => ({ ...b, authorName: b.authors?.name || "", author: b.authors?.name || "" })));
@@ -41,9 +41,9 @@ export function DataProvider({ children }) {
       if (!postsRes.error) setPosts(postsRes.data.map(p => ({
         ...p,
         images: p.images || (p.image ? [p.image] : []),
-        author: p.profiles?.name || "Desconhecido",
-        avatar: p.profiles?.avatar || p.profiles?.name?.charAt(0).toUpperCase() || "?",
-        book: p.books || null,
+        author: p.author || "Leitor",
+        avatar: p.avatar || "L",
+        book: null,
         likes: p.likes || 0,
         replies: p.replies || 0,
       })));
@@ -137,13 +137,13 @@ export function DataProvider({ children }) {
         tag: post.tag,
         book_id: post.bookId,
         images: post.images || [],
-      }).select("*, profiles(name,avatar)").single();
+      }).select("*").single();
       if (!error && inserted) {
         setPosts(prev => [{
           ...inserted,
           images: inserted.images || [],
-          author: inserted.profiles?.name || "Desconhecido",
-          avatar: inserted.profiles?.avatar || "?",
+          author: "Você",
+          avatar: "?",
           replies: 0,
           likes: 0,
         }, ...prev]);

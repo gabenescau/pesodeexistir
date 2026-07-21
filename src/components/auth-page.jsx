@@ -11,6 +11,7 @@ import { FloatingPaths } from "@/components/floating-paths";
 import { ChevronLeftIcon, AtSignIcon, LockIcon, UserIcon } from "lucide-react";
 import { useAuth } from "@/app/data/AuthContext";
 import { supabase, isSupabaseReady } from "@/app/data/supabase";
+import { getSupabaseErrorMessage } from "@/lib/supabase-error";
 
 export function AuthPage() {
   const navigate = useNavigate();
@@ -72,7 +73,7 @@ export function AuthPage() {
         setError("Conta criada! Faça login com sua senha.");
       }
     } catch (err) {
-      setError(err.message || "Erro ao autenticar");
+      setError(getSupabaseErrorMessage(err));
     } finally {
       setLoading(false);
     }
