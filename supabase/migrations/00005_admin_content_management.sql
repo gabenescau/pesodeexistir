@@ -73,6 +73,13 @@ create policy "posts_delete_admin" on public.posts
   for delete to authenticated
   using (public.is_admin());
 
+alter table public.profiles
+  add column if not exists private_profile boolean not null default false,
+  add column if not exists reading_activity boolean not null default true,
+  add column if not exists show_online_status boolean not null default true;
+
+grant select, update on public.profiles to authenticated;
+
 insert into storage.buckets (id, name, public)
 values ('pdfs', 'pdfs', true)
 on conflict (id) do update

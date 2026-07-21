@@ -4,6 +4,7 @@ import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import { CommunityPage } from "./pages/CommunityPage";
 import { LibraryPage } from "./pages/LibraryPage";
 import { BookDetailPage } from "./pages/BookDetailPage";
+import { BookReaderPage } from "./pages/BookReaderPage";
 import { AuthorPage } from "./pages/AuthorPage";
 import { ExplorePage } from "./pages/ExplorePage";
 import { ReleasesPage } from "./pages/ReleasesPage";
@@ -21,6 +22,7 @@ export function AppShell() {
         <Route path="comunidade" element={<CommunityPage />} />
         <Route path="biblioteca" element={<SubscriptionGuard><LibraryPage /></SubscriptionGuard>} />
         <Route path="livro/:id" element={<SubscriptionGuard><BookDetailPage /></SubscriptionGuard>} />
+        <Route path="ler/:id" element={<SubscriptionGuard><BookReaderPage /></SubscriptionGuard>} />
         <Route path="autor/:id" element={<AuthorPage />} />
         <Route path="explorar" element={<SubscriptionGuard><ExplorePage /></SubscriptionGuard>} />
         <Route path="lancamentos" element={<SubscriptionGuard><ReleasesPage /></SubscriptionGuard>} />

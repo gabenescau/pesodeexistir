@@ -13,7 +13,7 @@ export function LibraryPage() {
     author: authors.find(a => a.id === b.authorId)?.name || b.authorName || "",
   }));
 
-  const readingBooks = allBooks.filter(b => b.progress != null);
+  const readingBooks = allBooks.filter(b => Number(b.progress || 0) > 0);
 
   const filteredBooks = query
     ? allBooks.filter(b =>

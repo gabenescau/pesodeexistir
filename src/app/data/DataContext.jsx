@@ -75,15 +75,22 @@ export function DataProvider({ children }) {
 
       if (!subsRes.error) {
         const list = subsRes.data || [];
+        const currentSubscription = list.find((sub) => sub.user_id === currentUserId) || null;
         setSubscriptions(list);
-        setSubscription(list.find((sub) => sub.user_id === currentUserId) || list[0] || null);
+        setSubscription(currentSubscription);
       } else {
         setSubscriptions([]);
         setSubscription(null);
       }
 
-      if (!profilesRes.error) setProfiles(profilesRes.data || []);
-      else setProfiles([]);
+      if (!profilesRes.error) {
+        const list = profilesRes.data || [];
+        setProfiles(list);
+        setProfile(list.find((item) => item.id === currentUserId) || null);
+      } else {
+        setProfiles([]);
+        setProfile(null);
+      }
 
       setLoading(false);
     }
@@ -240,11 +247,14 @@ export function DataProvider({ children }) {
       return null;
     }
 
+    const { data: authData } = await supabase.auth.getUser();
+    const currentUserId = authData?.user?.id;
+
     setSubscriptions((prev) => {
       const others = prev.filter((sub) => sub.id !== data.id && sub.user_id !== userId);
       return [data, ...others];
     });
-    setSubscription((prev) => prev?.user_id === userId ? data : prev);
+    setSubscription((prev) => userId === currentUserId || prev?.user_id === userId ? data : prev);
     return data;
   }, [isSupabase, subscriptions]);
 
@@ -272,6 +282,28 @@ export function DataProvider({ children }) {
     setSubscription((prev) => prev?.id === existing.id ? { ...prev, status: "canceled" } : prev);
   }, [isSupabase, subscriptions]);
 
+  const updateProfilePreferences = useCallback(async (userId, preferences) => {
+    if (!isSupabase || !userId) return null;
+
+    const payload = {
+      ...preferences,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .update(payload)
+      .eq("id", userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    setProfile(data);
+    setProfiles((prev) => prev.map((item) => item.id === userId ? { ...item, ...data } : item));
+    return data;
+  }, [isSupabase]);
+
   // HELPERS
   const getBooksByAuthor = useCallback((authorId) => {
     return books.filter(b => (b.author_id || b.authorId) === authorId);
@@ -293,6 +325,7 @@ export function DataProvider({ children }) {
       addPost, deletePost,
       cancelSubscription,
       upsertUserSubscription, removeUserSubscription,
+      updateProfilePreferences,
       getBooksByAuthor, getAuthorById, getBookById,
     }}>
       {children}

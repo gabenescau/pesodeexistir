@@ -47,7 +47,6 @@ export function PDFViewer({ pdfFile, title }) {
           src={blobUrl}
           title={title || "PDF"}
           className="w-full h-full border-0"
-          sandbox="allow-scripts allow-same-origin"
         />
       </div>
     </div>

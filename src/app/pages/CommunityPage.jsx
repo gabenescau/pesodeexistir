@@ -22,7 +22,7 @@ const tabFilters = {
 };
 
 export function CommunityPage() {
-  const { posts } = useData();
+  const { posts, deletePost } = useData();
   const navigate = useNavigate();
   const [filter, setFilter] = useState("Todos");
   const [tab, setTab] = useState("Comunidade");
@@ -75,7 +75,7 @@ export function CommunityPage() {
 
         <div className="space-y-4 sm:space-y-5">
           {filteredPosts.map((post) => (
-            <PostCard key={post.id} post={post} />
+            <PostCard key={post.id} post={post} onDelete={deletePost} />
           ))}
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bookmark, Heart, MessageCircle, MoreHorizontal, Send, Share2 } from "lucide-react";
+import { Bookmark, Heart, MessageCircle, MoreHorizontal, Send, Share2, Trash2 } from "lucide-react";
 import { useAuth } from "@/app/data/AuthContext";
 import { isSupabaseReady, supabase } from "@/app/data/supabase";
 
@@ -17,8 +17,8 @@ function Avatar({ src, fallback }) {
   );
 }
 
-export function PostCard({ post }) {
-  const { user } = useAuth();
+export function PostCard({ post, onDelete }) {
+  const { user, isAdmin } = useAuth();
   const images = post.images || (post.image ? [post.image] : []);
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -26,9 +26,12 @@ export function PostCard({ post }) {
   const [comment, setComment] = useState("");
   const [comments, setComments] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const likeCount = (post.likes || 0) + (liked ? 1 : 0);
   const replyCount = (post.replies || 0) + comments.length;
   const handle = post.handle || post.author?.toLowerCase().replace(/\s+/g, "_") || "leitor";
+  const canDelete = isAdmin || post.user_id === user?.id;
 
   async function toggleLike() {
     if (!user?.id || busy) return;
@@ -77,6 +80,20 @@ export function PostCard({ post }) {
     }
   }
 
+  async function handleDelete() {
+    if (!canDelete || !onDelete) return;
+    setDeleteError("");
+    setBusy(true);
+    try {
+      await onDelete(post.id);
+      setMenuOpen(false);
+    } catch (err) {
+      setDeleteError(err?.message || "Não foi possível apagar este post.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <article className="relative flex h-fit w-full flex-col gap-4 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-4 shadow-[var(--shadow-sm)] transition-colors hover:border-[var(--border-strong)] sm:p-5">
       <header className="flex flex-row items-start justify-between tracking-normal">
@@ -100,9 +117,34 @@ export function PostCard({ post }) {
             </div>
           </div>
         </div>
-        <button className="flex size-8 items-center justify-center rounded-full text-[var(--text-muted)] transition-all hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]">
-          <MoreHorizontal className="size-5" />
-        </button>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((value) => !value)}
+            className="flex size-8 items-center justify-center rounded-full text-[var(--text-muted)] transition-all hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]"
+            aria-label="Abrir opções do post"
+          >
+            <MoreHorizontal className="size-5" />
+          </button>
+
+          {menuOpen && (
+            <div className="absolute right-0 top-10 z-20 w-44 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-1 shadow-[0_18px_45px_rgba(0,0,0,.24)]">
+              {canDelete ? (
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={busy}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50"
+                >
+                  <Trash2 className="size-4" />
+                  Apagar
+                </button>
+              ) : (
+                <p className="px-3 py-2 text-xs text-[var(--text-muted)]">Sem ações disponíveis</p>
+              )}
+            </div>
+          )}
+        </div>
       </header>
 
       <p className="whitespace-pre-wrap break-words text-[15px] font-normal leading-relaxed tracking-normal text-[var(--text-primary)]">
@@ -183,6 +225,7 @@ export function PostCard({ post }) {
           ))}
         </div>
       )}
+      {deleteError && <p className="text-xs text-red-400">{deleteError}</p>}
     </article>
   );
 }
