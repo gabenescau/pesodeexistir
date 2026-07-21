@@ -43,7 +43,7 @@ export function AuthorsSection() {
   }, []);
 
   return (
-    <section className="py-24 md:py-32 border-t border-border bg-card/30">
+    <section id="autores" className="py-24 md:py-32 border-t border-border bg-card/30">
       <div className="px-4 md:px-8 mb-12">
         <div className="max-w-6xl mx-auto">
           <span className="font-mono text-[12px] font-[400] text-muted-foreground uppercase tracking-[0.6px] mb-4 block">

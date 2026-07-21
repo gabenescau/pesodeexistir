@@ -27,7 +27,7 @@ export function AuthPage() {
     setError("");
     if (!email.trim()) return;
     if (!isSupabaseReady()) {
-      setError("Supabase não está configurado. Confira VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.");
+      setError("Supabase não está configurado. Confira SUPABASE_URL e SUPABASE_ANON_KEY no Vercel ou use VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.");
       return;
     }
     setLoading(true);

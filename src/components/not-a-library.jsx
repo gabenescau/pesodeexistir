@@ -1,6 +1,6 @@
 export function NotALibrary() {
   return (
-    <section className="py-24 md:py-32 border-t border-border bg-card/50">
+    <section id="comunidade" className="py-24 md:py-32 border-t border-border bg-card/50">
       <div className="px-4 md:px-8">
         <div className="max-w-3xl mx-auto text-center">
           <span className="font-mono text-[12px] font-[400] text-muted-foreground uppercase tracking-[0.6px] mb-4 block">
