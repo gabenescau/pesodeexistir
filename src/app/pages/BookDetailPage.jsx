@@ -1,11 +1,11 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { BookOpen, ChevronLeft, Heart } from "lucide-react";
+import { BookOpen, CheckCircle2, ChevronLeft, Heart } from "lucide-react";
 import { useData } from "../data/DataContext";
 
 export function BookDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getBookById, getAuthorById } = useData();
+  const { getBookById, getAuthorById, markBookCompleted } = useData();
   const book = getBookById(id);
 
   if (!book) {
@@ -47,6 +47,14 @@ export function BookDetailPage() {
               <BookOpen className="size-4" /> Ler agora
             </button>
           )}
+
+          <button
+            onClick={() => markBookCompleted(book.id)}
+            className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-full border border-[var(--border)] text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--hover-overlay)]"
+          >
+            <CheckCircle2 className="size-4" />
+            {Number(book.progress || 0) >= 100 ? "Concluído" : "Marcar como concluído"}
+          </button>
 
           <div className="mt-3 flex gap-2">
             <button className="flex h-10 flex-1 items-center justify-center rounded-full border border-[var(--border)] transition-colors hover:bg-[var(--hover-overlay)]">

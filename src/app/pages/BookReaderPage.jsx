@@ -1,15 +1,17 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Maximize2, Minus, Plus, X } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, Maximize2, Minus, Plus, X } from "lucide-react";
+import * as pdfjsLib from "pdfjs-dist";
+import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { useData } from "../data/DataContext";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 function base64ToBlobUrl(base64, mimeType = "application/pdf") {
   try {
     const byteChars = atob(base64);
     const byteNums = new Array(byteChars.length);
-    for (let i = 0; i < byteChars.length; i++) {
-      byteNums[i] = byteChars.charCodeAt(i);
-    }
+    for (let i = 0; i < byteChars.length; i++) byteNums[i] = byteChars.charCodeAt(i);
     const byteArray = new Uint8Array(byteNums);
     const blob = new Blob([byteArray], { type: mimeType });
     return URL.createObjectURL(blob);
@@ -28,14 +30,104 @@ function resolvePdfUrl(pdfFile) {
 export function BookReaderPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getBookById, getAuthorById } = useData();
+  const canvasRef = useRef(null);
+  const wrapperRef = useRef(null);
+  const renderTaskRef = useRef(null);
+  const { getBookById, getAuthorById, markBookCompleted } = useData();
   const book = getBookById(id);
   const author = getAuthorById(book?.authorId || book?.author_id);
+  const [pdf, setPdf] = useState(null);
   const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
   const [zoom, setZoom] = useState(100);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const pdfUrl = useMemo(() => resolvePdfUrl(book?.pdfFile || book?.pdf_url), [book?.pdfFile, book?.pdf_url]);
-  const viewerUrl = pdfUrl ? `${pdfUrl}#page=${page}&zoom=${zoom}&toolbar=0&navpanes=0&scrollbar=1` : null;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPdf() {
+      if (!pdfUrl) {
+        setPdf(null);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError("");
+      try {
+        const loadingTask = pdfjsLib.getDocument({
+          url: pdfUrl,
+          withCredentials: false,
+          disableAutoFetch: false,
+          disableStream: false,
+        });
+        const doc = await loadingTask.promise;
+        if (cancelled) return;
+        setPdf(doc);
+        setTotalPages(doc.numPages);
+        setPage(1);
+      } catch (err) {
+        if (!cancelled) setError(err?.message || "Não foi possível abrir o PDF dentro do app.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    loadPdf();
+    return () => {
+      cancelled = true;
+      renderTaskRef.current?.cancel?.();
+    };
+  }, [pdfUrl]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function renderPage() {
+      if (!pdf || !canvasRef.current) return;
+
+      renderTaskRef.current?.cancel?.();
+      const currentPage = await pdf.getPage(page);
+      if (cancelled) return;
+
+      const containerWidth = wrapperRef.current?.clientWidth || window.innerWidth;
+      const baseViewport = currentPage.getViewport({ scale: 1 });
+      const fitScale = Math.max(0.5, (containerWidth - 24) / baseViewport.width);
+      const scale = fitScale * (zoom / 100);
+      const viewport = currentPage.getViewport({ scale });
+      const canvas = canvasRef.current;
+      const context = canvas.getContext("2d");
+      const outputScale = window.devicePixelRatio || 1;
+
+      canvas.width = Math.floor(viewport.width * outputScale);
+      canvas.height = Math.floor(viewport.height * outputScale);
+      canvas.style.width = `${Math.floor(viewport.width)}px`;
+      canvas.style.height = `${Math.floor(viewport.height)}px`;
+
+      context.setTransform(outputScale, 0, 0, outputScale, 0, 0);
+      context.clearRect(0, 0, canvas.width, canvas.height);
+
+      const renderTask = currentPage.render({ canvasContext: context, viewport });
+      renderTaskRef.current = renderTask;
+
+      try {
+        await renderTask.promise;
+      } catch (err) {
+        if (err?.name !== "RenderingCancelledException" && !cancelled) {
+          setError("Não foi possível renderizar esta página.");
+        }
+      }
+    }
+
+    renderPage();
+    return () => {
+      cancelled = true;
+      renderTaskRef.current?.cancel?.();
+    };
+  }, [pdf, page, zoom]);
 
   if (!book) {
     return (
@@ -50,9 +142,12 @@ export function BookReaderPage() {
     );
   }
 
+  const canGoPrev = page > 1;
+  const canGoNext = totalPages ? page < totalPages : true;
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-[var(--bg-canvas)] text-[var(--text-primary)]">
-      <header className="flex h-16 shrink-0 items-center justify-between border-b border-[var(--border)] bg-[var(--bg-card)] px-3 sm:px-5">
+      <header className="flex min-h-16 shrink-0 items-center justify-between gap-2 border-b border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 sm:px-5">
         <div className="flex min-w-0 items-center gap-3">
           <button
             onClick={() => navigate(`/app/livro/${book.id}`)}
@@ -67,26 +162,28 @@ export function BookReaderPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-1 sm:gap-2">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           <button
+            disabled={!canGoPrev}
             onClick={() => setPage((value) => Math.max(1, value - 1))}
-            className="flex h-9 items-center gap-1 rounded-full border border-[var(--border)] px-3 text-xs text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"
+            className="flex h-9 items-center gap-1 rounded-full border border-[var(--border)] px-3 text-xs text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)] disabled:opacity-40"
           >
             <ChevronLeft className="size-4" />
             <span className="hidden sm:inline">Anterior</span>
           </button>
-          <span className="min-w-14 rounded-full border border-[var(--border)] px-3 py-2 text-center text-xs text-[var(--text-muted)]">
-            pág. {page}
+          <span className="min-w-16 rounded-full border border-[var(--border)] px-3 py-2 text-center text-xs text-[var(--text-muted)]">
+            pág. {page}{totalPages ? `/${totalPages}` : ""}
           </span>
           <button
-            onClick={() => setPage((value) => value + 1)}
-            className="flex h-9 items-center gap-1 rounded-full border border-[var(--border)] px-3 text-xs text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"
+            disabled={!canGoNext}
+            onClick={() => setPage((value) => Math.min(totalPages || value + 1, value + 1))}
+            className="flex h-9 items-center gap-1 rounded-full border border-[var(--border)] px-3 text-xs text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)] disabled:opacity-40"
           >
             <span className="hidden sm:inline">Próxima</span>
             <ChevronRight className="size-4" />
           </button>
           <button
-            onClick={() => setZoom((value) => Math.max(60, value - 10))}
+            onClick={() => setZoom((value) => Math.max(70, value - 10))}
             className="hidden size-9 items-center justify-center rounded-full border border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--hover-overlay)] sm:flex"
             aria-label="Diminuir zoom"
           >
@@ -106,18 +203,44 @@ export function BookReaderPage() {
           >
             <Maximize2 className="size-4" />
           </button>
+          <button
+            onClick={() => markBookCompleted(book.id)}
+            className="flex h-9 items-center gap-1 rounded-full border border-[var(--border)] px-3 text-xs text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"
+          >
+            <CheckCircle2 className="size-4" />
+            <span className="hidden md:inline">{Number(book.progress || 0) >= 100 ? "Concluído" : "Concluir"}</span>
+          </button>
         </div>
       </header>
 
-      <main className="min-h-0 flex-1 bg-[var(--bg-canvas)]">
-        {viewerUrl ? (
-          <iframe
-            key={`${page}-${zoom}-${pdfUrl}`}
-            src={viewerUrl}
-            title={book.title}
-            className="h-full w-full border-0 bg-white"
-          />
-        ) : (
+      <main ref={wrapperRef} className="min-h-0 flex-1 overflow-auto bg-[var(--bg-canvas)] p-3 sm:p-6">
+        {loading && (
+          <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
+            Carregando livro...
+          </div>
+        )}
+
+        {!loading && error && (
+          <div className="flex h-full items-center justify-center p-6">
+            <div className="max-w-md rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-6 text-center">
+              <p className="text-sm font-medium text-[var(--text-primary)]">Não foi possível abrir o livro.</p>
+              <p className="mt-2 text-xs text-[var(--text-muted)]">{error}</p>
+              {pdfUrl && (
+                <a href={pdfUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex rounded-full bg-[var(--text-primary)] px-5 py-2 text-sm text-[var(--bg-card)]">
+                  Abrir PDF
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+
+        {!loading && !error && pdf && (
+          <div className="mx-auto flex w-full justify-center">
+            <canvas ref={canvasRef} className="max-w-full rounded-[6px] bg-white shadow-[0_18px_60px_rgba(0,0,0,.25)]" />
+          </div>
+        )}
+
+        {!loading && !error && !pdf && (
           <div className="flex h-full items-center justify-center p-6">
             <div className="max-w-md rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-6 text-center">
               <p className="text-sm font-medium text-[var(--text-primary)]">Este livro ainda não tem PDF.</p>

@@ -170,6 +170,30 @@ export function DataProvider({ children }) {
     setBooks(prev => prev.filter(b => b.id !== id));
   }, [isSupabase]);
 
+  const markBookCompleted = useCallback(async (bookId) => {
+    if (!bookId) return;
+
+    if (isSupabase) {
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData?.user?.id;
+
+      if (userId) {
+        const { error } = await supabase
+          .from("reading_progress")
+          .upsert({
+            user_id: userId,
+            book_id: bookId,
+            progress: 100,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: "user_id,book_id" });
+
+        if (error) throw error;
+      }
+    }
+
+    setBooks(prev => prev.map(book => book.id === bookId ? { ...book, progress: 100 } : book));
+  }, [isSupabase]);
+
   // POSTS CRUD
   const addPost = useCallback(async (post) => {
     if (!post.userId) {
@@ -320,7 +344,7 @@ export function DataProvider({ children }) {
   return (
     <DataContext.Provider value={{
       books, authors, posts, subscription, subscriptions, profiles, profile, loading,
-      addBook, updateBook, deleteBook,
+      addBook, updateBook, deleteBook, markBookCompleted,
       addAuthor, updateAuthor, deleteAuthor,
       addPost, deletePost,
       cancelSubscription,
