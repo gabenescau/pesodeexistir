@@ -4,6 +4,8 @@ import { supabase, isSupabaseReady } from "@/app/data/supabase";
 import { useAuth } from "@/app/data/AuthContext";
 import { getCurrentSubscription, isActiveSubscription } from "@/lib/subscription";
 
+const CHECKOUT_URL = import.meta.env.VITE_CAKTO_CHECKOUT_URL || "https://pay.cakto.com.br/yxdvb3z_700613";
+
 export function SubscribePage() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -27,24 +29,27 @@ export function SubscribePage() {
   }, [user, navigate]);
 
   async function handleSubscribe() {
-    if (!user || !isSupabase) return;
+    if (!user) return;
     setCreating(true);
     setError(null);
 
     try {
-      const { data: _session, error: insertError } = await supabase
-        .from("checkout_sessions")
-        .insert({
-          user_id: user.id,
-          user_email: user.email,
-          status: "pending",
-        })
-        .select()
-        .single();
+      if (isSupabase) {
+        const { error: insertError } = await supabase
+          .from("checkout_sessions")
+          .insert({
+            user_id: user.id,
+            user_email: user.email,
+            status: "pending",
+            checkout_url: CHECKOUT_URL,
+          });
 
-      if (insertError) throw insertError;
+        if (insertError) {
+          console.warn("Sessão local de checkout não foi registrada:", insertError.message);
+        }
+      }
 
-      window.location.href = "https://pay.cakto.com.br/yxdvb3z_700613";
+      window.location.assign(CHECKOUT_URL);
     } catch (e) {
       setError(e.message || "Erro ao iniciar assinatura");
     } finally {
@@ -100,7 +105,7 @@ export function SubscribePage() {
               "Sem anúncios",
             ].map((f) => (
               <li key={f} className="flex items-center gap-3 text-sm" style={{ color: "var(--text-secondary)" }}>
-                <svg className="size-4 text-[#1ea64a] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <svg className="size-4 shrink-0 text-[var(--accent-mint)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
                 {f}

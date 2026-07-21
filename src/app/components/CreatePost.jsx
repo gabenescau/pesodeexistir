@@ -44,7 +44,7 @@ export function CreatePost() {
   }
 
   return (
-    <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4 sm:p-5">
+    <div className="create-post-card rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4 sm:p-5">
       <div className="flex gap-3">
         <div className="size-10 sm:size-11 shrink-0 rounded-full bg-gradient-to-br from-[var(--text-primary)]/10 to-[var(--text-primary)]/[0.04] flex items-center justify-center text-sm font-bold text-[var(--text-primary)] border border-[var(--text-primary)]/10 mt-1">
           {user?.avatar || "V"}
@@ -55,7 +55,7 @@ export function CreatePost() {
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={3}
-            className="w-full bg-transparent text-sm sm:text-[15px] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-none resize-none leading-relaxed"
+            className="create-post-textarea w-full rounded-[10px] bg-transparent px-3 py-2 text-sm sm:text-[15px] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-none resize-none leading-relaxed"
           />
 
           {images.length > 0 && (

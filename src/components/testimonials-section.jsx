@@ -68,7 +68,7 @@ const thirdColumn = testimonials.slice(6, 9);
 
 export function TestimonialsSection() {
   return (
-    <section className="py-24 md:py-32 border-t border-border bg-card/50">
+    <section id="depoimentos" className="py-24 md:py-32 border-t border-border bg-card/50">
       <div className="px-4 md:px-8">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">

@@ -20,7 +20,7 @@ const planFeatures = [
 ];
 
 const statusLabels = {
-  active: { text: "Ativo", color: "#1ea64a" },
+  active: { text: "Ativo", color: "var(--accent-mint)" },
   past_due: { text: "Pagamento pendente", color: "#f59e0b" },
   canceled: { text: "Cancelado", color: "var(--text-muted)" },
   expired: { text: "Expirado", color: "var(--text-muted)" },
@@ -128,7 +128,7 @@ export function SettingsPage() {
                 {planFeatures.map((f) => (
                   <li key={f} className="flex items-center gap-3 text-sm" style={{ color: "var(--text-secondary)" }}>
                     {active ? (
-                      <CircleCheck className="size-4 text-[#1ea64a] shrink-0" strokeWidth={1.5} />
+                      <CircleCheck className="size-4 shrink-0 text-[var(--accent-mint)]" strokeWidth={1.5} />
                     ) : (
                       <CircleCheck className="size-4 shrink-0" style={{ color: "var(--text-muted)" }} strokeWidth={1.5} />
                     )}

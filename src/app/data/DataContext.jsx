@@ -33,10 +33,10 @@ export function DataProvider({ children }) {
       ]);
 
       if (!booksRes.error) setBooks(booksRes.data.map(b => ({ ...b, authorName: b.authors?.name || "", author: b.authors?.name || "" })));
-      else setBooks(content.books || []);
+      else setBooks([]);
 
       if (!authorsRes.error) setAuthors(authorsRes.data);
-      else setAuthors(content.authors || []);
+      else setAuthors([]);
 
       if (!postsRes.error) setPosts(postsRes.data.map(p => ({
         ...p,
@@ -150,8 +150,7 @@ export function DataProvider({ children }) {
       }
       return;
     }
-    const maxId = posts.reduce((max, p) => Math.max(max, p.id), 0);
-    setPosts(prev => [{ id: maxId + 1, ...post, time: "agora", likes: 0, replies: 0, images: post.images || [] }, ...prev]);
+    console.warn("Supabase não configurado: post não foi salvo.");
   }, [isSupabase, posts]);
 
   const deletePost = useCallback(async (id) => {

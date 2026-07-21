@@ -1,171 +1,51 @@
-import { memo, useEffect, useLayoutEffect, useMemo, useState } from "react";
-import {
-  AnimatePresence,
-  motion,
-  useAnimation,
-  useMotionValue,
-  useTransform,
-} from "framer-motion";
+import { useMemo } from "react";
 
-const useIsomorphicLayoutEffect =
-  typeof window !== "undefined" ? useLayoutEffect : useEffect;
-
-const IS_SERVER = typeof window === "undefined";
-
-function useMediaQuery(query, { defaultValue = false, initializeWithValue = true } = {}) {
-  const getMatches = (query) => {
-    if (IS_SERVER) return defaultValue;
-    return window.matchMedia(query).matches;
-  };
-
-  const [matches, setMatches] = useState(() => {
-    if (initializeWithValue) return getMatches(query);
-    return defaultValue;
-  });
-
-  const handleChange = () => setMatches(getMatches(query));
-
-  useIsomorphicLayoutEffect(() => {
-    const matchMedia = window.matchMedia(query);
-    handleChange();
-    matchMedia.addEventListener("change", handleChange);
-    return () => matchMedia.removeEventListener("change", handleChange);
-  }, [query]);
-
-  return matches;
+function splitImages(images) {
+  const midpoint = Math.ceil(images.length / 2);
+  return [images.slice(0, midpoint), images.slice(midpoint)];
 }
 
-const duration = 0.15;
-const transition = { duration, ease: [0.32, 0.72, 0, 1], filter: "blur(4px)" };
-const transitionOverlay = { duration: 0.5, ease: [0.32, 0.72, 0, 1] };
-
-const Carousel = memo(({ handleClick, controls, cards, isCarouselActive }) => {
-  const isSm = useMediaQuery("(max-width: 640px)");
-  const isMd = useMediaQuery("(max-width: 768px)");
-
-  let cylinderWidth;
-  if (isSm) {
-    cylinderWidth = 3300;
-  } else if (isMd) {
-    cylinderWidth = 4200;
-  } else {
-    cylinderWidth = 5000;
-  }
-
-  const faceCount = cards.length;
-  const faceWidth = cylinderWidth / faceCount;
-  const radius = cylinderWidth / (2 * Math.PI);
-  const rotation = useMotionValue(0);
-
-  const transform = useTransform(rotation, (value) => `rotate3d(0, 1, 0, ${value}deg)`);
+export function BookCarousel({ images }) {
+  const [firstRow, secondRow] = useMemo(() => splitImages(images), [images]);
 
   return (
-    <div
-      className="flex h-full items-center justify-center"
-      style={{ perspective: "1500px", transformStyle: "preserve-3d", willChange: "transform" }}
-    >
-      <motion.div
-        drag={isCarouselActive ? "x" : false}
-        className="relative flex h-full origin-center cursor-grab justify-center active:cursor-grabbing"
-        style={{
-          transform,
-          rotateY: rotation,
-          width: cylinderWidth,
-          transformStyle: "preserve-3d",
-        }}
-        onDrag={(_, info) =>
-          isCarouselActive && rotation.set(rotation.get() + info.offset.x * 0.05)
-        }
-        onDragEnd={(_, info) =>
-          isCarouselActive &&
-          controls.start({
-            rotateY: rotation.get() + info.velocity.x * 0.05,
-            transition: { type: "spring", stiffness: 100, damping: 30, mass: 0.1 },
-          })
-        }
-        animate={controls}
-      >
-        {cards.map((imgUrl, i) => (
-          <motion.div
-            key={`book-${i}`}
-            className="absolute flex h-full origin-center items-center justify-center rounded-xl p-1.5 sm:p-2 md:p-3"
-            style={{
-              width: `${faceWidth}px`,
-              transform: `rotateY(${i * (360 / faceCount)}deg) translateZ(${radius}px)`,
-            }}
-            onClick={() => handleClick(imgUrl, i)}
-          >
-            <motion.img
-              src={imgUrl}
-              alt={`book-${i}`}
-              layoutId={`img-${imgUrl}`}
-              className="pointer-events-none w-full rounded-xl object-cover aspect-[2/3] shadow-lg"
-              initial={{ filter: "blur(4px)" }}
-              layout="position"
-              animate={{ filter: "blur(0px)" }}
-              transition={transition}
-              draggable={false}
-            />
-          </motion.div>
-        ))}
-      </motion.div>
+    <div className="book-marquee relative overflow-hidden py-2 md:py-4">
+      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-20 bg-linear-to-r from-[var(--kvn-bg)] to-transparent md:w-32" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-20 bg-linear-to-l from-[var(--kvn-bg)] to-transparent md:w-32" />
+
+      <BookRow images={firstRow} direction="left" />
+      <BookRow images={secondRow} direction="right" />
     </div>
   );
-});
+}
 
-export function BookCarousel({ images }) {
-  const [activeImg, setActiveImg] = useState(null);
-  const [isCarouselActive, setIsCarouselActive] = useState(true);
-  const controls = useAnimation();
-
-  const cards = useMemo(() => images, [images]);
-
-  const handleClick = (imgUrl) => {
-    setActiveImg(imgUrl);
-    setIsCarouselActive(false);
-    controls.stop();
-  };
-
-  const handleClose = () => {
-    setActiveImg(null);
-    setIsCarouselActive(true);
-  };
+function BookRow({ images, direction }) {
+  const repeated = [...images, ...images, ...images];
 
   return (
-    <motion.div layout className="relative">
-      <AnimatePresence mode="sync">
-        {activeImg && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0 }}
-            layoutId={`img-container-${activeImg}`}
-            layout="position"
-            onClick={handleClose}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 sm:p-8 md:p-14"
-            style={{ willChange: "opacity" }}
-            transition={transitionOverlay}
+    <div className="book-marquee-row overflow-hidden py-2 md:py-3">
+      <div
+        className={`book-marquee-track flex w-max gap-4 md:gap-6 ${
+          direction === "right" ? "book-marquee-reverse" : ""
+        }`}
+      >
+        {repeated.map((src, index) => (
+          <button
+            aria-label="Ver capa do livro"
+            className="book-cover group h-[180px] w-[116px] shrink-0 overflow-hidden rounded-[10px] border border-[var(--kvn-border,rgba(199,131,89,.16))] bg-[var(--kvn-surface-2)] shadow-[0_12px_26px_rgba(0,0,0,.18)] transition-transform duration-300 hover:-translate-y-1 md:h-[250px] md:w-[162px]"
+            key={`${src}-${index}`}
+            type="button"
           >
-            <motion.img
-              layoutId={`img-${activeImg}`}
-              src={activeImg}
-              className="max-h-[calc(100svh-2rem)] max-w-full rounded-[12px] object-contain shadow-lg sm:max-h-[calc(100svh-4rem)]"
-              initial={{ scale: 0.5 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.5, duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
-              style={{ willChange: "transform" }}
+            <img
+              alt=""
+              className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
+              draggable={false}
+              loading="lazy"
+              src={src}
             />
-          </motion.div>
-        )}
-      </AnimatePresence>
-      <div className="relative h-[460px] min-[420px]:h-[520px] sm:h-[560px] md:h-[600px] w-full overflow-hidden">
-        <Carousel
-          handleClick={handleClick}
-          controls={controls}
-          cards={cards}
-          isCarouselActive={isCarouselActive}
-        />
+          </button>
+        ))}
       </div>
-    </motion.div>
+    </div>
   );
 }

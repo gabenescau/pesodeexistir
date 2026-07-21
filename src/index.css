@@ -146,6 +146,11 @@
   animation: blurFadeUp 1s ease-out forwards;
 }
 
+@keyframes bookMarquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-33.333%); }
+}
+
 .liquid-glass {
   background: var(--bg-card);
   backdrop-filter: blur(20px);
@@ -490,6 +495,15 @@
   color: #f3eee6 !important;
 }
 
+.auth-page .auth-paths {
+  color: #c78359;
+  opacity: .28;
+}
+
+.auth-page .auth-form-card {
+  border-radius: 1.5rem;
+}
+
 html:not(.dark) .sales-page {
   --kvn-bg: #efe4d6;
   --kvn-surface: #e4d1bd;
@@ -747,9 +761,32 @@ html:not(.dark) .auth-page {
   --foreground: 22 42% 6%;
 }
 
-html:not(.dark) .auth-page > div,
+html:not(.dark) .auth-page .auth-form-panel,
 html:not(.dark) .auth-page [class*="bg-[#030303]"] {
   background: #f3eee6 !important;
+}
+
+html:not(.dark) .auth-page .auth-visual-panel {
+  background:
+    radial-gradient(circle at 26% 18%, rgba(199,131,89,.18), transparent 30%),
+    linear-gradient(180deg, #efe4d6 0%, #e4d1bd 58%, #2a1a13 100%) !important;
+  border-color: rgba(96,50,30,.10) !important;
+}
+
+html:not(.dark) .auth-page .auth-visual-panel > .absolute:first-child {
+  background: linear-gradient(180deg, rgba(239,228,214,0) 0%, rgba(239,228,214,.08) 50%, rgba(42,26,19,.72) 100%) !important;
+}
+
+html:not(.dark) .auth-page .auth-paths {
+  display: none;
+}
+
+html:not(.dark) .auth-page .auth-quote p {
+  color: #2a1a13 !important;
+}
+
+html:not(.dark) .auth-page .auth-quote footer {
+  color: #8a5535 !important;
 }
 
 html:not(.dark) .auth-page h1,
@@ -763,6 +800,11 @@ html:not(.dark) .auth-page input {
   background: #fff7ee !important;
   border-color: rgba(199,131,89,.28) !important;
   color: #160d09 !important;
+}
+
+html:not(.dark) .auth-page a,
+html:not(.dark) .auth-page button:not([data-slot="button"]) {
+  color: #8a5535 !important;
 }
 
 @media (max-width: 390px) {
@@ -978,6 +1020,46 @@ html:not(.dark) .app-kirvano [class*="bg-[var(--bg-card)]"] {
 html:not(.dark) .app-kirvano .border-\[var\(--border\)\],
 html:not(.dark) .app-kirvano [class*="border-[var(--border)]"] {
   border-color: rgba(96,50,30,.14) !important;
+}
+
+.app-kirvano .create-post-card {
+  background: var(--bg-card) !important;
+}
+
+.app-kirvano .create-post-textarea {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border) !important;
+}
+
+html:not(.dark) .app-kirvano .create-post-textarea {
+  background: #f6ede3 !important;
+  color: #2a1a13 !important;
+}
+
+.dark .app-kirvano .create-post-textarea {
+  background: #17110d !important;
+  color: #f3eee6 !important;
+}
+
+.book-marquee-track {
+  animation: bookMarquee 46s linear infinite;
+}
+
+.book-marquee-reverse {
+  animation-direction: reverse;
+  animation-duration: 52s;
+}
+
+.book-marquee:hover .book-marquee-track {
+  animation-play-state: paused;
+}
+
+html:not(.dark) .sales-page .book-marquee > div:first-child {
+  background: linear-gradient(to right, var(--kvn-bg), transparent) !important;
+}
+
+html:not(.dark) .sales-page .book-marquee > div:nth-child(2) {
+  background: linear-gradient(to left, var(--kvn-bg), transparent) !important;
 }
 
 .app-kirvano [class*="rounded-[12px]"],

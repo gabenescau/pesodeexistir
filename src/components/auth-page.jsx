@@ -70,13 +70,13 @@ export function AuthPage() {
 
   return (
     <main className="auth-page relative bg-[#030303] text-[#f3eee6] md:h-screen md:overflow-hidden lg:grid lg:grid-cols-2">
-      <div className="relative hidden h-full flex-col border-r border-[#c78359]/12 bg-[#120d0a] p-10 lg:flex">
+      <div className="auth-visual-panel relative hidden h-full flex-col border-r border-[#c78359]/12 bg-[#120d0a] p-10 lg:flex">
         <div className="absolute inset-0 bg-linear-to-b from-transparent via-transparent to-[#030303]" />
         <div className="flex items-center gap-2 mr-auto">
           <Logo className="text-[26px] text-[#f3eee6]" />
         </div>
 
-        <div className="z-10 mt-auto">
+        <div className="auth-quote z-10 mt-auto">
           <blockquote className="space-y-2">
             <p className="text-xl text-[#d8cfc3]">
               &ldquo;A leitura não acaba quando você fecha o livro.
@@ -87,13 +87,13 @@ export function AuthPage() {
             </footer>
           </blockquote>
         </div>
-        <div className="absolute inset-0">
+        <div className="auth-paths absolute inset-0">
           <FloatingPaths position={1} />
           <FloatingPaths position={-1} />
         </div>
       </div>
 
-      <div className="relative flex min-h-screen flex-col justify-center bg-[#030303] px-6 sm:px-8">
+      <div className="auth-form-panel relative flex min-h-screen flex-col justify-center bg-[#030303] px-6 sm:px-8">
         <div
           aria-hidden
           className="absolute inset-0 isolate -z-10 opacity-60 contain-strict"
@@ -110,7 +110,7 @@ export function AuthPage() {
           <ChevronLeftIcon className="size-4" />Início
         </Link>
 
-        <div className="mx-auto w-full max-w-sm space-y-4">
+        <div className="auth-form-card mx-auto w-full max-w-sm space-y-4">
           <div className="flex items-center gap-2 lg:hidden">
             <Logo className="text-[26px] text-[#f3eee6]" />
           </div>
