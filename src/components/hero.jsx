@@ -1,6 +1,7 @@
+import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { ArrowRightIcon, CheckIcon } from "lucide-react";
+import { ArrowRightIcon } from "lucide-react";
 
 export function HeroSection() {
   return (
@@ -50,45 +51,12 @@ export function HeroSection() {
           amantes da filosofia</strong>.
         </p>
 
-        <p
-          className={cn(
-            "text-center text-muted-foreground text-sm font-medium",
-            "fade-in slide-in-from-bottom-10 animate-in fill-mode-backwards delay-325 duration-500 ease-out"
-          )}
-        >
-          Tudo acontece em um único aplicativo.
-        </p>
-
-        <div
-          className={cn(
-            "flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground",
-            "fade-in slide-in-from-bottom-10 animate-in fill-mode-backwards delay-350 duration-500 ease-out"
-          )}
-        >
-          <span className="flex items-center gap-1.5">
-            <CheckIcon className="size-3.5 text-primary" />
-            Biblioteca integrada
-          </span>
-          <span className="flex items-center gap-1.5">
-            <CheckIcon className="size-3.5 text-primary" />
-            Comunidade dentro do aplicativo
-          </span>
-          <span className="flex items-center gap-1.5">
-            <CheckIcon className="size-3.5 text-primary" />
-            Grandes filósofos e escritores
-          </span>
-          <span className="flex items-center gap-1.5">
-            <CheckIcon className="size-3.5 text-primary" />
-            Novos conteúdos toda semana
-          </span>
-          <span className="flex items-center gap-1.5">
-            <CheckIcon className="size-3.5 text-primary" />
-            Leitura offline
-          </span>
-        </div>
-
         <div className="fade-in slide-in-from-bottom-10 flex w-fit animate-in items-center justify-center gap-3 fill-mode-backwards pt-2 delay-400 duration-500 ease-out">
-          <Button className="h-12 px-8 text-[16px] font-[500] leading-[24px] rounded-[100px]">
+          <Button
+            className="h-12 px-8 text-[16px] font-[500] leading-[24px] rounded-[100px]"
+            render={<Link to="/entrar" />}
+            nativeButton={false}
+          >
             Entrar para o OPE Club{" "}
             <ArrowRightIcon data-icon="inline-end" className="size-4" />
           </Button>

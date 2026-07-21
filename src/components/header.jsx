@@ -1,7 +1,5 @@
 import { Link } from "react-router-dom";
-import { cn } from "@/lib/utils";
 import { Logo } from "@/components/logo";
-import { useScroll } from "@/hooks/use-scroll";
 import { Button } from "@/components/ui/button";
 import { MobileNav } from "@/components/mobile-nav";
 
@@ -13,15 +11,8 @@ export const navLinks = [
 ];
 
 export function Header() {
-  const scrolled = useScroll(10);
-
   return (
-    <header
-      className={cn(
-        "sticky top-0 z-50 mx-auto w-full",
-        scrolled && "bg-[var(--kvn-bg)]/90 backdrop-blur-xl supports-backdrop-filter:bg-[var(--kvn-bg)]/70",
-      )}
-    >
+    <header className="mx-auto w-full">
       <nav className="flex h-14 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 mx-auto">
         <Link className="flex items-center gap-2 rounded-full px-2 py-2 hover:bg-white/6" to="/">
           <Logo className="h-4 w-auto" />
