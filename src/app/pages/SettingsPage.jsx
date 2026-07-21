@@ -3,11 +3,12 @@ import { useNavigate } from "react-router-dom";
 import {
   Bell, Smartphone, Eye, Globe, Moon, Mail, Lock,
   Trash2, ChevronRight, CreditCard, User, Shield,
-  CircleCheck, Sun, AlertCircle,
+  CircleCheck, Sun, AlertCircle, LogOut, Camera,
 } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { useData } from "@/app/data/DataContext";
 import { isActiveSubscription } from "@/lib/subscription";
+import { useAuth } from "@/app/data/AuthContext";
 
 const planFeatures = [
   "Acesso completo à biblioteca",
@@ -62,6 +63,7 @@ function Toggle({ value, onChange }) {
 
 export function SettingsPage() {
   const { subscription, cancelSubscription } = useData();
+  const { logout } = useAuth();
   const navigate = useNavigate();
   const [notifs, setNotifs] = useState({ email: true, push: true, replies: false, events: true });
   const [privacity, setPrivacity] = useState({ privateProfile: false, readingActivity: true, showOnlineStatus: true });
@@ -78,6 +80,11 @@ export function SettingsPage() {
     setCancelling(true);
     await cancelSubscription(subscription.id);
     setCancelling(false);
+  }
+
+  async function handleLogout() {
+    await logout();
+    navigate("/");
   }
 
   return (
@@ -163,17 +170,24 @@ export function SettingsPage() {
       <Section icon={User} label="Conta">
         <div className="divide-y divide-[var(--border)]">
           {[
+            { icon: Camera, label: "Editar perfil e foto", action: () => navigate("/app/perfil") },
             { icon: Mail, label: "Alterar email" },
             { icon: Lock, label: "Alterar senha" },
             { icon: Shield, label: "Dados da conta" },
-          ].map(({ icon: Icon, label }) => (
-            <div key={label} className="flex items-center justify-between px-5 md:px-6 py-4 cursor-pointer hover:bg-[var(--hover-overlay)] transition-colors group">
+            { icon: LogOut, label: "Sair da conta", action: handleLogout },
+          ].map(({ icon: Icon, label, action }) => (
+            <button
+              key={label}
+              type="button"
+              onClick={action}
+              className="w-full flex items-center justify-between px-5 md:px-6 py-4 cursor-pointer hover:bg-[var(--hover-overlay)] transition-colors group text-left"
+            >
               <div className="flex items-center gap-3">
                 <Icon className="size-[18px]" style={{ color: "var(--text-muted)" }} />
                 <span className="text-sm text-[var(--text-primary)]">{label}</span>
               </div>
               <ChevronRight className="size-4" style={{ color: "var(--border-strong)" }} />
-            </div>
+            </button>
           ))}
         </div>
       </Section>

@@ -38,21 +38,39 @@ export function DataProvider({ children }) {
         supabase.from("profiles").select("*").order("created_at", { ascending: false }),
       ]);
 
-      if (!booksRes.error) setBooks(booksRes.data.map(b => ({ ...b, authorName: b.authors?.name || "", author: b.authors?.name || "" })));
+      if (!booksRes.error) setBooks(booksRes.data.map(b => ({
+        ...b,
+        authorId: b.author_id,
+        authorName: b.authors?.name || "",
+        author: b.authors?.name || "",
+        pdfFile: b.pdf_url,
+      })));
       else setBooks([]);
 
       if (!authorsRes.error) setAuthors(authorsRes.data);
       else setAuthors([]);
 
-      if (!postsRes.error) setPosts(postsRes.data.map(p => ({
-        ...p,
-        images: p.images || (p.image ? [p.image] : []),
-        author: p.author || "Leitor",
-        avatar: p.avatar || "L",
-        book: null,
-        likes: p.likes || 0,
-        replies: p.replies || 0,
-      })));
+      if (!postsRes.error) {
+        const profileList = profilesRes.error ? [] : profilesRes.data || [];
+        const bookList = booksRes.error ? [] : booksRes.data || [];
+        setPosts(postsRes.data.map(p => {
+          const postProfile = profileList.find(profile => profile.id === p.user_id);
+          const postBook = bookList.find(book => book.id === p.book_id);
+          return {
+            ...p,
+            images: p.images || (p.image ? [p.image] : []),
+            author: postProfile?.name || p.author || "Leitor",
+            handle: postProfile?.email?.split("@")[0] || postProfile?.name?.toLowerCase().replace(/\s+/g, "_") || "leitor",
+            avatar: postProfile?.avatar || p.avatar || "L",
+            book: postBook ? {
+              ...postBook,
+              author: postBook.authors?.name || "",
+            } : null,
+            likes: p.likes || 0,
+            replies: p.replies || 0,
+          };
+        }));
+      }
       else setPosts([]);
 
       if (!subsRes.error) {
@@ -77,7 +95,8 @@ export function DataProvider({ children }) {
   const addAuthor = useCallback(async (data) => {
     if (isSupabase) {
       const { data: inserted, error } = await supabase.from("authors").insert(data).select().single();
-      if (!error && inserted) { setAuthors(prev => [...prev, inserted]); return inserted.id; }
+      if (error) throw error;
+      if (inserted) { setAuthors(prev => [...prev, inserted]); return inserted.id; }
       return null;
     }
     const id = data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -90,7 +109,7 @@ export function DataProvider({ children }) {
   const updateAuthor = useCallback(async (id, data) => {
     if (isSupabase) {
       const { error } = await supabase.from("authors").update(data).eq("id", id);
-      if (error) { console.error("Erro ao atualizar autor:", error.message); return; }
+      if (error) throw error;
     }
     setAuthors(prev => prev.map(a => a.id === id ? { ...a, ...data } : a));
   }, [isSupabase]);
@@ -98,7 +117,7 @@ export function DataProvider({ children }) {
   const deleteAuthor = useCallback(async (id) => {
     if (isSupabase) {
       const { error } = await supabase.from("authors").delete().eq("id", id);
-      if (error) { console.error("Erro ao deletar autor:", error.message); return; }
+      if (error) throw error;
     }
     setAuthors(prev => prev.filter(a => a.id !== id));
     setBooks(prev => prev.map(b => b.author_id === id || b.authorId === id ? { ...b, author_id: null, authorId: null, authorName: "" } : b));
@@ -109,8 +128,9 @@ export function DataProvider({ children }) {
     const payload = { title: data.title, image: data.image, pdf_url: data.pdfFile, author_id: data.authorId };
     if (isSupabase) {
       const { data: inserted, error } = await supabase.from("books").insert(payload).select("*, authors(name)").single();
+      if (error) throw error;
       if (!error && inserted) {
-        setBooks(prev => [{ ...inserted, authorName: inserted.authors?.name || "", author: inserted.authors?.name || "" }, ...prev]);
+        setBooks(prev => [{ ...inserted, authorId: inserted.author_id, authorName: inserted.authors?.name || "", author: inserted.authors?.name || "", pdfFile: inserted.pdf_url }, ...prev]);
         return inserted.id;
       }
       return null;
@@ -130,21 +150,25 @@ export function DataProvider({ children }) {
         pdf_url: data.pdfFile,
         author_id: data.authorId,
       }).eq("id", id);
-      if (error) { console.error("Erro ao atualizar livro:", error.message); return; }
+      if (error) throw error;
     }
-    setBooks(prev => prev.map(b => b.id === id ? { ...b, ...data } : b));
+    setBooks(prev => prev.map(b => b.id === id ? { ...b, ...data, author_id: data.authorId, pdf_url: data.pdfFile } : b));
   }, [isSupabase]);
 
   const deleteBook = useCallback(async (id) => {
     if (isSupabase) {
       const { error } = await supabase.from("books").delete().eq("id", id);
-      if (error) { console.error("Erro ao deletar livro:", error.message); return; }
+      if (error) throw error;
     }
     setBooks(prev => prev.filter(b => b.id !== id));
   }, [isSupabase]);
 
   // POSTS CRUD
   const addPost = useCallback(async (post) => {
+    if (!post.userId) {
+      throw new Error("Você precisa estar logado para publicar.");
+    }
+
     if (isSupabase) {
       const { data: inserted, error } = await supabase.from("posts").insert({
         user_id: post.userId,
@@ -153,25 +177,26 @@ export function DataProvider({ children }) {
         book_id: post.bookId,
         images: post.images || [],
       }).select("*").single();
-      if (!error && inserted) {
+      if (error) throw error;
+      if (inserted) {
         setPosts(prev => [{
           ...inserted,
           images: inserted.images || [],
-          author: "Você",
-          avatar: "?",
+          author: post.author || "Você",
+          avatar: post.avatar || "V",
           replies: 0,
           likes: 0,
         }, ...prev]);
       }
       return;
     }
-    console.warn("Supabase não configurado: post não foi salvo.");
-  }, [isSupabase, posts]);
+    throw new Error("Supabase não configurado: post não foi salvo.");
+  }, [isSupabase]);
 
   const deletePost = useCallback(async (id) => {
     if (isSupabase) {
       const { error } = await supabase.from("posts").delete().eq("id", id);
-      if (error) { console.error("Erro ao deletar post:", error.message); return; }
+      if (error) throw error;
     }
     setPosts(prev => prev.filter(p => p.id !== id));
   }, [isSupabase]);

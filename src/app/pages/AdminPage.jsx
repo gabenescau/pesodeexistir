@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../data/AuthContext";
 import { useData } from "../data/DataContext";
+import { supabase, isSupabaseReady } from "../data/supabase";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, Plus, Trash2, Edit3, X, Check, Crown, BookOpen, Users, MessageSquare, FileText, ShieldAlert } from "lucide-react";
 
@@ -231,6 +232,7 @@ function BooksTab() {
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ title: "", authorId: "", image: "", pdfFile: "" });
   const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
 
   function openNew() {
     setEditId(null);
@@ -240,35 +242,66 @@ function BooksTab() {
 
   function openEdit(book) {
     setEditId(book.id);
-    setForm({ title: book.title, authorId: book.authorId, image: book.image || "", pdfFile: book.pdfFile || "" });
+    setForm({ title: book.title, authorId: book.author_id || book.authorId || "", image: book.image || "", pdfFile: book.pdf_url || book.pdfFile || "" });
     setShowForm(true);
   }
 
-  function handleFileUpload(e) {
+  async function handleFileUpload(e) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.type !== "application/pdf") { alert("Selecione um arquivo PDF."); return; }
+    if (!isSupabaseReady()) {
+      setError("Supabase não está configurado. Não foi possível enviar o PDF.");
+      return;
+    }
+
+    setError("");
     setUploading(true);
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result;
-      setForm(p => ({ ...p, pdfFile: base64 }));
+
+    try {
+      const safeTitle = (form.title || file.name.replace(/\.pdf$/i, "livro"))
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "") || "livro";
+      const filePath = `books/${safeTitle}-${Date.now()}.pdf`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("pdfs")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          contentType: "application/pdf",
+          upsert: false,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from("pdfs").getPublicUrl(filePath);
+      setForm(p => ({ ...p, pdfFile: data.publicUrl }));
+    } catch (err) {
+      setError(err?.message || "Não foi possível enviar o PDF para o Supabase Storage.");
+    } finally {
       setUploading(false);
-    };
-    reader.onerror = () => { alert("Erro ao ler o arquivo."); setUploading(false); };
-    reader.readAsDataURL(file);
+      e.target.value = "";
+    }
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!form.title.trim()) return;
-    if (editId) {
-      updateBook(editId, form);
-    } else {
-      addBook(form);
+    setError("");
+    try {
+      if (editId) {
+        await updateBook(editId, form);
+      } else {
+        await addBook(form);
+      }
+      setShowForm(false);
+      setEditId(null);
+      setForm({ title: "", authorId: "", image: "", pdfFile: "" });
+    } catch (err) {
+      setError(err?.message || "Não foi possível salvar o livro. Confira as permissões no Supabase.");
     }
-    setShowForm(false);
-    setEditId(null);
-    setForm({ title: "", authorId: "", image: "", pdfFile: "" });
   }
 
   return (
@@ -309,7 +342,7 @@ function BooksTab() {
                   </button>
                 )}
               </div>
-              <p className="text-[10px] text-[var(--text-muted)] mt-1">O PDF será armazenado no navegador.</p>
+              <p className="text-[10px] text-[var(--text-muted)] mt-1">O PDF será enviado ao Supabase Storage e aberto dentro do app.</p>
             </div>
           </div>
           <div className="flex items-center gap-2 pt-2">
@@ -322,12 +355,13 @@ function BooksTab() {
               Cancelar
             </button>
           </div>
+          {error && <p className="text-xs text-red-400">{error}</p>}
         </div>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {books.map(book => {
-          const author = authors.find(a => a.id === book.authorId);
+          const author = authors.find(a => a.id === (book.author_id || book.authorId));
           return (
             <div key={book.id} className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4 flex gap-3">
               <div className="w-12 h-16 rounded-[6px] overflow-hidden shrink-0 bg-[var(--hover-overlay)]">
@@ -338,7 +372,7 @@ function BooksTab() {
                 <p className="text-xs text-[var(--text-muted)]">{author?.name || book.authorName || "Sem autor"}</p>
                 <div className="flex items-center gap-2 mt-1">
                   {book.progress != null && <p className="text-[10px] text-[var(--text-muted)]">{book.progress}% completo</p>}
-                  {book.pdfFile && <span className="text-[10px] text-blue-400 font-medium">PDF</span>}
+                  {(book.pdf_url || book.pdfFile) && <span className="text-[10px] text-blue-400 font-medium">PDF</span>}
                 </div>
               </div>
               <div className="flex flex-col gap-1 shrink-0">
@@ -362,6 +396,7 @@ function AuthorsTab() {
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ name: "", theme: "", era: "", image: "" });
+  const [error, setError] = useState("");
 
   function openNew() {
     setEditId(null);
@@ -375,16 +410,21 @@ function AuthorsTab() {
     setShowForm(true);
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!form.name.trim()) return;
-    if (editId) {
-      updateAuthor(editId, form);
-    } else {
-      addAuthor(form);
+    setError("");
+    try {
+      if (editId) {
+        await updateAuthor(editId, form);
+      } else {
+        await addAuthor(form);
+      }
+      setShowForm(false);
+      setEditId(null);
+      setForm({ name: "", theme: "", era: "", image: "" });
+    } catch (err) {
+      setError(err?.message || "Não foi possível salvar o autor. Confira as permissões no Supabase.");
     }
-    setShowForm(false);
-    setEditId(null);
-    setForm({ name: "", theme: "", era: "", image: "" });
   }
 
   return (
@@ -416,6 +456,7 @@ function AuthorsTab() {
               Cancelar
             </button>
           </div>
+          {error && <p className="text-xs text-red-400">{error}</p>}
         </div>
       )}
 
