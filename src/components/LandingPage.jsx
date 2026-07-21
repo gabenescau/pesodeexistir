@@ -10,7 +10,6 @@ import { AlwaysEvolving } from '@/components/always-evolving'
 import { HowItWorks } from '@/components/how-it-works'
 import { PricingSection } from '@/components/pricing-section'
 import { FAQ } from '@/components/faq'
-import { FinalClosing } from '@/components/final-closing'
 
 export function LandingPage() {
   return (
@@ -28,7 +27,6 @@ export function LandingPage() {
         <HowItWorks />
         <PricingSection />
         <FAQ />
-        <FinalClosing />
       </main>
     </div>
   )

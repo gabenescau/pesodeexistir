@@ -1,45 +1,57 @@
 import { Link } from "react-router-dom";
-import { Logo } from "@/components/logo";
-import { Button } from "@/components/ui/button";
 import { MobileNav } from "@/components/mobile-nav";
+import { Logo } from "@/components/logo";
+import { useTheme } from "@/components/theme-provider";
+import { MoonIcon, SunIcon } from "lucide-react";
 
 export const navLinks = [
+  { label: "Biblioteca", href: "#acervo" },
+  { label: "Comunidade", href: "#comunidade" },
+  { label: "Autores", href: "#autores" },
+  { label: "Recursos", href: "#recursos" },
+  { label: "Depoimentos", href: "#depoimentos" },
   { label: "Planos", href: "#planos" },
-  { label: "FAQ", href: "#faq" },
 ];
 
 export function Header() {
+  const { theme, toggle } = useTheme();
+
   return (
-    <header className="mx-auto w-full">
-      <nav className="flex h-14 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 mx-auto">
-        <Link className="flex items-center gap-2 rounded-full px-2 py-2 hover:bg-white/6" to="/">
-          <Logo className="h-4 w-auto" />
-          <span className="font-bold text-sm tracking-tight text-[var(--kvn-fg)]">OPE Club</span>
+    <header className="landing-header absolute inset-x-0 top-0 z-50 px-4 pt-4 sm:px-6 lg:px-8">
+      <nav className="mx-auto flex h-16 w-full max-w-[1500px] items-center justify-between rounded-full bg-[#080706]/72 px-5 shadow-[0_18px_80px_rgba(0,0,0,.34)] backdrop-blur-xl sm:h-18 sm:px-7">
+        <Link className="flex min-w-[112px] items-center text-[#f4eee6]" to="/">
+          <Logo className="text-[26px] sm:text-[31px]" />
         </Link>
-        <div className="hidden flex-1 items-center justify-end gap-3 md:flex">
-          <div className="flex items-center gap-1 rounded-full bg-white/[0.04] p-1">
+
+        <div className="hidden flex-1 items-center justify-center md:flex">
+          <div className="flex items-center gap-7 lg:gap-10 xl:gap-12">
             {navLinks.map((link) => (
-              <Button
+              <a
                 key={link.label}
-                size="sm"
-                variant="ghost"
-                className="rounded-full px-3 text-[var(--kvn-muted)] hover:bg-white/[0.08] hover:text-[var(--kvn-fg)]"
-                render={<a href={link.href} />}
-                nativeButton={false}
+                className="text-[11px] font-[500] uppercase tracking-[0.28em] text-[#e8ded2]/70 transition-colors hover:text-[#d38b5f] lg:text-[12px]"
+                href={link.href}
               >
                 {link.label}
-              </Button>
+              </a>
             ))}
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            className="rounded-full border-[var(--kvn-brand)]/40 text-[var(--kvn-brand)] hover:bg-[var(--kvn-brand)]/10"
-            render={<Link to="/entrar" />}
-            nativeButton={false}
+        </div>
+
+        <div className="hidden items-center gap-2 md:flex">
+          <button
+            aria-label="Alternar modo claro e escuro"
+            className="flex size-9 items-center justify-center rounded-full border border-[#c78359]/25 text-[#d8cfc3] transition hover:bg-[#c78359]/10 hover:text-[#c78359]"
+            onClick={toggle}
+            type="button"
           >
-            Entrar
-          </Button>
+            {theme === "dark" ? <SunIcon className="size-4" /> : <MoonIcon className="size-4" />}
+          </button>
+          <Link
+            className="rounded-full bg-[#d08a5d] px-5 py-2.5 text-[11px] font-[600] uppercase tracking-[0.2em] text-[#090705] transition hover:bg-[#e1a073]"
+            to="/entrar"
+          >
+            Assinar
+          </Link>
         </div>
         <MobileNav />
       </nav>

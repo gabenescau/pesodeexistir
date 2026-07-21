@@ -18,7 +18,7 @@ export function RightSidebar() {
           ].map((s) => (
             <div key={s.label} className="flex items-center justify-between">
               <span className="text-[var(--text-muted)]">{s.label}</span>
-              <span className={`font-medium ${s.highlight ? "text-green-400" : "text-[var(--text-primary)]"}`}>
+              <span className={`font-medium ${s.highlight ? "text-[var(--accent-mint)]" : "text-[var(--text-primary)]"}`}>
                 {s.value}
               </span>
             </div>

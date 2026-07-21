@@ -56,7 +56,7 @@ function SubscriptionsTab() {
                 <td className="py-3 pr-4 text-[var(--text-secondary)]">{s.since}</td>
                 <td className="py-3 pr-4">
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                    s.status === "active" ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"
+                    s.status === "active" ? "bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]" : "bg-red-500/10 text-red-400"
                   }`}>
                     {s.status === "active" ? "Ativa" : "Cancelada"}
                   </span>

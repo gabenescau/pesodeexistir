@@ -45,9 +45,9 @@ const Carousel = memo(({ handleClick, controls, cards, isCarouselActive }) => {
 
   let cylinderWidth;
   if (isSm) {
-    cylinderWidth = 2500;
+    cylinderWidth = 3300;
   } else if (isMd) {
-    cylinderWidth = 3500;
+    cylinderWidth = 4200;
   } else {
     cylinderWidth = 5000;
   }
@@ -88,7 +88,7 @@ const Carousel = memo(({ handleClick, controls, cards, isCarouselActive }) => {
         {cards.map((imgUrl, i) => (
           <motion.div
             key={`book-${i}`}
-            className="absolute flex h-full origin-center items-center justify-center rounded-xl p-2 md:p-3"
+            className="absolute flex h-full origin-center items-center justify-center rounded-xl p-1.5 sm:p-2 md:p-3"
             style={{
               width: `${faceWidth}px`,
               transform: `rotateY(${i * (360 / faceCount)}deg) translateZ(${radius}px)`,
@@ -158,7 +158,7 @@ export function BookCarousel({ images }) {
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="relative h-[360px] min-[420px]:h-[420px] sm:h-[500px] md:h-[600px] w-full overflow-hidden">
+      <div className="relative h-[460px] min-[420px]:h-[520px] sm:h-[560px] md:h-[600px] w-full overflow-hidden">
         <Carousel
           handleClick={handleClick}
           controls={controls}

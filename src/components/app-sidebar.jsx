@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { LogoIcon } from "@/components/logo";
+import { Logo } from "@/components/logo";
 import {
   Sidebar,
   SidebarContent,
@@ -33,8 +33,7 @@ export function AppSidebar() {
     >
       <SidebarHeader className="h-14 justify-center px-2">
         <SidebarMenuButton render={<Link to="/app/inicio" />}>
-          <LogoIcon />
-          <span className="font-medium text-[var(--text-primary)]!">OPE Club</span>
+          <Logo className="text-[20px] text-[var(--text-primary)]!" />
         </SidebarMenuButton>
       </SidebarHeader>
       <SidebarContent>

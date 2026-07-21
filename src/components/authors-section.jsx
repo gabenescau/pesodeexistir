@@ -80,13 +80,13 @@ export function AuthorsSection() {
                   <img
                     src={img(author.image)}
                     alt={author.name}
-                    className="size-full object-cover opacity-50 group-hover:opacity-65 group-hover:scale-105 transition-all duration-700"
+                    className="author-card-image size-full object-cover opacity-75 group-hover:opacity-90 group-hover:scale-105 transition-all duration-700"
                     loading="lazy"
                   />
-                  <div className="absolute inset-0 bg-linear-to-t from-card via-card/80 to-transparent" />
+                  <div className="author-card-overlay absolute inset-0 bg-linear-to-t from-[#030303]/88 via-[#030303]/36 to-transparent" />
                 </div>
 
-                <div className="relative h-full flex flex-col justify-end p-6">
+                <div className="author-card-content relative h-full flex flex-col justify-end p-6">
                   <div className="mb-auto pt-4">
                     <span className="inline-block px-3 py-1 rounded-[6px] bg-primary/20 border border-primary/30 text-xs font-medium text-primary">
                       {author.theme}

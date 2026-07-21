@@ -5,60 +5,57 @@ import { ArrowRightIcon } from "lucide-react";
 
 export function HeroSection() {
   return (
-    <section>
-      <div className="relative flex min-h-[calc(100svh-3.5rem)] flex-col items-center justify-center gap-5 px-5 py-12 sm:min-h-0 md:px-8 md:py-20 lg:py-24">
+    <section className="ope-hero relative isolate overflow-hidden">
+      <div
+        aria-hidden="true"
+        className="hero-bg absolute inset-0 -z-10 opacity-95"
+        style={{ "--hero-bg": "url('/hero/backgroundnovo.png')" }}
+      />
+      <div
+        aria-hidden="true"
+        className="hero-dark-wash absolute inset-0 -z-10 bg-[linear-gradient(90deg,#030303_0%,rgba(3,3,3,.96)_30%,rgba(3,3,3,.62)_56%,rgba(3,3,3,.16)_78%,rgba(3,3,3,.30)_100%)]"
+      />
+      <div
+        aria-hidden="true"
+        className="absolute inset-x-0 bottom-0 -z-10 h-48 bg-gradient-to-t from-[#111111] to-transparent"
+      />
+
+      <div className="relative mx-auto flex min-h-[100svh] w-full max-w-[1500px] items-end px-5 pb-7 pt-[84vw] min-[420px]:pt-[78vw] sm:px-8 sm:pt-[48vw] md:items-center md:px-10 md:pt-[7.5rem] lg:px-12 lg:pb-12 lg:pt-[7rem] xl:px-14">
         <div
           aria-hidden="true"
-          className="absolute inset-0 -z-1 size-full overflow-hidden"
-        >
-          <div
-            className={cn(
-              "absolute -inset-x-20 inset-y-0 z-0 rounded-full",
-              "bg-[radial-gradient(ellipse_at_center,theme(--color-foreground/.1),transparent,transparent)]",
-              "blur-[50px]"
-            )}
-          />
-          <div className="absolute inset-y-0 left-4 w-px bg-linear-to-b from-transparent via-border to-border md:left-8" />
-          <div className="absolute inset-y-0 right-4 w-px bg-linear-to-b from-transparent via-border to-border md:right-8" />
-          <div className="absolute inset-y-0 left-8 w-px bg-linear-to-b from-transparent via-border/50 to-border/50 md:left-12" />
-          <div className="absolute inset-y-0 right-8 w-px bg-linear-to-b from-transparent via-border/50 to-border/50 md:right-12" />
-        </div>
+          className="pointer-events-none absolute inset-y-0 left-0 hidden w-[55%] bg-[radial-gradient(circle_at_55%_78%,rgba(160,89,48,.28),transparent_32%)] lg:block"
+        />
 
-        <span className="font-mono text-[12px] font-[400] text-muted-foreground uppercase tracking-[0.6px] fade-in slide-in-from-bottom-10 animate-in fill-mode-backwards delay-100 duration-500 ease-out">
-          OPE Club
-        </span>
-
-        <h1
+        <div
           className={cn(
-            "max-w-3xl text-balance text-center text-[clamp(2.25rem,8vw,3rem)] text-foreground font-[600] leading-[1.05] tracking-[-0.05em]",
-            "fade-in slide-in-from-bottom-10 animate-in fill-mode-backwards delay-200 duration-500 ease-out"
+            "relative z-10 flex w-full max-w-[620px] flex-col items-start",
+            "fade-in slide-in-from-bottom-10 animate-in fill-mode-backwards duration-700 ease-out"
           )}
         >
-          O lugar onde quem ama<br />
-          filosofia e literatura<br />
-          se encontra.
-        </h1>
+          <span className="mb-4 text-[10px] font-[500] uppercase tracking-[0.42em] text-[#c78359] md:mb-5 md:text-[11px] lg:mb-6">
+            OPE Club
+          </span>
 
-        <p
-          className={cn(
-            "text-center text-muted-foreground text-[18px] font-[400] leading-[28px] max-w-2xl",
-            "fade-in slide-in-from-bottom-10 animate-in fill-mode-backwards delay-300 duration-500 ease-out"
-          )}
-        >
-          Leia os maiores filósofos e escritores da história, participe de
-          discussões, compartilhe suas ideias e descubra novas perspectivas
-          dentro de um <strong>aplicativo criado exclusivamente para leitores e
-          amantes da filosofia</strong>.
-        </p>
+          <h1 className="max-w-[620px] text-left font-serif text-[clamp(2.35rem,3.9vw,4.25rem)] font-[400] leading-[1.04] tracking-[-0.03em] text-[#f3eee6]">
+            O lugar onde quem ama{" "}
+            <span className="text-[#c78359]">filosofia</span> e{" "}
+            <span className="text-[#c78359]">literatura</span> se encontra.
+          </h1>
 
-        <div className="fade-in slide-in-from-bottom-10 flex w-fit animate-in items-center justify-center gap-3 fill-mode-backwards pt-2 delay-400 duration-500 ease-out">
+          <p className="mt-5 max-w-[560px] text-left text-[14px] font-[400] leading-6 text-[#d6d0c7]/86 md:text-[15px] lg:mt-6">
+            Leia os maiores filosofos e escritores da historia, participe de
+            discussoes, compartilhe suas ideias e descubra novas perspectivas
+            dentro de um aplicativo criado exclusivamente para leitores e
+            amantes da filosofia.
+          </p>
+
           <Button
-            className="h-12 px-8 text-[16px] font-[500] leading-[24px] rounded-[100px]"
+            className="mt-7 h-[54px] w-full max-w-[260px] justify-between rounded-[8px]! border border-[#c78359]/35 bg-[linear-gradient(135deg,#8a5535,#2a1a13)] px-6 text-[11px] font-[500] uppercase tracking-[0.2em] text-[#fff7ee] shadow-[0_18px_60px_rgba(150,84,45,.25)] hover:bg-[linear-gradient(135deg,#9b6240,#352017)] md:mt-8 lg:mt-9 lg:h-[58px] lg:max-w-[286px] lg:px-7"
             render={<Link to="/entrar" />}
             nativeButton={false}
           >
-            Entrar para o OPE Club{" "}
-            <ArrowRightIcon data-icon="inline-end" className="size-4" />
+            Assinar OPE Club
+            <ArrowRightIcon data-icon="inline-end" className="size-5" />
           </Button>
         </div>
       </div>

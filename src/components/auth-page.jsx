@@ -69,21 +69,20 @@ export function AuthPage() {
   };
 
   return (
-    <main className="relative md:h-screen md:overflow-hidden lg:grid lg:grid-cols-2">
-      <div className="relative hidden h-full flex-col border-r bg-secondary p-10 lg:flex dark:bg-secondary/20">
-        <div className="absolute inset-0 bg-linear-to-b from-transparent via-transparent to-background" />
+    <main className="auth-page relative bg-[#030303] text-[#f3eee6] md:h-screen md:overflow-hidden lg:grid lg:grid-cols-2">
+      <div className="relative hidden h-full flex-col border-r border-[#c78359]/12 bg-[#120d0a] p-10 lg:flex">
+        <div className="absolute inset-0 bg-linear-to-b from-transparent via-transparent to-[#030303]" />
         <div className="flex items-center gap-2 mr-auto">
-          <Logo className="h-4.5 w-auto" />
-          <span className="font-bold text-sm tracking-tight text-foreground">OPE Club</span>
+          <Logo className="text-[26px] text-[#f3eee6]" />
         </div>
 
         <div className="z-10 mt-auto">
           <blockquote className="space-y-2">
-            <p className="text-xl">
+            <p className="text-xl text-[#d8cfc3]">
               &ldquo;A leitura não acaba quando você fecha o livro.
               Ela continua nas conversas.&rdquo;
             </p>
-            <footer className="font-mono font-semibold text-sm">
+            <footer className="font-mono font-semibold text-sm text-[#c78359]">
               ~ OPE Club
             </footer>
           </blockquote>
@@ -94,7 +93,7 @@ export function AuthPage() {
         </div>
       </div>
 
-      <div className="relative flex min-h-screen flex-col justify-center px-6 sm:px-8">
+      <div className="relative flex min-h-screen flex-col justify-center bg-[#030303] px-6 sm:px-8">
         <div
           aria-hidden
           className="absolute inset-0 isolate -z-10 opacity-60 contain-strict"
@@ -106,21 +105,20 @@ export function AuthPage() {
 
         <Link
           to="/"
-          className="absolute top-7 left-5 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[50px] text-sm text-muted-foreground hover:text-foreground transition-colors"
+          className="absolute top-7 left-5 inline-flex items-center gap-1.5 rounded-[50px] border border-[#c78359]/20 px-3 py-1.5 text-sm text-[#b8aca0] transition-colors hover:text-[#c78359]"
         >
           <ChevronLeftIcon className="size-4" />Início
         </Link>
 
         <div className="mx-auto w-full max-w-sm space-y-4">
           <div className="flex items-center gap-2 lg:hidden">
-            <Logo className="h-4.5 w-auto" />
-            <span className="font-bold text-sm tracking-tight text-foreground">OPE Club</span>
+            <Logo className="text-[26px] text-[#f3eee6]" />
           </div>
           <div className="flex flex-col space-y-1">
-            <h1 className="font-bold text-2xl tracking-wide">
+            <h1 className="font-bold text-2xl tracking-wide text-[#f3eee6]">
               {mode === "login" ? "Entrar" : "Criar conta"}
             </h1>
-            <p className="text-base text-muted-foreground">
+            <p className="text-base text-[#b8aca0]">
               {mode === "login"
                 ? "Acesse sua biblioteca e comunidade."
                 : "Crie sua conta no OPE Club."}
@@ -128,7 +126,7 @@ export function AuthPage() {
           </div>
 
           <form className="space-y-3" onSubmit={handleSubmit}>
-            <p className="text-start text-muted-foreground text-xs">
+            <p className="text-start text-xs text-[#9f9083]">
               {mode === "login"
                 ? "Digite seu email e senha para entrar"
                 : "Preencha os dados para criar sua conta"}
@@ -173,12 +171,12 @@ export function AuthPage() {
             </InputGroup>
 
             {error && (
-              <p className={`text-xs ${error.includes("criada") ? "text-green-500" : "text-red-500"}`}>
+              <p className={`text-xs ${error.includes("criada") ? "text-[#c78359]" : "text-red-500"}`}>
                 {error}
               </p>
             )}
 
-            <Button className="w-full" type="submit" disabled={loading}>
+            <Button className="w-full bg-[linear-gradient(135deg,#8a5535,#2a1a13)] text-[#fff7ee] hover:bg-[linear-gradient(135deg,#9b6240,#352017)]" type="submit" disabled={loading}>
               {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
             </Button>
           </form>
@@ -189,7 +187,7 @@ export function AuthPage() {
                 setMode(mode === "login" ? "signup" : "login");
                 setError("");
               }}
-              className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors"
+              className="text-sm text-[#b8aca0] underline underline-offset-4 transition-colors hover:text-[#c78359]"
             >
               {mode === "login"
                 ? "Não tem conta? Criar conta"
@@ -197,13 +195,13 @@ export function AuthPage() {
             </button>
           </div>
 
-          <p className="mt-8 text-muted-foreground text-sm text-center">
+          <p className="mt-8 text-center text-sm text-[#9f9083]">
             Ao continuar, você concorda com nossos{" "}
-            <a className="underline underline-offset-4 hover:text-primary" href="#">
+            <a className="underline underline-offset-4 hover:text-[#c78359]" href="#">
               Termos de Serviço
             </a>{" "}
             e{" "}
-            <a className="underline underline-offset-4 hover:text-primary" href="#">
+            <a className="underline underline-offset-4 hover:text-[#c78359]" href="#">
               Política de Privacidade
             </a>.
           </p>
