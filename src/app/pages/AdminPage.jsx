@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { ChevronLeft, Plus, Trash2, Edit3, X, Check, Crown, BookOpen, Users, MessageSquare, FileText, ShieldAlert } from "lucide-react";
 
 const tabs = [
+  { id: "users", label: "Usuários", icon: Users },
   { id: "subscriptions", label: "Assinaturas", icon: Crown },
   { id: "posts", label: "Posts", icon: MessageSquare },
   { id: "books", label: "Livros", icon: BookOpen },
@@ -37,11 +38,10 @@ function SubscriptionsTab() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[var(--border)] text-left text-xs text-[var(--text-muted)] uppercase tracking-wider">
-              <th className="pb-3 pr-4 font-medium">Nome</th>
               <th className="pb-3 pr-4 font-medium">Email</th>
               <th className="pb-3 pr-4 font-medium">Plano</th>
-              <th className="pb-3 pr-4 font-medium">Valor</th>
-              <th className="pb-3 pr-4 font-medium">Desde</th>
+              <th className="pb-3 pr-4 font-medium">Origem</th>
+              <th className="pb-3 pr-4 font-medium">Expira em</th>
               <th className="pb-3 pr-4 font-medium">Status</th>
               <th className="pb-3 font-medium"></th>
             </tr>
@@ -49,11 +49,12 @@ function SubscriptionsTab() {
           <tbody>
             {subscriptions.map(s => (
               <tr key={s.id} className="border-b border-[var(--border)] hover:bg-[var(--hover-overlay)] transition-colors">
-                <td className="py-3 pr-4 text-[var(--text-primary)] font-medium">{s.name}</td>
-                <td className="py-3 pr-4 text-[var(--text-secondary)]">{s.email}</td>
-                <td className="py-3 pr-4 text-[var(--text-primary)]">{s.plan}</td>
-                <td className="py-3 pr-4 text-[var(--text-primary)]">{s.value}</td>
-                <td className="py-3 pr-4 text-[var(--text-secondary)]">{s.since}</td>
+                <td className="py-3 pr-4 text-[var(--text-secondary)]">{s.customer_email || s.email || "Sem email"}</td>
+                <td className="py-3 pr-4 text-[var(--text-primary)]">{s.plan || "OPE Club"}</td>
+                <td className="py-3 pr-4 text-[var(--text-primary)]">{s.provider || "manual"}</td>
+                <td className="py-3 pr-4 text-[var(--text-secondary)]">
+                  {s.current_period_end ? new Date(s.current_period_end).toLocaleDateString("pt-BR") : "-"}
+                </td>
                 <td className="py-3 pr-4">
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                     s.status === "active" ? "bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]" : "bg-red-500/10 text-red-400"
@@ -71,6 +72,121 @@ function SubscriptionsTab() {
                 </td>
               </tr>
             ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function UsersTab() {
+  const { profiles, subscriptions, upsertUserSubscription, removeUserSubscription } = useData();
+  const [durationByUser, setDurationByUser] = useState({});
+  const [savingUser, setSavingUser] = useState(null);
+
+  const getSub = (userId) => subscriptions.find((sub) => sub.user_id === userId);
+
+  async function activate(profile) {
+    setSavingUser(profile.id);
+    await upsertUserSubscription({
+      userId: profile.id,
+      email: profile.email,
+      plan: "ope_club_monthly",
+      status: "active",
+      durationDays: durationByUser[profile.id] || 30,
+    });
+    setSavingUser(null);
+  }
+
+  async function remove(profile) {
+    setSavingUser(profile.id);
+    await removeUserSubscription(profile.id);
+    setSavingUser(null);
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-[var(--text-secondary)]">{profiles.length} usuários cadastrados</p>
+      </div>
+
+      <div className="overflow-x-auto rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)]">
+        <table className="w-full min-w-[760px] text-sm">
+          <thead>
+            <tr className="border-b border-[var(--border)] text-left text-xs uppercase tracking-wider text-[var(--text-muted)]">
+              <th className="px-4 py-3 font-medium">Usuário</th>
+              <th className="px-4 py-3 font-medium">Email</th>
+              <th className="px-4 py-3 font-medium">Cargo</th>
+              <th className="px-4 py-3 font-medium">Plano</th>
+              <th className="px-4 py-3 font-medium">Expira em</th>
+              <th className="px-4 py-3 font-medium">Duração</th>
+              <th className="px-4 py-3 font-medium"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {profiles.map((profile) => {
+              const sub = getSub(profile.id);
+              const active = sub?.status === "active" || sub?.status === "past_due";
+              return (
+                <tr key={profile.id} className="border-b border-[var(--border)] last:border-b-0">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--hover-overlay)] text-xs font-bold text-[var(--text-primary)]">
+                        {profile.avatar?.startsWith("data:") || profile.avatar?.startsWith("http") ? (
+                          <img src={profile.avatar} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          profile.avatar || profile.name?.charAt(0) || "U"
+                        )}
+                      </div>
+                      <span className="font-medium text-[var(--text-primary)]">{profile.name || "Sem nome"}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-[var(--text-secondary)]">{profile.email || "Sem email"}</td>
+                  <td className="px-4 py-3 text-[var(--text-secondary)]">{profile.role || "user"}</td>
+                  <td className="px-4 py-3">
+                    <span className={`rounded-full px-2 py-0.5 text-xs ${active ? "bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]" : "bg-[var(--hover-overlay)] text-[var(--text-muted)]"}`}>
+                      {active ? "Ativo" : sub?.status || "Sem plano"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-[var(--text-secondary)]">
+                    {sub?.current_period_end ? new Date(sub.current_period_end).toLocaleDateString("pt-BR") : "-"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <select
+                      value={durationByUser[profile.id] || 30}
+                      onChange={(e) => setDurationByUser((prev) => ({ ...prev, [profile.id]: Number(e.target.value) }))}
+                      className="rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1 text-xs text-[var(--text-primary)]"
+                    >
+                      <option value={7}>7 dias</option>
+                      <option value={30}>30 dias</option>
+                      <option value={90}>90 dias</option>
+                      <option value={180}>180 dias</option>
+                      <option value={365}>365 dias</option>
+                    </select>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => activate(profile)}
+                        disabled={savingUser === profile.id}
+                        className="rounded-full bg-[var(--text-primary)] px-3 py-1.5 text-xs font-medium text-[var(--bg-card)] disabled:opacity-50"
+                      >
+                        {active ? "Renovar" : "Adicionar plano"}
+                      </button>
+                      {sub && (
+                        <button
+                          onClick={() => remove(profile)}
+                          disabled={savingUser === profile.id}
+                          className="rounded-full border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-red-400 disabled:opacity-50"
+                        >
+                          Remover
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -348,7 +464,7 @@ function AuthorsTab() {
 
 export function AdminPage() {
   const { isAdmin, user } = useAuth();
-  const [activeTab, setActiveTab] = useState("subscriptions");
+  const [activeTab, setActiveTab] = useState("users");
 
   const TabIcon = tabs.find(t => t.id === activeTab)?.icon || Crown;
 
@@ -368,7 +484,7 @@ export function AdminPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)]">Admin</h1>
-        <p className="text-sm text-[var(--text-muted)] mt-1">Gerencie assinaturas, posts, livros e autores.</p>
+        <p className="text-sm text-[var(--text-muted)] mt-1">Gerencie usuários, assinaturas, posts, livros e autores.</p>
       </div>
 
       <div className="flex gap-1 overflow-x-auto pb-1 border-b border-[var(--border)]" style={{ scrollbarWidth: "none" }}>
@@ -388,6 +504,7 @@ export function AdminPage() {
       </div>
 
       <div>
+        {activeTab === "users" && <UsersTab />}
         {activeTab === "subscriptions" && <SubscriptionsTab />}
         {activeTab === "posts" && <PostsTab />}
         {activeTab === "books" && <BooksTab />}

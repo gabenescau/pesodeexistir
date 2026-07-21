@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { MobileNav } from "@/components/mobile-nav";
 import { Logo } from "@/components/logo";
 import { useTheme } from "@/components/theme-provider";
+import { useAuth } from "@/app/data/AuthContext";
 import { MoonIcon, SunIcon } from "lucide-react";
 
 export const navLinks = [
@@ -15,6 +16,9 @@ export const navLinks = [
 
 export function Header() {
   const { theme, toggle } = useTheme();
+  const { isAuthenticated } = useAuth();
+  const ctaLabel = isAuthenticated ? "Acessar" : "Assinar";
+  const ctaTo = isAuthenticated ? "/app/inicio" : "/entrar";
 
   return (
     <header className="landing-header absolute inset-x-0 top-0 z-50 px-4 pt-4 sm:px-6 lg:px-8">
@@ -48,9 +52,9 @@ export function Header() {
           </button>
           <Link
             className="rounded-full bg-[#d08a5d] px-5 py-2.5 text-[11px] font-[600] uppercase tracking-[0.2em] text-[#090705] transition hover:bg-[#e1a073]"
-            to="/entrar"
+            to={ctaTo}
           >
-            Assinar
+            {ctaLabel}
           </Link>
         </div>
         <MobileNav />

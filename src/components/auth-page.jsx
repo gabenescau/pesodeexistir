@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +15,7 @@ import { getSupabaseErrorMessage } from "@/lib/supabase-error";
 
 export function AuthPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -39,7 +40,7 @@ export function AuthPage() {
           throw new Error("Digite sua senha.");
         }
         await login(email.trim(), password);
-        navigate("/app/inicio");
+        navigate(location.state?.from?.pathname || "/app/inicio", { replace: true });
       } else {
         if (!password || password.length < 6) {
           throw new Error("A senha deve ter no mínimo 6 caracteres");

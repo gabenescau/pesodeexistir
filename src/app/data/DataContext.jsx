@@ -12,6 +12,7 @@ export function DataProvider({ children }) {
   const [posts, setPosts] = useState([]);
   const [subscription, setSubscription] = useState(null);
   const [subscriptions, setSubscriptions] = useState([]);
+  const [profiles, setProfiles] = useState([]);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -29,11 +30,12 @@ export function DataProvider({ children }) {
       const { data: authData } = await supabase.auth.getUser();
       const currentUserId = authData?.user?.id;
 
-      const [booksRes, authorsRes, postsRes, subsRes] = await Promise.all([
+      const [booksRes, authorsRes, postsRes, subsRes, profilesRes] = await Promise.all([
         supabase.from("books").select("*, authors(name)").order("created_at", { ascending: false }),
         supabase.from("authors").select("*").order("name"),
         supabase.from("posts").select("*").order("created_at", { ascending: false }),
-        supabase.from("subscriptions").select("*").order("started_at", { ascending: false }),
+        supabase.from("subscriptions").select("*").order("created_at", { ascending: false }),
+        supabase.from("profiles").select("*").order("created_at", { ascending: false }),
       ]);
 
       if (!booksRes.error) setBooks(booksRes.data.map(b => ({ ...b, authorName: b.authors?.name || "", author: b.authors?.name || "" })));
@@ -61,6 +63,9 @@ export function DataProvider({ children }) {
         setSubscriptions([]);
         setSubscription(null);
       }
+
+      if (!profilesRes.error) setProfiles(profilesRes.data || []);
+      else setProfiles([]);
 
       setLoading(false);
     }
@@ -180,6 +185,68 @@ export function DataProvider({ children }) {
     setSubscription(prev => prev && prev.id === id ? { ...prev, status: "canceled" } : prev);
   }, [isSupabase]);
 
+  const upsertUserSubscription = useCallback(async ({ userId, email, plan = "ope_club_monthly", status = "active", durationDays = 30 }) => {
+    if (!isSupabase || !userId) return null;
+
+    const now = new Date();
+    const end = new Date(now);
+    end.setDate(end.getDate() + Number(durationDays || 30));
+
+    const payload = {
+      user_id: userId,
+      customer_email: email || "",
+      plan,
+      status,
+      current_period_start: now.toISOString(),
+      current_period_end: end.toISOString(),
+      provider: "manual_admin",
+      metadata: { source: "admin_panel", duration_days: Number(durationDays || 30) },
+      updated_at: now.toISOString(),
+    };
+
+    const existing = subscriptions.find((sub) => sub.user_id === userId);
+    const query = existing
+      ? supabase.from("subscriptions").update(payload).eq("id", existing.id).select().single()
+      : supabase.from("subscriptions").insert(payload).select().single();
+
+    const { data, error } = await query;
+    if (error) {
+      console.error("Erro ao salvar assinatura:", error.message);
+      return null;
+    }
+
+    setSubscriptions((prev) => {
+      const others = prev.filter((sub) => sub.id !== data.id && sub.user_id !== userId);
+      return [data, ...others];
+    });
+    setSubscription((prev) => prev?.user_id === userId ? data : prev);
+    return data;
+  }, [isSupabase, subscriptions]);
+
+  const removeUserSubscription = useCallback(async (userId) => {
+    if (!isSupabase || !userId) return;
+    const existing = subscriptions.find((sub) => sub.user_id === userId);
+    if (!existing) return;
+
+    const { error } = await supabase
+      .from("subscriptions")
+      .update({
+        status: "canceled",
+        canceled_at: new Date().toISOString(),
+        cancel_at_period_end: false,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existing.id);
+
+    if (error) {
+      console.error("Erro ao remover plano:", error.message);
+      return;
+    }
+
+    setSubscriptions((prev) => prev.map((sub) => sub.id === existing.id ? { ...sub, status: "canceled" } : sub));
+    setSubscription((prev) => prev?.id === existing.id ? { ...prev, status: "canceled" } : prev);
+  }, [isSupabase, subscriptions]);
+
   // HELPERS
   const getBooksByAuthor = useCallback((authorId) => {
     return books.filter(b => (b.author_id || b.authorId) === authorId);
@@ -195,11 +262,12 @@ export function DataProvider({ children }) {
 
   return (
     <DataContext.Provider value={{
-      books, authors, posts, subscription, subscriptions, profile, loading,
+      books, authors, posts, subscription, subscriptions, profiles, profile, loading,
       addBook, updateBook, deleteBook,
       addAuthor, updateAuthor, deleteAuthor,
       addPost, deletePost,
       cancelSubscription,
+      upsertUserSubscription, removeUserSubscription,
       getBooksByAuthor, getAuthorById, getBookById,
     }}>
       {children}

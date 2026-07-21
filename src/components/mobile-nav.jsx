@@ -5,11 +5,15 @@ import { Portal } from "@/components/portal";
 import { navLinks } from "@/components/header";
 import { Logo } from "@/components/logo";
 import { useTheme } from "@/components/theme-provider";
+import { useAuth } from "@/app/data/AuthContext";
 import { XIcon, MenuIcon, ArrowRightIcon, MoonIcon, SunIcon } from "lucide-react";
 
 export function MobileNav() {
   const [open, setOpen] = React.useState(false);
   const { theme, toggle } = useTheme();
+  const { isAuthenticated } = useAuth();
+  const ctaLabel = isAuthenticated ? "Acessar" : "Assinar";
+  const ctaTo = isAuthenticated ? "/app/inicio" : "/entrar";
 
   React.useEffect(() => {
     document.documentElement.classList.toggle("mobile-menu-open", open);
@@ -84,16 +88,16 @@ export function MobileNav() {
                 <Link
                   className="mobile-menu-ghost flex h-12 items-center justify-center rounded-full border border-[#c78359]/25 text-[12px] font-[600] uppercase tracking-[0.22em] text-[#d8cfc3]"
                   onClick={() => setOpen(false)}
-                  to="/entrar"
+                  to={isAuthenticated ? "/app/inicio" : "/entrar"}
                 >
-                  Entrar
+                  {isAuthenticated ? "Ir para o app" : "Entrar"}
                 </Link>
                 <Link
                   className="mobile-menu-cta flex h-12 items-center justify-center rounded-full bg-[#c78359] text-[12px] font-[700] uppercase tracking-[0.22em] text-[#111111]"
                   onClick={() => setOpen(false)}
-                  to="/entrar"
+                  to={ctaTo}
                 >
-                  Assinar
+                  {ctaLabel}
                 </Link>
               </div>
             </div>
