@@ -7,6 +7,8 @@ import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
 import { supabase, isSupabaseReady } from "@/app/data/supabase";
 
+const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
+
 function Card({ className, children, ...props }) {
   return (
     <div
@@ -33,6 +35,9 @@ export function ProfilePage() {
   const [editBio, setEditBio] = useState(profile.bio);
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [avatarBroken, setAvatarBroken] = useState(false);
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const achievements = [];
   const readingStats = [];
@@ -47,19 +52,59 @@ export function ProfilePage() {
 
   const handleAvatarChange = (e) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setAvatarBroken(false);
-      const reader = new FileReader();
-      reader.onload = (event) => setAvatarPreview(event.target.result);
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    if (file.size > MAX_AVATAR_BYTES) {
+      setSaveError("A imagem precisa ter no máximo 2 MB.");
+      e.target.value = "";
+      return;
     }
+
+    setSaveError("");
+    setAvatarBroken(false);
+    setAvatarFile(file);
+
+    // O data URL serve apenas como pré-visualização na tela. Ele nunca é
+    // persistido: quem vai para o banco é a URL do arquivo no Storage.
+    const reader = new FileReader();
+    reader.onload = (event) => setAvatarPreview(event.target.result);
+    reader.readAsDataURL(file);
   };
 
   const saveProfile = async () => {
-    const nextProfile = { ...profile, name: editName, bio: editBio, avatar: avatarPreview || profile.avatar };
+    if (!isSupabaseReady() || !user?.id) {
+      setProfile({ ...profile, name: editName, bio: editBio, avatar: avatarPreview || profile.avatar });
+      setEditing(false);
+      return;
+    }
 
-    if (isSupabaseReady() && user?.id) {
-      await supabase.from("profiles").upsert({
+    setSaving(true);
+    setSaveError("");
+
+    try {
+      let avatarUrl = profile.avatar;
+
+      if (avatarFile) {
+        const ext = (avatarFile.name.split(".").pop() || "png").toLowerCase();
+        const filePath = `${user.id}/${Date.now()}.${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("avatars")
+          .upload(filePath, avatarFile, {
+            cacheControl: "3600",
+            contentType: avatarFile.type || "image/png",
+            upsert: true,
+          });
+
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage.from("avatars").getPublicUrl(filePath);
+        avatarUrl = data.publicUrl;
+      }
+
+      const nextProfile = { ...profile, name: editName, bio: editBio, avatar: avatarUrl };
+
+      const { error: profileError } = await supabase.from("profiles").upsert({
         id: user.id,
         email: user.email,
         name: nextProfile.name,
@@ -67,21 +112,34 @@ export function ProfilePage() {
         avatar: nextProfile.avatar,
       });
 
-      await supabase.auth.updateUser({
-        data: {
-          name: nextProfile.name,
-          avatar_url: nextProfile.avatar,
-        },
-      });
-    }
+      if (profileError) throw profileError;
 
-    setProfile(nextProfile);
-    setEditing(false);
+      // Apenas o nome vai para o user_metadata: ele é embutido em todo JWT.
+      // Guardar imagem aqui estoura o limite de header do HTTP/2 e derruba
+      // todas as requisições autenticadas.
+      const { error: authError } = await supabase.auth.updateUser({
+        data: { name: nextProfile.name },
+      });
+
+      if (authError) throw authError;
+
+      setProfile(nextProfile);
+      setAvatarFile(null);
+      setAvatarPreview(null);
+      setEditing(false);
+    } catch (err) {
+      setSaveError(err?.message || "Não foi possível salvar o perfil.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const cancelEdit = () => {
     setEditName(profile.name);
     setEditBio(profile.bio);
+    setAvatarFile(null);
+    setAvatarPreview(null);
+    setSaveError("");
     setEditing(false);
   };
 
@@ -122,11 +180,14 @@ export function ProfilePage() {
                   rows={3}
                   className="w-full bg-[var(--bg-canvas)] border border-[var(--border)] rounded-[6px] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-none focus:border-[var(--border-strong)] transition-colors resize-none"
                 />
+                {saveError && (
+                  <p className="text-sm" style={{ color: "var(--text-danger, #ef4444)" }}>{saveError}</p>
+                )}
                 <div className="flex gap-2 pt-1 justify-center sm:justify-start">
-                  <button onClick={saveProfile} className="px-5 py-2 rounded-[100px] bg-[var(--text-primary)] text-[var(--bg-card)] text-sm font-medium hover:opacity-90 transition-all">
-                    Salvar
+                  <button onClick={saveProfile} disabled={saving} className="px-5 py-2 rounded-[100px] bg-[var(--text-primary)] text-[var(--bg-card)] text-sm font-medium hover:opacity-90 transition-all disabled:opacity-60">
+                    {saving ? "Salvando..." : "Salvar"}
                   </button>
-                  <button onClick={cancelEdit} className="px-5 py-2 rounded-[100px] border border-[var(--border)] text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-strong)] transition-all">
+                  <button onClick={cancelEdit} disabled={saving} className="px-5 py-2 rounded-[100px] border border-[var(--border)] text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-strong)] transition-all disabled:opacity-60">
                     Cancelar
                   </button>
                 </div>
