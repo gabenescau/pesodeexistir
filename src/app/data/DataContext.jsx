@@ -73,12 +73,21 @@ export function DataProvider({ children }) {
               "carregar assinatura atual"
             )
           : { data: [], error: null };
+      // Admin precisa da tabela inteira (email, role, gestao de assinaturas).
+      // Usuario comum le a view public_profiles, que expoe so id/nome/avatar/bio
+      // de quem nao marcou o perfil como privado — e o suficiente para o feed
+      // mostrar o autor dos posts sem vazar email de ninguem.
       const profilesRes = isCurrentAdmin
         ? await runSupabaseQuery(
             () => supabase.from("profiles").select("*").order("created_at", { ascending: false }),
             "carregar perfis"
           )
-        : { data: currentProfile ? [currentProfile] : [], error: null };
+        : currentUserId
+          ? await runSupabaseQuery(
+              () => supabase.from("public_profiles").select("*"),
+              "carregar perfis publicos"
+            )
+          : { data: currentProfile ? [currentProfile] : [], error: null };
       const postsRes = currentUserId
         ? await runSupabaseQuery(
             () => supabase.from("posts").select("*").order("created_at", { ascending: false }),

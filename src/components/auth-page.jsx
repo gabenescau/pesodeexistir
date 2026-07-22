@@ -13,6 +13,9 @@ import { useAuth } from "@/app/data/AuthContext";
 import { supabase, isSupabaseReady } from "@/app/data/supabase";
 import { getSupabaseErrorMessage } from "@/lib/supabase-error";
 
+const MAX_AUTH_ATTEMPTS = 5;
+const AUTH_LOCKOUT_MS = 60 * 1000;
+
 export function AuthPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -23,10 +26,23 @@ export function AuthPage() {
   const [mode, setMode] = useState("login");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockedUntil, setLockedUntil] = useState(0);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+
+    // Trava local após tentativas seguidas. Isto é conveniência/anti-acidente:
+    // um atacante chama a API do Supabase direto e nem passa por aqui. A defesa
+    // real é o rate limit do lado do servidor (painel do Supabase → Auth →
+    // Rate Limits) e o CAPTCHA — veja o comentário no fim deste arquivo.
+    if (Date.now() < lockedUntil) {
+      const seconds = Math.ceil((lockedUntil - Date.now()) / 1000);
+      setError(`Muitas tentativas seguidas. Aguarde ${seconds}s e tente de novo.`);
+      return;
+    }
+
     if (!email.trim()) return;
     if (!isSupabaseReady()) {
       setError("Supabase não está configurado. Confira SUPABASE_URL e SUPABASE_ANON_KEY no Vercel ou use VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.");
@@ -80,8 +96,18 @@ export function AuthPage() {
         setPassword("");
         setError("Conta criada! Confirme seu email pela mensagem enviada pelo Supabase e depois faça login com sua senha.");
       }
+      setFailedAttempts(0);
     } catch (err) {
-      setError(getSupabaseErrorMessage(err));
+      const attempts = failedAttempts + 1;
+
+      if (attempts >= MAX_AUTH_ATTEMPTS) {
+        setFailedAttempts(0);
+        setLockedUntil(Date.now() + AUTH_LOCKOUT_MS);
+        setError("Muitas tentativas seguidas. Aguarde 1 minuto antes de tentar de novo.");
+      } else {
+        setFailedAttempts(attempts);
+        setError(getSupabaseErrorMessage(err));
+      }
     } finally {
       setLoading(false);
     }

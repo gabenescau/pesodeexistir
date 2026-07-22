@@ -8,6 +8,29 @@ interface WebhookPayload {
   secret: string;
 }
 
+// Comparar segredos com `!==` vaza informação por tempo: a comparação de
+// strings aborta no primeiro byte diferente, então um atacante consegue
+// descobrir o segredo caractere a caractere medindo a latência das respostas.
+// Comparamos os digests SHA-256 (sempre 32 bytes) em tempo constante, o que
+// também evita vazar o comprimento do segredo.
+async function secretsMatch(received: string, expected: string): Promise<boolean> {
+  const encoder = new TextEncoder();
+  const [a, b] = await Promise.all([
+    crypto.subtle.digest('SHA-256', encoder.encode(received)),
+    crypto.subtle.digest('SHA-256', encoder.encode(expected)),
+  ]);
+
+  const viewA = new Uint8Array(a);
+  const viewB = new Uint8Array(b);
+
+  let diff = 0;
+  for (let i = 0; i < viewA.length; i++) {
+    diff |= viewA[i] ^ viewB[i];
+  }
+
+  return diff === 0;
+}
+
 serve(async (req) => {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
@@ -26,7 +49,7 @@ serve(async (req) => {
     return new Response('Invalid JSON', { status: 400 });
   }
 
-  if (body.secret !== expectedSecret) {
+  if (!(await secretsMatch(body.secret ?? '', expectedSecret))) {
     return new Response('Unauthorized', { status: 401 });
   }
 

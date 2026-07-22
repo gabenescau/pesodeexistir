@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { CheckCircle2, Maximize2, Minus, NotebookPen, Plus, X } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
@@ -19,10 +19,37 @@ function base64ToBlobUrl(base64, mimeType = "application/pdf") {
   }
 }
 
-function resolvePdfUrl(pdfFile) {
+// O bucket `pdfs` e privado: a URL publica salva em books.pdf_url nao baixa
+// mais nada sozinha. Extraimos o caminho do objeto para pedir uma URL assinada,
+// que o Storage so emite se o RLS aprovar (assinante ativo ou admin).
+function extractPdfStoragePath(pdfFile) {
+  const marker = "/storage/v1/object/public/pdfs/";
+  const index = pdfFile.indexOf(marker);
+  if (index === -1) return null;
+  return decodeURIComponent(pdfFile.slice(index + marker.length));
+}
+
+const SIGNED_URL_TTL_SECONDS = 60 * 60;
+
+async function resolvePdfUrl(pdfFile) {
   if (!pdfFile) return null;
   if (pdfFile.startsWith("data:")) return base64ToBlobUrl(pdfFile.split(",")[1]);
-  if (pdfFile.startsWith("http") || pdfFile.startsWith("/")) return pdfFile;
+
+  if (pdfFile.startsWith("http") || pdfFile.startsWith("/")) {
+    const storagePath = isSupabaseReady() ? extractPdfStoragePath(pdfFile) : null;
+    if (!storagePath) return pdfFile;
+
+    const { data, error } = await supabase.storage
+      .from("pdfs")
+      .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
+
+    if (error || !data?.signedUrl) {
+      throw new Error("Você precisa de uma assinatura ativa para abrir este livro.");
+    }
+
+    return data.signedUrl;
+  }
+
   return base64ToBlobUrl(pdfFile);
 }
 
@@ -48,7 +75,29 @@ export function BookReaderPage() {
   const [noteText, setNoteText] = useState("");
   const [savingNote, setSavingNote] = useState(false);
 
-  const pdfUrl = useMemo(() => resolvePdfUrl(book?.pdfFile || book?.pdf_url), [book?.pdfFile, book?.pdf_url]);
+  const [pdfUrl, setPdfUrl] = useState(null);
+  const rawPdfFile = book?.pdfFile || book?.pdf_url;
+
+  // A URL assinada e pedida ao Storage a cada abertura e expira em 1h, entao
+  // ela nao pode ser compartilhada indefinidamente como a URL publica antiga.
+  useEffect(() => {
+    let active = true;
+    setPdfUrl(null);
+
+    if (!rawPdfFile) return;
+
+    resolvePdfUrl(rawPdfFile)
+      .then((url) => {
+        if (active) setPdfUrl(url);
+      })
+      .catch((err) => {
+        if (active) setError(err?.message || "Nao foi possivel abrir este livro.");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [rawPdfFile]);
   const progress = totalPages ? Math.round((page / totalPages) * 100) : Number(book?.progress || 0);
 
   useEffect(() => {
