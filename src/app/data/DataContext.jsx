@@ -14,6 +14,7 @@ export function DataProvider({ children }) {
   const [subscriptions, setSubscriptions] = useState([]);
   const [profiles, setProfiles] = useState([]);
   const [profile, setProfile] = useState(null);
+  const [weeklyReleases, setWeeklyReleases] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const isSupabase = isSupabaseReady();
@@ -29,16 +30,28 @@ export function DataProvider({ children }) {
     async function load() {
       const { data: authData } = await supabase.auth.getUser();
       const currentUserId = authData?.user?.id;
+      const currentProfileRes = currentUserId
+        ? await supabase.from("profiles").select("*").eq("id", currentUserId).maybeSingle()
+        : { data: null, error: null };
+      const currentProfile = currentProfileRes.error ? null : currentProfileRes.data;
+      const isCurrentAdmin = currentProfile?.role === "admin" || authData?.user?.app_metadata?.role === "admin";
 
-      const [booksRes, authorsRes, postsRes, subsRes, profilesRes, progressRes] = await Promise.all([
+      const [booksRes, authorsRes, postsRes, subsRes, profilesRes, progressRes, releasesRes] = await Promise.all([
         supabase.from("books").select("*, authors(name)").order("created_at", { ascending: false }),
         supabase.from("authors").select("*").order("name"),
         supabase.from("posts").select("*").order("created_at", { ascending: false }),
-        supabase.from("subscriptions").select("*").order("created_at", { ascending: false }),
-        supabase.from("profiles").select("*").order("created_at", { ascending: false }),
+        isCurrentAdmin
+          ? supabase.from("subscriptions").select("*").order("created_at", { ascending: false })
+          : currentUserId
+            ? supabase.from("subscriptions").select("*").eq("user_id", currentUserId).order("created_at", { ascending: false })
+            : Promise.resolve({ data: [], error: null }),
+        isCurrentAdmin
+          ? supabase.from("profiles").select("*").order("created_at", { ascending: false })
+          : Promise.resolve({ data: currentProfile ? [currentProfile] : [], error: null }),
         currentUserId
           ? supabase.from("reading_progress").select("*").eq("user_id", currentUserId)
           : Promise.resolve({ data: [], error: null }),
+        supabase.from("weekly_releases").select("*, books(*, authors(name))").order("release_date", { ascending: true }),
       ]);
 
       if (!booksRes.error) {
@@ -98,11 +111,14 @@ export function DataProvider({ children }) {
       if (!profilesRes.error) {
         const list = profilesRes.data || [];
         setProfiles(list);
-        setProfile(list.find((item) => item.id === currentUserId) || null);
+        setProfile(currentProfile || list.find((item) => item.id === currentUserId) || null);
       } else {
         setProfiles([]);
-        setProfile(null);
+        setProfile(currentProfile);
       }
+
+      if (!releasesRes.error) setWeeklyReleases(releasesRes.data || []);
+      else setWeeklyReleases([]);
 
       setLoading(false);
     }
@@ -331,6 +347,65 @@ export function DataProvider({ children }) {
     return data;
   }, [isSupabase, subscriptions]);
 
+  const updateUserSubscriptionDuration = useCallback(async ({ userId, durationDays = 30 }) => {
+    if (!isSupabase || !userId) return null;
+
+    const existing = subscriptions.find((sub) => sub.user_id === userId);
+    if (!existing) return null;
+
+    const now = new Date();
+    const end = new Date(now);
+    end.setDate(end.getDate() + Number(durationDays || 30));
+
+    const payload = {
+      current_period_start: existing.current_period_start || now.toISOString(),
+      current_period_end: end.toISOString(),
+      metadata: {
+        ...(existing.metadata || {}),
+        source: existing.provider || "manual_admin",
+        duration_days: Number(durationDays || 30),
+      },
+      updated_at: now.toISOString(),
+    };
+
+    const { data, error } = await supabase
+      .from("subscriptions")
+      .update(payload)
+      .eq("id", existing.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    setSubscriptions((prev) => prev.map((sub) => sub.id === data.id ? data : sub));
+    setSubscription((prev) => prev?.id === data.id ? data : prev);
+    return data;
+  }, [isSupabase, subscriptions]);
+
+  const addWeeklyRelease = useCallback(async ({ bookId, releaseDate, note }) => {
+    if (!isSupabase) return null;
+    const { data, error } = await supabase
+      .from("weekly_releases")
+      .insert({
+        book_id: bookId,
+        release_date: releaseDate,
+        note: note || "",
+      })
+      .select("*, books(*, authors(name))")
+      .single();
+
+    if (error) throw error;
+    setWeeklyReleases((prev) => [...prev, data].sort((a, b) => new Date(a.release_date) - new Date(b.release_date)));
+    return data;
+  }, [isSupabase]);
+
+  const deleteWeeklyRelease = useCallback(async (id) => {
+    if (!isSupabase || !id) return;
+    const { error } = await supabase.from("weekly_releases").delete().eq("id", id);
+    if (error) throw error;
+    setWeeklyReleases((prev) => prev.filter((item) => item.id !== id));
+  }, [isSupabase]);
+
   const removeUserSubscription = useCallback(async (userId) => {
     if (!isSupabase || !userId) return;
     const existing = subscriptions.find((sub) => sub.user_id === userId);
@@ -392,12 +467,13 @@ export function DataProvider({ children }) {
 
   return (
     <DataContext.Provider value={{
-      books, authors, posts, subscription, subscriptions, profiles, profile, loading,
+      books, authors, posts, subscription, subscriptions, profiles, profile, weeklyReleases, loading,
       addBook, updateBook, deleteBook, markBookCompleted, updateReadingProgress,
       addAuthor, updateAuthor, deleteAuthor,
       addPost, deletePost,
       cancelSubscription,
-      upsertUserSubscription, removeUserSubscription,
+      upsertUserSubscription, updateUserSubscriptionDuration, removeUserSubscription,
+      addWeeklyRelease, deleteWeeklyRelease,
       updateProfilePreferences,
       getBooksByAuthor, getAuthorById, getBookById,
     }}>

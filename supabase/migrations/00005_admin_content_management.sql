@@ -86,6 +86,83 @@ alter table public.reading_progress
 
 grant select, insert, update on public.reading_progress to authenticated;
 
+create table if not exists public.book_notes (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  book_id uuid references public.books(id) on delete cascade not null,
+  page_number integer not null default 1,
+  note text not null,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+alter table public.book_notes enable row level security;
+
+drop policy if exists "book_notes_select_own" on public.book_notes;
+drop policy if exists "book_notes_insert_own" on public.book_notes;
+drop policy if exists "book_notes_update_own" on public.book_notes;
+drop policy if exists "book_notes_delete_own" on public.book_notes;
+
+create policy "book_notes_select_own" on public.book_notes
+  for select to authenticated
+  using (auth.uid() = user_id);
+
+create policy "book_notes_insert_own" on public.book_notes
+  for insert to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "book_notes_update_own" on public.book_notes
+  for update to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "book_notes_delete_own" on public.book_notes
+  for delete to authenticated
+  using (auth.uid() = user_id);
+
+grant select, insert, update, delete on public.book_notes to authenticated;
+
+create index if not exists idx_book_notes_user_book on public.book_notes(user_id, book_id, page_number);
+
+create table if not exists public.weekly_releases (
+  id uuid default gen_random_uuid() primary key,
+  book_id uuid references public.books(id) on delete cascade not null,
+  release_date date not null,
+  note text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (book_id, release_date)
+);
+
+alter table public.weekly_releases enable row level security;
+
+drop policy if exists "weekly_releases_select_authenticated" on public.weekly_releases;
+drop policy if exists "weekly_releases_insert_admin" on public.weekly_releases;
+drop policy if exists "weekly_releases_update_admin" on public.weekly_releases;
+drop policy if exists "weekly_releases_delete_admin" on public.weekly_releases;
+
+create policy "weekly_releases_select_authenticated" on public.weekly_releases
+  for select to authenticated
+  using (true);
+
+create policy "weekly_releases_insert_admin" on public.weekly_releases
+  for insert to authenticated
+  with check (public.is_admin());
+
+create policy "weekly_releases_update_admin" on public.weekly_releases
+  for update to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+create policy "weekly_releases_delete_admin" on public.weekly_releases
+  for delete to authenticated
+  using (public.is_admin());
+
+grant select on public.weekly_releases to authenticated;
+grant insert, update, delete on public.weekly_releases to authenticated;
+
+create index if not exists idx_weekly_releases_release_date on public.weekly_releases(release_date);
+
 insert into storage.buckets (id, name, public)
 values ('pdfs', 'pdfs', true)
 on conflict (id) do update

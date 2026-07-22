@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { CheckCircle2, Maximize2, Minus, Plus, X } from "lucide-react";
+import { CheckCircle2, Maximize2, Minus, NotebookPen, Plus, X } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { useData } from "../data/DataContext";
+import { supabase, isSupabaseReady } from "../data/supabase";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
@@ -42,6 +43,10 @@ export function BookReaderPage() {
   const [zoom, setZoom] = useState(100);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [notes, setNotes] = useState([]);
+  const [noteText, setNoteText] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
 
   const pdfUrl = useMemo(() => resolvePdfUrl(book?.pdfFile || book?.pdf_url), [book?.pdfFile, book?.pdf_url]);
   const progress = totalPages ? Math.round((page / totalPages) * 100) : Number(book?.progress || 0);
@@ -83,7 +88,7 @@ export function BookReaderPage() {
       cancelled = true;
       renderTaskRef.current?.cancel?.();
     };
-  }, [pdfUrl, book?.currentPage]);
+  }, [pdfUrl]);
 
   useEffect(() => {
     let cancelled = false;
@@ -164,6 +169,66 @@ export function BookReaderPage() {
       document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [book?.id, page, totalPages, updateReadingProgress]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadNotes() {
+      if (!isSupabaseReady() || !book?.id) {
+        setNotes([]);
+        return;
+      }
+
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData?.user?.id;
+      if (!userId) return;
+
+      const { data, error: notesError } = await supabase
+        .from("book_notes")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("book_id", book.id)
+        .order("created_at", { ascending: false });
+
+      if (!cancelled && !notesError) setNotes(data || []);
+    }
+
+    loadNotes();
+    return () => {
+      cancelled = true;
+    };
+  }, [book?.id]);
+
+  async function saveNote() {
+    if (!noteText.trim() || !book?.id || savingNote) return;
+    setSavingNote(true);
+
+    try {
+      if (!isSupabaseReady()) throw new Error("Supabase não configurado.");
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData?.user?.id;
+      if (!userId) throw new Error("Você precisa estar logado.");
+
+      const payload = {
+        user_id: userId,
+        book_id: book.id,
+        page_number: page,
+        note: noteText.trim(),
+      };
+
+      const { data, error: insertError } = await supabase
+        .from("book_notes")
+        .insert(payload)
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+      setNotes((current) => [data, ...current]);
+      setNoteText("");
+    } finally {
+      setSavingNote(false);
+    }
+  }
 
   function goNextPage() {
     setPage((value) => Math.min(totalPages || value + 1, value + 1));
@@ -263,6 +328,13 @@ export function BookReaderPage() {
             <CheckCircle2 className="size-4" />
             <span className="hidden md:inline">{Number(book.progress || 0) >= 100 ? "Concluído" : "Concluir"}</span>
           </button>
+          <button
+            onClick={() => setNotesOpen((value) => !value)}
+            className="flex h-9 items-center gap-1 rounded-full border border-[var(--border)] px-3 text-xs text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"
+          >
+            <NotebookPen className="size-4" />
+            <span className="hidden md:inline">Notas</span>
+          </button>
         </div>
       </header>
 
@@ -273,6 +345,41 @@ export function BookReaderPage() {
         onPointerUp={handlePointerUp}
         className="min-h-0 flex-1 touch-pan-y select-none overflow-auto bg-[var(--bg-canvas)] p-3 sm:p-6"
       >
+        {notesOpen && (
+          <aside className="mx-auto mb-3 max-w-3xl rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-3 shadow-[var(--shadow-sm)]">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-sm font-semibold text-[var(--text-primary)]">Anotações do livro</p>
+              <span className="text-xs text-[var(--text-muted)]">Página {page}</span>
+            </div>
+            <div className="flex gap-2">
+              <textarea
+                value={noteText}
+                onChange={(event) => setNoteText(event.target.value)}
+                rows={2}
+                placeholder="Escreva uma anotação sobre esta página..."
+                className="min-w-0 flex-1 resize-none rounded-lg border border-[var(--border)] bg-[var(--bg-canvas)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-placeholder)]"
+              />
+              <button
+                onClick={saveNote}
+                disabled={!noteText.trim() || savingNote}
+                className="self-end rounded-full bg-[var(--text-primary)] px-4 py-2 text-sm font-medium text-[var(--bg-card)] disabled:opacity-50"
+              >
+                Salvar
+              </button>
+            </div>
+            {notes.length > 0 && (
+              <div className="mt-3 max-h-44 space-y-2 overflow-y-auto">
+                {notes.map((note) => (
+                  <div key={note.id} className="rounded-lg border border-[var(--border)] bg-[var(--hover-overlay)] px-3 py-2">
+                    <p className="text-[11px] uppercase tracking-[0.4px] text-[var(--text-muted)]">Página {note.page_number}</p>
+                    <p className="mt-1 text-sm text-[var(--text-secondary)]">{note.note}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </aside>
+        )}
+
         {loading && (
           <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
             Carregando livro...

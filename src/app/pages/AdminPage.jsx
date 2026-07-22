@@ -3,12 +3,13 @@ import { useAuth } from "../data/AuthContext";
 import { useData } from "../data/DataContext";
 import { supabase, isSupabaseReady } from "../data/supabase";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, Plus, Trash2, Edit3, X, Check, Crown, BookOpen, Users, MessageSquare, FileText, ShieldAlert } from "lucide-react";
+import { ChevronLeft, Plus, Trash2, Edit3, X, Check, Crown, BookOpen, Users, MessageSquare, FileText, ShieldAlert, Sparkles } from "lucide-react";
 
 const tabs = [
   { id: "users", label: "Usuários", icon: Users },
   { id: "subscriptions", label: "Assinaturas", icon: Crown },
   { id: "posts", label: "Posts", icon: MessageSquare },
+  { id: "releases", label: "Lançamentos", icon: Sparkles },
   { id: "books", label: "Livros", icon: BookOpen },
   { id: "authors", label: "Autores", icon: Users },
 ];
@@ -81,7 +82,7 @@ function SubscriptionsTab() {
 }
 
 function UsersTab() {
-  const { profiles, subscriptions, upsertUserSubscription, removeUserSubscription } = useData();
+  const { profiles, subscriptions, upsertUserSubscription, updateUserSubscriptionDuration, removeUserSubscription } = useData();
   const [durationByUser, setDurationByUser] = useState({});
   const [savingUser, setSavingUser] = useState(null);
 
@@ -103,6 +104,18 @@ function UsersTab() {
     setSavingUser(profile.id);
     await removeUserSubscription(profile.id);
     setSavingUser(null);
+  }
+
+  async function changeDuration(profile, days) {
+    setDurationByUser((prev) => ({ ...prev, [profile.id]: Number(days) }));
+    const sub = getSub(profile.id);
+    if (!sub) return;
+    setSavingUser(profile.id);
+    try {
+      await updateUserSubscriptionDuration({ userId: profile.id, durationDays: Number(days) });
+    } finally {
+      setSavingUser(null);
+    }
   }
 
   return (
@@ -155,7 +168,7 @@ function UsersTab() {
                   <td className="px-4 py-3">
                     <select
                       value={durationByUser[profile.id] || 30}
-                      onChange={(e) => setDurationByUser((prev) => ({ ...prev, [profile.id]: Number(e.target.value) }))}
+                      onChange={(e) => changeDuration(profile, e.target.value)}
                       className="rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1 text-xs text-[var(--text-primary)]"
                     >
                       <option value={7}>7 dias</option>
@@ -222,6 +235,90 @@ function PostsTab() {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function WeeklyReleasesTab() {
+  const { books, weeklyReleases, addWeeklyRelease, deleteWeeklyRelease } = useData();
+  const [form, setForm] = useState({ bookId: "", releaseDate: "", note: "" });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSave() {
+    if (!form.bookId || !form.releaseDate || saving) return;
+    setSaving(true);
+    setError("");
+    try {
+      await addWeeklyRelease({
+        bookId: form.bookId,
+        releaseDate: form.releaseDate,
+        note: form.note,
+      });
+      setForm({ bookId: "", releaseDate: "", note: "" });
+    } catch (err) {
+      setError(err?.message || "Não foi possível salvar o lançamento.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-5 space-y-4">
+        <h3 className="text-sm font-semibold text-[var(--text-primary)]">Novo lançamento semanal</h3>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div>
+            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Livro</label>
+            <select
+              value={form.bookId}
+              onChange={(event) => setForm((prev) => ({ ...prev, bookId: event.target.value }))}
+              className="w-full rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-strong)]"
+            >
+              <option value="">Selecione</option>
+              {books.map((book) => (
+                <option key={book.id} value={book.id}>{book.title}</option>
+              ))}
+            </select>
+          </div>
+          <FormField label="Data de liberação" type="date" value={form.releaseDate} onChange={(value) => setForm((prev) => ({ ...prev, releaseDate: value }))} />
+          <FormField label="Observação" value={form.note} onChange={(value) => setForm((prev) => ({ ...prev, note: value }))} placeholder="Ex: estreia de sexta" />
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={saving || !form.bookId || !form.releaseDate}
+          className="inline-flex items-center gap-1.5 rounded-full bg-[var(--text-primary)] px-4 py-2 text-sm font-medium text-[var(--bg-card)] disabled:opacity-50"
+        >
+          <Plus className="size-4" /> {saving ? "Salvando..." : "Adicionar lançamento"}
+        </button>
+        {error && <p className="text-xs text-red-400">{error}</p>}
+      </div>
+
+      <div className="space-y-3">
+        {weeklyReleases.map((release) => {
+          const book = release.books || books.find((item) => item.id === release.book_id);
+          return (
+            <div key={release.id} className="flex items-center gap-3 rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
+              <div className="h-16 w-11 shrink-0 overflow-hidden rounded-[6px] bg-[var(--hover-overlay)]">
+                {book?.image ? <img src={book.image} alt="" className="h-full w-full object-cover" /> : null}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-[var(--text-primary)]">{book?.title || "Livro removido"}</p>
+                <p className="text-xs text-[var(--text-muted)]">
+                  Libera em {new Date(`${release.release_date}T00:00:00`).toLocaleDateString("pt-BR")}
+                </p>
+                {release.note && <p className="mt-1 text-xs text-[var(--text-secondary)]">{release.note}</p>}
+              </div>
+              <button
+                onClick={() => deleteWeeklyRelease(release.id)}
+                className="flex size-8 items-center justify-center rounded-full text-red-400 hover:bg-red-500/10"
+              >
+                <Trash2 className="size-4" />
+              </button>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -548,6 +645,7 @@ export function AdminPage() {
         {activeTab === "users" && <UsersTab />}
         {activeTab === "subscriptions" && <SubscriptionsTab />}
         {activeTab === "posts" && <PostsTab />}
+        {activeTab === "releases" && <WeeklyReleasesTab />}
         {activeTab === "books" && <BooksTab />}
         {activeTab === "authors" && <AuthorsTab />}
       </div>
