@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { supabase, isSupabaseReady } from "./supabase";
 import { getSupabaseErrorMessage } from "@/lib/supabase-error";
+import { runSupabaseQuery } from "@/lib/supabase-query";
 
 const AuthContext = createContext(null);
 
@@ -25,14 +26,17 @@ export function AuthProvider({ children }) {
         return null;
       }
 
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .maybeSingle();
+      const { data, error } = await runSupabaseQuery(
+        () => supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", userId)
+          .maybeSingle(),
+        "carregar perfil"
+      );
 
       if (error) {
-        console.warn("Perfil não encontrado no Supabase:", error.message);
+        console.warn("Falha ao carregar perfil no Supabase:", error.message || error);
         setProfile(null);
         return null;
       }
@@ -45,6 +49,12 @@ export function AuthProvider({ children }) {
       setSession(session);
       setUser(session?.user ?? null);
       loadProfile(session?.user?.id).finally(() => setLoading(false));
+    }).catch((error) => {
+      console.warn("Nao foi possivel restaurar a sessao:", error.message || error);
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+      setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {

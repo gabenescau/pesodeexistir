@@ -2,11 +2,14 @@ import { createContext, useContext, useEffect, useState, useCallback } from "rea
 import { supabase, isSupabaseReady } from "./supabase";
 import { loadContent } from "./contentLoader";
 import { pickCurrentSubscription } from "@/lib/subscription";
+import { runSupabaseQuery } from "@/lib/supabase-query";
+import { useAuth } from "./AuthContext";
 
 const DataContext = createContext(null);
 
 export function DataProvider({ children }) {
   const content = loadContent();
+  const { user, profile: authProfile, isAdmin, loading: authLoading } = useAuth();
 
   const [books, setBooks] = useState([]);
   const [authors, setAuthors] = useState([]);
@@ -28,32 +31,66 @@ export function DataProvider({ children }) {
       return;
     }
 
-    async function load() {
-      const { data: authData } = await supabase.auth.getUser();
-      const currentUserId = authData?.user?.id;
-      const currentProfileRes = currentUserId
-        ? await supabase.from("profiles").select("*").eq("id", currentUserId).maybeSingle()
-        : { data: null, error: null };
-      const currentProfile = currentProfileRes.error ? null : currentProfileRes.data;
-      const isCurrentAdmin = currentProfile?.role === "admin" || authData?.user?.app_metadata?.role === "admin";
+    if (authLoading) {
+      return;
+    }
 
-      const [booksRes, authorsRes, postsRes, subsRes, profilesRes, progressRes, releasesRes] = await Promise.all([
-        supabase.from("books").select("*, authors(name)").order("created_at", { ascending: false }),
-        supabase.from("authors").select("*").order("name"),
-        supabase.from("posts").select("*").order("created_at", { ascending: false }),
-        isCurrentAdmin
-          ? supabase.from("subscriptions").select("*").order("created_at", { ascending: false })
-          : currentUserId
-            ? supabase.from("subscriptions").select("*").eq("user_id", currentUserId).order("created_at", { ascending: false })
-            : Promise.resolve({ data: [], error: null }),
-        isCurrentAdmin
-          ? supabase.from("profiles").select("*").order("created_at", { ascending: false })
-          : Promise.resolve({ data: currentProfile ? [currentProfile] : [], error: null }),
-        currentUserId
-          ? supabase.from("reading_progress").select("*").eq("user_id", currentUserId)
-          : Promise.resolve({ data: [], error: null }),
-        supabase.from("weekly_releases").select("*, books(*, authors(name))").order("release_date", { ascending: true }),
-      ]);
+    async function load() {
+      setLoading(true);
+
+      const currentUserId = user?.id;
+      const currentProfileRes = currentUserId && !authProfile
+        ? await runSupabaseQuery(
+            () => supabase.from("profiles").select("*").eq("id", currentUserId).maybeSingle(),
+            "carregar perfil atual"
+          )
+        : { data: authProfile || null, error: null };
+      const currentProfile = currentProfileRes.error ? null : currentProfileRes.data;
+      const isCurrentAdmin = isAdmin || currentProfile?.role === "admin" || user?.app_metadata?.role === "admin";
+
+      const booksRes = await runSupabaseQuery(
+        () => supabase.from("books").select("*, authors(name)").order("created_at", { ascending: false }),
+        "carregar livros"
+      );
+      const authorsRes = await runSupabaseQuery(
+        () => supabase.from("authors").select("*").order("name"),
+        "carregar autores"
+      );
+      const progressRes = currentUserId
+        ? await runSupabaseQuery(
+            () => supabase.from("reading_progress").select("*").eq("user_id", currentUserId),
+            "carregar progresso"
+          )
+        : { data: [], error: null };
+      const subsRes = isCurrentAdmin
+        ? await runSupabaseQuery(
+            () => supabase.from("subscriptions").select("*").order("created_at", { ascending: false }),
+            "carregar assinaturas"
+          )
+        : currentUserId
+          ? await runSupabaseQuery(
+              () => supabase.from("subscriptions").select("*").eq("user_id", currentUserId).order("created_at", { ascending: false }),
+              "carregar assinatura atual"
+            )
+          : { data: [], error: null };
+      const profilesRes = isCurrentAdmin
+        ? await runSupabaseQuery(
+            () => supabase.from("profiles").select("*").order("created_at", { ascending: false }),
+            "carregar perfis"
+          )
+        : { data: currentProfile ? [currentProfile] : [], error: null };
+      const postsRes = currentUserId
+        ? await runSupabaseQuery(
+            () => supabase.from("posts").select("*").order("created_at", { ascending: false }),
+            "carregar posts"
+          )
+        : { data: [], error: null };
+      const releasesRes = currentUserId
+        ? await runSupabaseQuery(
+            () => supabase.from("weekly_releases").select("*, books(*, authors(name))").order("release_date", { ascending: true }),
+            "carregar lancamentos"
+          )
+        : { data: [], error: null };
 
       if (!booksRes.error) {
         const progressList = progressRes.error ? [] : progressRes.data || [];
@@ -125,7 +162,7 @@ export function DataProvider({ children }) {
     }
 
     load();
-  }, []);
+  }, [isSupabase, authLoading, user?.id, authProfile?.id, authProfile?.role, isAdmin]);
 
   // AUTHORS CRUD
   const addAuthor = useCallback(async (data) => {
@@ -337,8 +374,7 @@ export function DataProvider({ children }) {
       return null;
     }
 
-    const { data: authData } = await supabase.auth.getUser();
-    const currentUserId = authData?.user?.id;
+    const currentUserId = user?.id;
 
     setSubscriptions((prev) => {
       const others = prev.filter((sub) => sub.id !== data.id);
@@ -346,7 +382,7 @@ export function DataProvider({ children }) {
     });
     setSubscription((prev) => userId === currentUserId || prev?.user_id === userId ? data : prev);
     return data;
-  }, [isSupabase, subscriptions]);
+  }, [isSupabase, subscriptions, user?.id]);
 
   const updateUserSubscriptionDuration = useCallback(async ({ userId, durationDays = 30 }) => {
     if (!isSupabase || !userId) return null;
