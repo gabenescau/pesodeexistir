@@ -111,6 +111,8 @@ drop policy if exists "profiles_insert_own" on public.profiles;
 drop policy if exists "profiles_update_own" on public.profiles;
 drop policy if exists "profiles_select_admin" on public.profiles;
 drop policy if exists "profiles_update_admin" on public.profiles;
+drop policy if exists "profiles_select_own_or_admin" on public.profiles;
+drop policy if exists "profiles_update_own_or_admin" on public.profiles;
 
 create policy "profiles_select_own_or_admin" on public.profiles
   for select to authenticated
@@ -176,6 +178,7 @@ drop policy if exists "posts_insert_authenticated" on public.posts;
 drop policy if exists "posts_update_own" on public.posts;
 drop policy if exists "posts_delete_own" on public.posts;
 drop policy if exists "posts_delete_admin" on public.posts;
+drop policy if exists "posts_delete_own_or_admin" on public.posts;
 
 create policy "posts_select_authenticated" on public.posts
   for select to authenticated
@@ -202,6 +205,7 @@ drop policy if exists "subscriptions_update_admin" on public.subscriptions;
 drop policy if exists "subscriptions_delete_admin" on public.subscriptions;
 drop policy if exists "subscriptions_insert_service" on public.subscriptions;
 drop policy if exists "subscriptions_update_service" on public.subscriptions;
+drop policy if exists "subscriptions_select_own_or_admin" on public.subscriptions;
 
 create policy "subscriptions_select_own_or_admin" on public.subscriptions
   for select to authenticated
@@ -251,6 +255,8 @@ drop policy if exists "checkout_sessions_select_own" on public.checkout_sessions
 drop policy if exists "checkout_sessions_insert_own" on public.checkout_sessions;
 drop policy if exists "checkout_sessions_select_admin" on public.checkout_sessions;
 drop policy if exists "checkout_sessions_update_service" on public.checkout_sessions;
+drop policy if exists "checkout_sessions_select_own_or_admin" on public.checkout_sessions;
+drop policy if exists "checkout_sessions_update_admin" on public.checkout_sessions;
 
 create policy "checkout_sessions_select_own_or_admin" on public.checkout_sessions
   for select to authenticated
