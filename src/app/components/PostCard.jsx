@@ -4,12 +4,13 @@ import { useAuth } from "@/app/data/AuthContext";
 import { isSupabaseReady, supabase } from "@/app/data/supabase";
 
 function Avatar({ src, fallback }) {
-  const isImage = src?.startsWith?.("data:") || src?.startsWith?.("http");
+  const [broken, setBroken] = useState(false);
+  const isImage = !broken && (src?.startsWith?.("data:") || src?.startsWith?.("http"));
 
   return (
     <div className="size-11 shrink-0 overflow-hidden rounded-full border border-[var(--border)] bg-[var(--hover-overlay)] text-sm font-semibold text-[var(--text-primary)]">
       {isImage ? (
-        <img src={src} alt="" className="h-full w-full object-cover" />
+        <img src={src} alt="" className="h-full w-full object-cover" onError={() => setBroken(true)} />
       ) : (
         <div className="flex h-full w-full items-center justify-center">{fallback || "L"}</div>
       )}

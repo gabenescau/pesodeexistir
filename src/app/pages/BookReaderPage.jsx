@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { CheckCircle2, ChevronLeft, ChevronRight, Maximize2, Minus, Plus, X } from "lucide-react";
+import { CheckCircle2, Maximize2, Minus, Plus, X } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { useData } from "../data/DataContext";
@@ -12,9 +12,7 @@ function base64ToBlobUrl(base64, mimeType = "application/pdf") {
     const byteChars = atob(base64);
     const byteNums = new Array(byteChars.length);
     for (let i = 0; i < byteChars.length; i++) byteNums[i] = byteChars.charCodeAt(i);
-    const byteArray = new Uint8Array(byteNums);
-    const blob = new Blob([byteArray], { type: mimeType });
-    return URL.createObjectURL(blob);
+    return URL.createObjectURL(new Blob([new Uint8Array(byteNums)], { type: mimeType }));
   } catch {
     return null;
   }
@@ -33,17 +31,20 @@ export function BookReaderPage() {
   const canvasRef = useRef(null);
   const wrapperRef = useRef(null);
   const renderTaskRef = useRef(null);
-  const { getBookById, getAuthorById, markBookCompleted } = useData();
+  const touchStartRef = useRef(null);
+  const saveTimerRef = useRef(null);
+  const { getBookById, getAuthorById, markBookCompleted, updateReadingProgress } = useData();
   const book = getBookById(id);
   const author = getAuthorById(book?.authorId || book?.author_id);
   const [pdf, setPdf] = useState(null);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(0);
+  const [page, setPage] = useState(Number(book?.currentPage || 1));
+  const [totalPages, setTotalPages] = useState(Number(book?.totalPages || 0));
   const [zoom, setZoom] = useState(100);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const pdfUrl = useMemo(() => resolvePdfUrl(book?.pdfFile || book?.pdf_url), [book?.pdfFile, book?.pdf_url]);
+  const progress = totalPages ? Math.round((page / totalPages) * 100) : Number(book?.progress || 0);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,17 +59,17 @@ export function BookReaderPage() {
       setLoading(true);
       setError("");
       try {
-        const loadingTask = pdfjsLib.getDocument({
+        const doc = await pdfjsLib.getDocument({
           url: pdfUrl,
           withCredentials: false,
           disableAutoFetch: false,
           disableStream: false,
-        });
-        const doc = await loadingTask.promise;
+        }).promise;
         if (cancelled) return;
+        const lastPage = Math.min(Math.max(1, Number(book?.currentPage || 1)), doc.numPages);
         setPdf(doc);
         setTotalPages(doc.numPages);
-        setPage(1);
+        setPage(lastPage);
       } catch (err) {
         if (!cancelled) setError(err?.message || "Não foi possível abrir o PDF dentro do app.");
       } finally {
@@ -77,11 +78,12 @@ export function BookReaderPage() {
     }
 
     loadPdf();
+
     return () => {
       cancelled = true;
       renderTaskRef.current?.cancel?.();
     };
-  }, [pdfUrl]);
+  }, [pdfUrl, book?.currentPage]);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,7 +110,7 @@ export function BookReaderPage() {
       canvas.style.height = `${Math.floor(viewport.height)}px`;
 
       context.setTransform(outputScale, 0, 0, outputScale, 0, 0);
-      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.clearRect(0, 0, viewport.width, viewport.height);
 
       const renderTask = currentPage.render({ canvasContext: context, viewport });
       renderTaskRef.current = renderTask;
@@ -123,11 +125,81 @@ export function BookReaderPage() {
     }
 
     renderPage();
+
     return () => {
       cancelled = true;
       renderTaskRef.current?.cancel?.();
     };
   }, [pdf, page, zoom]);
+
+  useEffect(() => {
+    if (!book?.id || !totalPages || loading || error) return;
+
+    window.clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = window.setTimeout(() => {
+      updateReadingProgress(book.id, { currentPage: page, totalPages }).catch(() => {});
+    }, 450);
+
+    return () => window.clearTimeout(saveTimerRef.current);
+  }, [book?.id, page, totalPages, loading, error, updateReadingProgress]);
+
+  useEffect(() => {
+    function saveNow() {
+      if (!book?.id || !totalPages) return;
+      updateReadingProgress(book.id, { currentPage: page, totalPages }).catch(() => {});
+    }
+
+    function handleVisibility() {
+      if (document.visibilityState === "hidden") saveNow();
+    }
+
+    window.addEventListener("pagehide", saveNow);
+    window.addEventListener("beforeunload", saveNow);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      saveNow();
+      window.removeEventListener("pagehide", saveNow);
+      window.removeEventListener("beforeunload", saveNow);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [book?.id, page, totalPages, updateReadingProgress]);
+
+  function goNextPage() {
+    setPage((value) => Math.min(totalPages || value + 1, value + 1));
+  }
+
+  function goPrevPage() {
+    setPage((value) => Math.max(1, value - 1));
+  }
+
+  function handleTouchStart(event) {
+    const touch = event.touches?.[0];
+    if (!touch) return;
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  }
+
+  function handleTouchEnd(event) {
+    const start = touchStartRef.current;
+    const touch = event.changedTouches?.[0];
+    if (!start || !touch) return;
+
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    touchStartRef.current = null;
+
+    if (Math.abs(deltaX) < 45 || Math.abs(deltaX) < Math.abs(deltaY)) return;
+    if (deltaX < 0) goNextPage();
+    else goPrevPage();
+  }
+
+  function handlePointerUp(event) {
+    if (event.pointerType === "touch") return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    if (x > rect.width * 0.62) goNextPage();
+    if (x < rect.width * 0.38) goPrevPage();
+  }
 
   if (!book) {
     return (
@@ -141,9 +213,6 @@ export function BookReaderPage() {
       </div>
     );
   }
-
-  const canGoPrev = page > 1;
-  const canGoNext = totalPages ? page < totalPages : true;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-[var(--bg-canvas)] text-[var(--text-primary)]">
@@ -163,25 +232,9 @@ export function BookReaderPage() {
         </div>
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-          <button
-            disabled={!canGoPrev}
-            onClick={() => setPage((value) => Math.max(1, value - 1))}
-            className="flex h-9 items-center gap-1 rounded-full border border-[var(--border)] px-3 text-xs text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)] disabled:opacity-40"
-          >
-            <ChevronLeft className="size-4" />
-            <span className="hidden sm:inline">Anterior</span>
-          </button>
-          <span className="min-w-16 rounded-full border border-[var(--border)] px-3 py-2 text-center text-xs text-[var(--text-muted)]">
-            pág. {page}{totalPages ? `/${totalPages}` : ""}
+          <span className="min-w-20 rounded-full border border-[var(--border)] px-3 py-2 text-center text-xs text-[var(--text-muted)]">
+            {page}/{totalPages || "..."} · {progress}%
           </span>
-          <button
-            disabled={!canGoNext}
-            onClick={() => setPage((value) => Math.min(totalPages || value + 1, value + 1))}
-            className="flex h-9 items-center gap-1 rounded-full border border-[var(--border)] px-3 text-xs text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)] disabled:opacity-40"
-          >
-            <span className="hidden sm:inline">Próxima</span>
-            <ChevronRight className="size-4" />
-          </button>
           <button
             onClick={() => setZoom((value) => Math.max(70, value - 10))}
             className="hidden size-9 items-center justify-center rounded-full border border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--hover-overlay)] sm:flex"
@@ -213,7 +266,13 @@ export function BookReaderPage() {
         </div>
       </header>
 
-      <main ref={wrapperRef} className="min-h-0 flex-1 overflow-auto bg-[var(--bg-canvas)] p-3 sm:p-6">
+      <main
+        ref={wrapperRef}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onPointerUp={handlePointerUp}
+        className="min-h-0 flex-1 touch-pan-y select-none overflow-auto bg-[var(--bg-canvas)] p-3 sm:p-6"
+      >
         {loading && (
           <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
             Carregando livro...
@@ -235,8 +294,11 @@ export function BookReaderPage() {
         )}
 
         {!loading && !error && pdf && (
-          <div className="mx-auto flex w-full justify-center">
+          <div className="mx-auto flex w-full flex-col items-center gap-3">
             <canvas ref={canvasRef} className="max-w-full rounded-[6px] bg-white shadow-[0_18px_60px_rgba(0,0,0,.25)]" />
+            <p className="pb-6 text-center text-xs text-[var(--text-muted)]">
+              Arraste para esquerda ou direita para trocar de página.
+            </p>
           </div>
         )}
 

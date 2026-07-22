@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 import {
   Avatar,
   AvatarFallback,
@@ -8,9 +9,10 @@ import { useAuth } from "@/app/data/AuthContext";
 export function NavUser() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
+  const [imageBroken, setImageBroken] = useState(false);
 
   const name = profile?.name || user?.user_metadata?.name || user?.email?.split("@")[0] || "Usuário";
-  const avatar = profile?.avatar || user?.user_metadata?.avatar_url;
+  const avatar = imageBroken ? null : profile?.avatar || user?.user_metadata?.avatar_url;
   const initial = name.charAt(0).toUpperCase();
 
   return (
@@ -21,7 +23,7 @@ export function NavUser() {
       type="button"
     >
       <Avatar className="size-8">
-        {avatar ? <img src={avatar} alt="" className="h-full w-full object-cover" /> : null}
+        {avatar ? <img src={avatar} alt="" className="h-full w-full object-cover" onError={() => setImageBroken(true)} /> : null}
         <AvatarFallback className="bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]">{initial}</AvatarFallback>
       </Avatar>
     </button>

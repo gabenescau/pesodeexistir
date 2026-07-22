@@ -32,6 +32,7 @@ export function ProfilePage() {
   const [editName, setEditName] = useState(profile.name);
   const [editBio, setEditBio] = useState(profile.bio);
   const [avatarPreview, setAvatarPreview] = useState(null);
+  const [avatarBroken, setAvatarBroken] = useState(false);
 
   const achievements = [];
   const readingStats = [];
@@ -47,6 +48,7 @@ export function ProfilePage() {
   const handleAvatarChange = (e) => {
     const file = e.target.files?.[0];
     if (file) {
+      setAvatarBroken(false);
       const reader = new FileReader();
       reader.onload = (event) => setAvatarPreview(event.target.result);
       reader.readAsDataURL(file);
@@ -89,8 +91,8 @@ export function ProfilePage() {
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
           <div className="relative group">
             <div className="size-20 sm:size-24 rounded-full bg-gradient-to-br from-[var(--border)] to-[var(--bg-card-hover)] flex items-center justify-center text-2xl sm:text-3xl font-bold text-[var(--text-primary)] border-2 border-[var(--border)] overflow-hidden">
-              {avatarPreview || profile.avatar ? (
-                <img src={avatarPreview || profile.avatar} alt="" className="w-full h-full object-cover" />
+              {(avatarPreview || profile.avatar) && !avatarBroken ? (
+                <img src={avatarPreview || profile.avatar} alt="" className="w-full h-full object-cover" onError={() => setAvatarBroken(true)} />
               ) : (
                 profile.name.charAt(0)
               )}

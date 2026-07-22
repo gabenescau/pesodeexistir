@@ -30,21 +30,33 @@ export function DataProvider({ children }) {
       const { data: authData } = await supabase.auth.getUser();
       const currentUserId = authData?.user?.id;
 
-      const [booksRes, authorsRes, postsRes, subsRes, profilesRes] = await Promise.all([
+      const [booksRes, authorsRes, postsRes, subsRes, profilesRes, progressRes] = await Promise.all([
         supabase.from("books").select("*, authors(name)").order("created_at", { ascending: false }),
         supabase.from("authors").select("*").order("name"),
         supabase.from("posts").select("*").order("created_at", { ascending: false }),
         supabase.from("subscriptions").select("*").order("created_at", { ascending: false }),
         supabase.from("profiles").select("*").order("created_at", { ascending: false }),
+        currentUserId
+          ? supabase.from("reading_progress").select("*").eq("user_id", currentUserId)
+          : Promise.resolve({ data: [], error: null }),
       ]);
 
-      if (!booksRes.error) setBooks(booksRes.data.map(b => ({
-        ...b,
-        authorId: b.author_id,
-        authorName: b.authors?.name || "",
-        author: b.authors?.name || "",
-        pdfFile: b.pdf_url,
-      })));
+      if (!booksRes.error) {
+        const progressList = progressRes.error ? [] : progressRes.data || [];
+        setBooks(booksRes.data.map(b => {
+          const userProgress = progressList.find(item => item.book_id === b.id);
+          return {
+            ...b,
+            authorId: b.author_id,
+            authorName: b.authors?.name || "",
+            author: b.authors?.name || "",
+            pdfFile: b.pdf_url,
+            progress: userProgress?.progress ?? 0,
+            currentPage: userProgress?.current_page ?? 1,
+            totalPages: userProgress?.total_pages ?? null,
+          };
+        }));
+      }
       else setBooks([]);
 
       if (!authorsRes.error) setAuthors(authorsRes.data);
@@ -184,6 +196,8 @@ export function DataProvider({ children }) {
             user_id: userId,
             book_id: bookId,
             progress: 100,
+            current_page: books.find(book => book.id === bookId)?.totalPages || books.find(book => book.id === bookId)?.currentPage || 1,
+            total_pages: books.find(book => book.id === bookId)?.totalPages || null,
             updated_at: new Date().toISOString(),
           }, { onConflict: "user_id,book_id" });
 
@@ -192,6 +206,41 @@ export function DataProvider({ children }) {
     }
 
     setBooks(prev => prev.map(book => book.id === bookId ? { ...book, progress: 100 } : book));
+  }, [isSupabase, books]);
+
+  const updateReadingProgress = useCallback(async (bookId, { currentPage = 1, totalPages = null }) => {
+    if (!bookId) return;
+
+    const safeTotal = Number(totalPages || 0);
+    const safePage = Math.max(1, Number(currentPage || 1));
+    const progress = safeTotal > 0 ? Math.min(100, Math.max(0, Math.round((safePage / safeTotal) * 100))) : 0;
+
+    if (isSupabase) {
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData?.user?.id;
+
+      if (userId) {
+        const { error } = await supabase
+          .from("reading_progress")
+          .upsert({
+            user_id: userId,
+            book_id: bookId,
+            current_page: safePage,
+            total_pages: safeTotal || null,
+            progress,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: "user_id,book_id" });
+
+        if (error) throw error;
+      }
+    }
+
+    setBooks(prev => prev.map(book => book.id === bookId ? {
+      ...book,
+      currentPage: safePage,
+      totalPages: safeTotal || book.totalPages || null,
+      progress,
+    } : book));
   }, [isSupabase]);
 
   // POSTS CRUD
@@ -344,7 +393,7 @@ export function DataProvider({ children }) {
   return (
     <DataContext.Provider value={{
       books, authors, posts, subscription, subscriptions, profiles, profile, loading,
-      addBook, updateBook, deleteBook, markBookCompleted,
+      addBook, updateBook, deleteBook, markBookCompleted, updateReadingProgress,
       addAuthor, updateAuthor, deleteAuthor,
       addPost, deletePost,
       cancelSubscription,

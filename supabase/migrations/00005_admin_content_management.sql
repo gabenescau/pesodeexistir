@@ -80,6 +80,12 @@ alter table public.profiles
 
 grant select, update on public.profiles to authenticated;
 
+alter table public.reading_progress
+  add column if not exists current_page integer not null default 1,
+  add column if not exists total_pages integer;
+
+grant select, insert, update on public.reading_progress to authenticated;
+
 insert into storage.buckets (id, name, public)
 values ('pdfs', 'pdfs', true)
 on conflict (id) do update
