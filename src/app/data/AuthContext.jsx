@@ -63,14 +63,38 @@ export function AuthProvider({ children }) {
       setProfile(data);
     }
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    async function restoreSession() {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      // getSession() apenas le o localStorage: uma sessao de conta ja apagada,
+      // ou com token invalidado no servidor, continua parecendo valida aqui e
+      // o app entra "logado" sem conseguir carregar nada. getUser() bate no
+      // servidor de auth e revela isso.
+      if (session) {
+        const { error: userError } = await supabase.auth.getUser();
+
+        // Desloga apenas quando o servidor rejeita o token de fato. Falha de
+        // rede nao pode derrubar a sessao de quem so esta sem conexao.
+        if (userError?.status === 401 || userError?.status === 403) {
+          await supabase.auth.signOut();
+          if (!active) return;
+          loadedProfileIdRef.current = null;
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+      }
+
       if (!active) return;
       setSession(session);
       setUser(session?.user ?? null);
-      loadProfile(session?.user?.id).finally(() => {
-        if (active) setLoading(false);
-      });
-    }).catch((error) => {
+      await loadProfile(session?.user?.id);
+      if (active) setLoading(false);
+    }
+
+    restoreSession().catch((error) => {
       if (!active) return;
       console.warn("Nao foi possivel restaurar a sessao:", error.message || error);
       setSession(null);
