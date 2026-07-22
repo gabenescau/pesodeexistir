@@ -4,6 +4,7 @@ import { useData } from "../data/DataContext";
 import { supabase, isSupabaseReady } from "../data/supabase";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, Plus, Trash2, Edit3, X, Check, Crown, BookOpen, Users, MessageSquare, FileText, ShieldAlert, Sparkles } from "lucide-react";
+import { isActiveSubscription } from "@/lib/subscription";
 
 const tabs = [
   { id: "users", label: "Usuários", icon: Users },
@@ -140,7 +141,7 @@ function UsersTab() {
           <tbody>
             {profiles.map((profile) => {
               const sub = getSub(profile.id);
-              const active = sub?.status === "active" || sub?.status === "past_due";
+              const active = isActiveSubscription(sub);
               return (
                 <tr key={profile.id} className="border-b border-[var(--border)] last:border-b-0">
                   <td className="px-4 py-3">

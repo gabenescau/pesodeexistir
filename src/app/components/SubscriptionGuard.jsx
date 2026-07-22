@@ -4,10 +4,15 @@ import { useAuth } from "@/app/data/AuthContext";
 import { getCurrentSubscription, isActiveSubscription } from "@/lib/subscription";
 
 export function SubscriptionGuard({ children }) {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, loading: authLoading } = useAuth();
   const [state, setState] = useState("loading");
 
   useEffect(() => {
+    if (authLoading) {
+      setState("loading");
+      return;
+    }
+
     if (!user) {
       setState("unauthenticated");
       return;
@@ -30,7 +35,7 @@ export function SubscriptionGuard({ children }) {
     });
 
     return () => { cancelled = true; };
-  }, [user, isAdmin]);
+  }, [user, isAdmin, authLoading]);
 
   if (state === "loading") {
     return (

@@ -60,6 +60,13 @@ export function ProcessingPage() {
   const statusMessages = {
     pending: "Verificando pagamento...",
     active: "Pagamento confirmado! Redirecionando...",
+    paid: "Pagamento confirmado! Redirecionando...",
+    approved: "Pagamento aprovado! Redirecionando...",
+    authorized: "Pagamento autorizado! Redirecionando...",
+    trialing: "Acesso liberado! Redirecionando...",
+    complete: "Pagamento confirmado! Redirecionando...",
+    completed: "Pagamento confirmado! Redirecionando...",
+    succeeded: "Pagamento confirmado! Redirecionando...",
     past_due: "Pagamento pendente. Pode levar alguns minutos.",
     canceled: "Assinatura cancelada.",
     expired: "Assinatura expirada.",
@@ -72,7 +79,7 @@ export function ProcessingPage() {
     <div className="min-h-screen flex flex-col items-center justify-center px-4" style={{ background: "var(--bg-page)" }}>
       <div className="max-w-sm w-full text-center space-y-6">
         <div className="size-12 mx-auto">
-          {status === "active" ? (
+          {isActiveSubscription({ status }) ? (
             <svg className="size-12 text-[var(--accent-mint)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -82,7 +89,7 @@ export function ProcessingPage() {
         </div>
 
         <h1 className="text-[24px] font-[600] leading-[32px] tracking-[-0.96px] text-[var(--text-primary)]">
-          {status === "active" ? "Assinatura confirmada!" : "Processando pagamento"}
+          {isActiveSubscription({ status }) ? "Assinatura confirmada!" : "Processando pagamento"}
         </h1>
 
         <p className="text-sm leading-relaxed" style={{ color: "var(--text-muted)" }}>

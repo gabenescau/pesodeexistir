@@ -7,7 +7,7 @@ import { getCurrentSubscription, isActiveSubscription } from "@/lib/subscription
 const CHECKOUT_URL = import.meta.env.VITE_CAKTO_CHECKOUT_URL || "https://pay.cakto.com.br/yxdvb3z_700613";
 
 export function SubscribePage() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -20,13 +20,18 @@ export function SubscribePage() {
       return;
     }
 
+    if (isAdmin) {
+      navigate("/app/inicio");
+      return;
+    }
+
     getCurrentSubscription(user.id).then((sub) => {
       if (isActiveSubscription(sub)) {
         navigate("/app/inicio");
       }
       setLoading(false);
     });
-  }, [user, navigate]);
+  }, [user, isAdmin, navigate]);
 
   async function handleSubscribe() {
     if (!user) return;

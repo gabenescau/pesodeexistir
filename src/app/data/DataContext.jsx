@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { supabase, isSupabaseReady } from "./supabase";
 import { loadContent } from "./contentLoader";
+import { pickCurrentSubscription } from "@/lib/subscription";
 
 const DataContext = createContext(null);
 
@@ -100,7 +101,7 @@ export function DataProvider({ children }) {
 
       if (!subsRes.error) {
         const list = subsRes.data || [];
-        const currentSubscription = list.find((sub) => sub.user_id === currentUserId) || null;
+        const currentSubscription = pickCurrentSubscription(list, currentUserId);
         setSubscriptions(list);
         setSubscription(currentSubscription);
       } else {
@@ -325,7 +326,7 @@ export function DataProvider({ children }) {
       updated_at: now.toISOString(),
     };
 
-    const existing = subscriptions.find((sub) => sub.user_id === userId);
+    const existing = pickCurrentSubscription(subscriptions, userId);
     const query = existing
       ? supabase.from("subscriptions").update(payload).eq("id", existing.id).select().single()
       : supabase.from("subscriptions").insert(payload).select().single();
@@ -340,7 +341,7 @@ export function DataProvider({ children }) {
     const currentUserId = authData?.user?.id;
 
     setSubscriptions((prev) => {
-      const others = prev.filter((sub) => sub.id !== data.id && sub.user_id !== userId);
+      const others = prev.filter((sub) => sub.id !== data.id);
       return [data, ...others];
     });
     setSubscription((prev) => userId === currentUserId || prev?.user_id === userId ? data : prev);
@@ -350,7 +351,7 @@ export function DataProvider({ children }) {
   const updateUserSubscriptionDuration = useCallback(async ({ userId, durationDays = 30 }) => {
     if (!isSupabase || !userId) return null;
 
-    const existing = subscriptions.find((sub) => sub.user_id === userId);
+    const existing = pickCurrentSubscription(subscriptions, userId);
     if (!existing) return null;
 
     const now = new Date();
@@ -408,7 +409,7 @@ export function DataProvider({ children }) {
 
   const removeUserSubscription = useCallback(async (userId) => {
     if (!isSupabase || !userId) return;
-    const existing = subscriptions.find((sub) => sub.user_id === userId);
+    const existing = pickCurrentSubscription(subscriptions, userId);
     if (!existing) return;
 
     const { error } = await supabase
