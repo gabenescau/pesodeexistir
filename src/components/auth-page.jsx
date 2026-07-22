@@ -55,20 +55,27 @@ export function AuthPage() {
         });
         if (signUpError) throw signUpError;
 
-        if (data.user) {
+        // O perfil ja e criado pelo trigger handle_new_user, que le o nome de
+        // raw_user_meta_data. Escrever em profiles aqui so funciona se o signUp
+        // ja tiver devolvido sessao (confirmacao de email desligada): sem
+        // sessao, auth.uid() e NULL e o RLS recusa o insert.
+        if (data.session && data.user) {
           const { error: profileError } = await supabase
             .from("profiles")
-            .upsert({
-              id: data.user.id,
-              email: email.trim(),
+            .update({
               name: name.trim(),
               avatar: name.trim().charAt(0).toUpperCase(),
-            });
+            })
+            .eq("id", data.user.id);
 
           if (profileError) {
-            console.warn("Usuário criado, mas o perfil não foi atualizado:", profileError.message);
+            console.warn("Perfil nao foi atualizado:", profileError.message);
           }
+
+          navigate(location.state?.from?.pathname || "/app/inicio", { replace: true });
+          return;
         }
+
         setMode("login");
         setPassword("");
         setError("Conta criada! Confirme seu email pela mensagem enviada pelo Supabase e depois faça login com sua senha.");
