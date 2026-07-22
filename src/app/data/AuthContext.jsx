@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { supabase, isSupabaseReady } from "./supabase";
 import { getSupabaseErrorMessage } from "@/lib/supabase-error";
 import { runSupabaseQuery } from "@/lib/supabase-query";
@@ -10,6 +10,11 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Evita recarregar o perfil a cada evento de auth (TOKEN_REFRESHED, foco da aba,
+  // re-emissao de sessao): so recarrega quando o id do usuario muda de fato, e
+  // nunca dispara duas cargas ao mesmo tempo.
+  const loadedProfileIdRef = useRef(null);
+  const loadingProfileRef = useRef(false);
 
   useEffect(() => {
     if (!isSupabaseReady()) {
@@ -20,12 +25,21 @@ export function AuthProvider({ children }) {
       return;
     }
 
+    let active = true;
+
     async function loadProfile(userId) {
       if (!userId) {
+        loadedProfileIdRef.current = null;
         setProfile(null);
-        return null;
+        return;
       }
 
+      // Ja carregado para este usuario, ou uma carga em andamento: nao repete.
+      if (loadedProfileIdRef.current === userId || loadingProfileRef.current) {
+        return;
+      }
+
+      loadingProfileRef.current = true;
       const { data, error } = await runSupabaseQuery(
         () => supabase
           .from("profiles")
@@ -34,22 +48,30 @@ export function AuthProvider({ children }) {
           .maybeSingle(),
         "carregar perfil"
       );
+      loadingProfileRef.current = false;
+
+      if (!active) return;
 
       if (error) {
+        // Nao marca como carregado: permite nova tentativa num proximo evento.
         console.warn("Falha ao carregar perfil no Supabase:", error.message || error);
         setProfile(null);
-        return null;
+        return;
       }
 
+      loadedProfileIdRef.current = userId;
       setProfile(data);
-      return data;
     }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!active) return;
       setSession(session);
       setUser(session?.user ?? null);
-      loadProfile(session?.user?.id).finally(() => setLoading(false));
+      loadProfile(session?.user?.id).finally(() => {
+        if (active) setLoading(false);
+      });
     }).catch((error) => {
+      if (!active) return;
       console.warn("Nao foi possivel restaurar a sessao:", error.message || error);
       setSession(null);
       setUser(null);
@@ -57,13 +79,30 @@ export function AuthProvider({ children }) {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!active) return;
       setSession(session);
       setUser(session?.user ?? null);
-      loadProfile(session?.user?.id);
+
+      const nextUserId = session?.user?.id ?? null;
+
+      if (event === "SIGNED_OUT" || !nextUserId) {
+        loadedProfileIdRef.current = null;
+        setProfile(null);
+        return;
+      }
+
+      // So recarrega quando troca de usuario; ignora TOKEN_REFRESHED e as
+      // re-emissoes disparadas ao voltar o foco para a aba.
+      if (nextUserId !== loadedProfileIdRef.current) {
+        loadProfile(nextUserId);
+      }
     });
 
-    return () => subscription?.unsubscribe();
+    return () => {
+      active = false;
+      subscription?.unsubscribe();
+    };
   }, []);
 
   const login = useCallback(async (email, password) => {
