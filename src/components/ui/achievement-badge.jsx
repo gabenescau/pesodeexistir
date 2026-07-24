@@ -116,6 +116,9 @@ export function AchievementBadge({ title, subtitle, icon = "Sparkles", variant =
             {title.length > 24 ? `${title.slice(0, 23)}…` : title}
           </text>
 
+          {/* Brilho holografico estatico; so reage ao passar o mouse por cima
+              (glow). Sem animacao em loop — o badge nao fica "abrindo e
+              fechando" sozinho na tela. */}
           {!locked && (
             <g style={{ mixBlendMode: "overlay" }} mask={`url(#mask-${variant})`}>
               {[
@@ -127,12 +130,11 @@ export function AchievementBadge({ title, subtitle, icon = "Sparkles", variant =
                   style={{
                     transform: `rotate(${glow + i * 12}deg)`,
                     transformOrigin: "center center",
-                    transition: "transform 200ms ease-out",
-                    animation: `ach-spin-${i} 6s infinite`,
+                    transition: "transform 220ms ease-out",
                     willChange: "transform",
                   }}
                 >
-                  <polygon points="0,0 260,54 260,0 0,54" fill={color} filter={`url(#blur-${variant})`} opacity="0.45" />
+                  <polygon points="0,0 260,54 260,0 0,54" fill={color} filter={`url(#blur-${variant})`} opacity="0.4" />
                 </g>
               ))}
             </g>
@@ -148,15 +150,6 @@ export function AchievementBadge({ title, subtitle, icon = "Sparkles", variant =
           <Icon className="h-[46%] w-auto" strokeWidth={2.2} />
         </span>
       </div>
-
-      <style>{`
-        @keyframes ach-spin-0 { 0%,100%{transform:rotate(0deg)} 50%{transform:rotate(10deg)} }
-        @keyframes ach-spin-1 { 0%,100%{transform:rotate(12deg)} 50%{transform:rotate(22deg)} }
-        @keyframes ach-spin-2 { 0%,100%{transform:rotate(24deg)} 50%{transform:rotate(34deg)} }
-        @keyframes ach-spin-3 { 0%,100%{transform:rotate(36deg)} 50%{transform:rotate(46deg)} }
-        @keyframes ach-spin-4 { 0%,100%{transform:rotate(48deg)} 50%{transform:rotate(58deg)} }
-        @keyframes ach-spin-5 { 0%,100%{transform:rotate(60deg)} 50%{transform:rotate(70deg)} }
-      `}</style>
     </div>
   );
 }

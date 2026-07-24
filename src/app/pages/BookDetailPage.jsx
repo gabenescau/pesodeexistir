@@ -78,6 +78,11 @@ export function BookDetailPage() {
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold text-[var(--text-primary)]">{book.title}</h1>
           <p className="mt-1 text-sm text-[var(--text-secondary)]">{author?.name || book.authorName}</p>
+          {book.category && (
+            <span className="mt-2 inline-block rounded-full border border-[var(--border)] bg-[var(--hover-overlay)] px-3 py-1 text-xs text-[var(--text-muted)]">
+              {book.category}
+            </span>
+          )}
 
           {Number(book.progress || 0) > 0 && (
             <div className="mt-6">

@@ -5,7 +5,7 @@
 
 const PADRAO = /(@[A-Za-z0-9_.]{2,32}|#[\p{L}\p{N}_]{2,32})/gu;
 
-function normalizar(valor) {
+export function normalizar(valor) {
   return (valor || "")
     .toLowerCase()
     .normalize("NFD")

@@ -260,7 +260,7 @@ export function DataProvider({ children }) {
 
   // BOOKS CRUD
   const addBook = useCallback(async (data) => {
-    const payload = { title: data.title, image: data.image, pdf_url: data.pdfFile, author_id: data.authorId };
+    const payload = { title: data.title, image: data.image, pdf_url: data.pdfFile, author_id: data.authorId, category: data.category || null };
     if (isSupabase) {
       const { data: inserted, error } = await supabase.from("books").insert(payload).select("*, authors(name)").single();
       if (error) throw error;
@@ -284,6 +284,7 @@ export function DataProvider({ children }) {
         image: data.image,
         pdf_url: data.pdfFile,
         author_id: data.authorId,
+        category: data.category || null,
       }).eq("id", id);
       if (error) throw error;
     }

@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/app/data/AuthContext";
 import { getCurrentSubscription, isActiveSubscription } from "@/lib/subscription";
+import { SubscribeModal } from "./SubscribeModal";
 
 export function SubscriptionGuard({ children }) {
   const { user, isAdmin, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const [state, setState] = useState("loading");
 
   useEffect(() => {
@@ -27,11 +29,7 @@ export function SubscriptionGuard({ children }) {
 
     getCurrentSubscription(user.id).then((sub) => {
       if (cancelled) return;
-      if (isActiveSubscription(sub)) {
-        setState("active");
-      } else {
-        setState("inactive");
-      }
+      setState(isActiveSubscription(sub) ? "active" : "inactive");
     });
 
     return () => { cancelled = true; };
@@ -45,8 +43,21 @@ export function SubscriptionGuard({ children }) {
     );
   }
 
-  if (state === "unauthenticated" || state === "inactive") {
-    return <Navigate to="/assinar" replace />;
+  if (state === "unauthenticated") {
+    return <Navigate to="/entrar" replace />;
+  }
+
+  // Sem plano: em vez de trocar de rota, mostra o conteúdo bloqueado (borrado)
+  // com o pop-up de assinatura por cima. Fechar o modal volta para o início.
+  if (state === "inactive") {
+    return (
+      <div className="relative">
+        <div className="pointer-events-none max-h-[70vh] select-none overflow-hidden opacity-40 blur-sm" aria-hidden>
+          {children}
+        </div>
+        <SubscribeModal open onClose={() => navigate("/app/inicio")} />
+      </div>
+    );
   }
 
   return children;

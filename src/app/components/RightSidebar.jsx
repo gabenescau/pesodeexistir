@@ -1,4 +1,19 @@
+import { Link } from "react-router-dom";
 import { useData } from "@/app/data/DataContext";
+
+function AuthorAvatar({ author }) {
+  const src = author.image;
+  const isImage = src?.startsWith?.("http") || src?.startsWith?.("/") || src?.startsWith?.("data:");
+  return (
+    <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--hover-overlay)] text-xs font-bold text-[var(--text-primary)]">
+      {isImage ? (
+        <img src={src} alt={author.name} loading="lazy" className="h-full w-full object-cover" />
+      ) : (
+        author.initial
+      )}
+    </div>
+  );
+}
 
 export function RightSidebar() {
   const { books, authors, posts } = useData();
@@ -16,13 +31,11 @@ export function RightSidebar() {
     .slice(0, 8)
     .map(([tag]) => (tag.startsWith("#") ? tag : `#${tag}`));
 
-  const featuredAuthors = authors.slice(0, 3).map((author) => ({
+  const featuredAuthors = authors.slice(0, 5).map((author) => ({
     ...author,
     works: books.filter((book) => (book.author_id || book.authorId) === author.id).length,
     initial: author.name?.charAt(0)?.toUpperCase() || "A",
   }));
-
-  const featuredBooks = books.slice(0, 3);
 
   return (
     <aside className="hidden w-[260px] shrink-0 space-y-5 2xl:block">
@@ -71,37 +84,21 @@ export function RightSidebar() {
         </h3>
         <div className="space-y-3">
           {featuredAuthors.length ? featuredAuthors.map((author) => (
-            <div key={author.id || author.name} className="group flex cursor-pointer items-center gap-3">
-              <div className="flex size-8 items-center justify-center rounded-[8px] bg-[var(--hover-overlay)] text-xs font-bold text-[var(--text-primary)]">
-                {author.initial}
-              </div>
+            <Link
+              key={author.id || author.name}
+              to={`/app/autor/${author.id}`}
+              className="group flex items-center gap-3"
+            >
+              <AuthorAvatar author={author} />
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-[var(--text-primary)] transition-colors group-hover:text-[var(--text-secondary)]">
                   {author.name}
                 </p>
-                <p className="text-xs text-[var(--text-muted)]">{author.works} obras</p>
+                <p className="text-xs text-[var(--text-muted)]">{author.works} {author.works === 1 ? "obra" : "obras"}</p>
               </div>
-            </div>
+            </Link>
           )) : (
             <p className="text-xs text-[var(--text-muted)]">Nenhum autor cadastrado.</p>
-          )}
-        </div>
-      </div>
-
-      <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-5">
-        <h3 className="mb-4 text-xs font-semibold uppercase tracking-widest text-[var(--text-muted)]">
-          Livros cadastrados
-        </h3>
-        <div className="space-y-3">
-          {featuredBooks.length ? featuredBooks.map((book) => (
-            <div
-              key={book.id || book.title}
-              className="cursor-pointer text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
-            >
-              {book.title}
-            </div>
-          )) : (
-            <p className="text-xs text-[var(--text-muted)]">Nenhum livro cadastrado.</p>
           )}
         </div>
       </div>

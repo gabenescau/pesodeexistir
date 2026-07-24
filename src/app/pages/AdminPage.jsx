@@ -5,6 +5,7 @@ import { supabase, isSupabaseReady } from "../data/supabase";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, Plus, Trash2, Edit3, X, Check, Crown, BookOpen, Users, MessageSquare, FileText, ShieldAlert, Sparkles } from "lucide-react";
 import { isActiveSubscription } from "@/lib/subscription";
+import { CATEGORIES } from "@/lib/categories";
 
 const tabs = [
   { id: "users", label: "Usuários", icon: Users },
@@ -328,19 +329,19 @@ function BooksTab() {
   const { books, authors, addBook, updateBook, deleteBook } = useData();
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
-  const [form, setForm] = useState({ title: "", authorId: "", image: "", pdfFile: "" });
+  const [form, setForm] = useState({ title: "", authorId: "", image: "", pdfFile: "", category: "" });
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
 
   function openNew() {
     setEditId(null);
-    setForm({ title: "", authorId: authors[0]?.id || "", image: "", pdfFile: "" });
+    setForm({ title: "", authorId: authors[0]?.id || "", image: "", pdfFile: "", category: "" });
     setShowForm(true);
   }
 
   function openEdit(book) {
     setEditId(book.id);
-    setForm({ title: book.title, authorId: book.author_id || book.authorId || "", image: book.image || "", pdfFile: book.pdf_url || book.pdfFile || "" });
+    setForm({ title: book.title, authorId: book.author_id || book.authorId || "", image: book.image || "", pdfFile: book.pdf_url || book.pdfFile || "", category: book.category || "" });
     setShowForm(true);
   }
 
@@ -396,7 +397,7 @@ function BooksTab() {
       }
       setShowForm(false);
       setEditId(null);
-      setForm({ title: "", authorId: "", image: "", pdfFile: "" });
+      setForm({ title: "", authorId: "", image: "", pdfFile: "", category: "" });
     } catch (err) {
       setError(err?.message || "Não foi possível salvar o livro. Confira as permissões no Supabase.");
     }
@@ -426,6 +427,14 @@ function BooksTab() {
               </select>
             </div>
             <FormField label="URL da imagem (capa)" value={form.image} onChange={v => setForm(p => ({ ...p, image: v }))} placeholder="/livros/capa.jpg" />
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Categoria</label>
+              <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}
+                className="w-full rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-strong)]">
+                <option value="">Sem categoria</option>
+                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
             <div>
               <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Arquivo PDF</label>
               <div className="flex items-center gap-2">

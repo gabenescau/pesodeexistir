@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-  CheckCircle2, ChevronLeft, ChevronRight, Info, Lock, Maximize2,
-  MessageCircle, Minus, NotebookPen, Plus, X,
+  CheckCircle2, ChevronLeft, ChevronRight, Hand, Info, Keyboard, Lock, Maximize2,
+  MessageCircle, Minus, MousePointerClick, NotebookPen, Plus, X,
 } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
@@ -514,39 +514,59 @@ export function BookReaderPage() {
           {notesOpen && (
             <aside
               onPointerUp={(event) => event.stopPropagation()}
-              className="mx-auto mb-3 max-w-3xl rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-3 shadow-[var(--shadow-sm)]"
+              className="mx-auto mb-3 max-w-3xl overflow-hidden rounded-xl border border-[#e4d8bf] shadow-[0_18px_50px_rgba(0,0,0,.28)]"
+              style={{
+                // Caderno: papel creme, pauta horizontal e uma margem vermelha
+                // à esquerda. Fica igual nos dois temas — é papel, não UI.
+                backgroundColor: "#faf3e0",
+                backgroundImage:
+                  "repeating-linear-gradient(#faf3e0, #faf3e0 27px, #d9c9a3 27px, #d9c9a3 28px)",
+              }}
             >
-              <div className="mb-3 flex items-center justify-between">
-                <p className="text-sm font-semibold text-[var(--text-primary)]">Anotações do livro</p>
-                <span className="text-xs text-[var(--text-muted)]">Página {page}</span>
+              <div className="flex items-center justify-between border-b border-[#e4d8bf] bg-[#f3e8cc] px-4 py-2">
+                <p className="flex items-center gap-2 text-sm font-semibold text-[#5b4a2e]">
+                  <NotebookPen className="size-4" />
+                  Minhas anotações
+                </p>
+                <span className="rounded-full bg-[#e4d3a8] px-2 py-0.5 text-[11px] font-medium text-[#5b4a2e]">Página {page}</span>
               </div>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <textarea
-                  value={noteText}
-                  onChange={(event) => setNoteText(event.target.value)}
-                  rows={2}
-                  placeholder="Escreva uma anotação sobre esta página..."
-                  className="min-w-0 flex-1 resize-none rounded-lg border border-[var(--border)] bg-[var(--bg-canvas)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-placeholder)]"
-                />
-                <button
-                  onClick={saveNote}
-                  disabled={!noteText.trim() || savingNote}
-                  className="shrink-0 rounded-full bg-[var(--text-primary)] px-4 py-2 text-sm font-medium text-[var(--bg-card)] disabled:opacity-50 sm:self-end"
-                >
-                  {savingNote ? "Salvando..." : "Salvar"}
-                </button>
-              </div>
-              {noteError && <p className="mt-2 text-xs text-red-400">{noteError}</p>}
-              {notes.length > 0 && (
-                <div className="mt-3 max-h-44 space-y-2 overflow-y-auto">
-                  {notes.map((note) => (
-                    <div key={note.id} className="rounded-lg border border-[var(--border)] bg-[var(--hover-overlay)] px-3 py-2">
-                      <p className="text-[11px] uppercase tracking-[0.4px] text-[var(--text-muted)]">Página {note.page_number}</p>
-                      <p className="mt-1 text-sm text-[var(--text-secondary)]">{note.note}</p>
-                    </div>
-                  ))}
+
+              <div className="pl-10 pr-4 pt-3 pb-4" style={{ boxShadow: "inset 26px 0 0 -25px #c98b7a" }}>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <textarea
+                    value={noteText}
+                    onChange={(event) => setNoteText(event.target.value)}
+                    rows={2}
+                    placeholder="Escreva uma anotação sobre esta página..."
+                    className="min-w-0 flex-1 resize-none bg-transparent px-1 py-1 text-[15px] leading-7 text-[#3f3320] outline-none placeholder:text-[#a3946f]"
+                    style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+                  />
+                  <button
+                    onClick={saveNote}
+                    disabled={!noteText.trim() || savingNote}
+                    className="shrink-0 self-end rounded-full bg-[#5b4a2e] px-4 py-2 text-sm font-medium text-[#faf3e0] transition-opacity hover:opacity-90 disabled:opacity-50"
+                  >
+                    {savingNote ? "Salvando..." : "Salvar"}
+                  </button>
                 </div>
-              )}
+                {noteError && <p className="mt-2 text-xs text-red-600">{noteError}</p>}
+
+                {notes.length > 0 && (
+                  <div className="mt-3 max-h-44 space-y-3 overflow-y-auto pr-1">
+                    {notes.map((note) => (
+                      <div key={note.id} className="border-l-2 border-[#c98b7a] pl-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.4px] text-[#a3946f]">Página {note.page_number}</p>
+                        <p
+                          className="mt-0.5 text-[15px] leading-7 text-[#3f3320]"
+                          style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+                        >
+                          {note.note}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </aside>
           )}
 
@@ -590,15 +610,38 @@ export function BookReaderPage() {
                 className="pointer-events-auto w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-[0_24px_60px_rgba(0,0,0,.35)]"
               >
                 <p className="text-sm font-semibold text-[var(--text-primary)]">Como virar a página</p>
-                <ul className="mt-3 space-y-2 text-xs leading-relaxed text-[var(--text-secondary)]">
-                  <li className="flex gap-2"><span aria-hidden>📱</span> No celular: arraste para a esquerda (avança) ou para a direita (volta).</li>
-                  <li className="flex gap-2"><span aria-hidden>🖱️</span> No computador: clique na metade direita ou esquerda da página.</li>
-                  <li className="flex gap-2"><span aria-hidden>⌨️</span> Teclado: <kbd className="rounded bg-[var(--hover-overlay)] px-1">←</kbd> <kbd className="rounded bg-[var(--hover-overlay)] px-1">→</kbd> viram a página, <kbd className="rounded bg-[var(--hover-overlay)] px-1">+</kbd> / <kbd className="rounded bg-[var(--hover-overlay)] px-1">-</kbd> ajustam o zoom.</li>
-                  <li className="flex gap-2"><span aria-hidden>💬</span> Cada página tem comentários — toque em “Comentários” na barra de baixo.</li>
+                <ul className="mt-4 space-y-3 text-xs leading-relaxed text-[var(--text-secondary)]">
+                  <li className="flex items-start gap-3">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--hover-overlay)] text-[var(--text-primary)]">
+                      <Hand className="size-4" />
+                    </span>
+                    <span className="pt-1"><b className="font-medium text-[var(--text-primary)]">No celular:</b> arraste para a esquerda (avança) ou para a direita (volta).</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--hover-overlay)] text-[var(--text-primary)]">
+                      <MousePointerClick className="size-4" />
+                    </span>
+                    <span className="pt-1"><b className="font-medium text-[var(--text-primary)]">No computador:</b> clique na metade direita ou esquerda da página.</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--hover-overlay)] text-[var(--text-primary)]">
+                      <Keyboard className="size-4" />
+                    </span>
+                    <span className="pt-1">
+                      <b className="font-medium text-[var(--text-primary)]">Teclado:</b>{" "}
+                      <kbd className="rounded bg-[var(--hover-overlay)] px-1">←</kbd> <kbd className="rounded bg-[var(--hover-overlay)] px-1">→</kbd> viram a página, <kbd className="rounded bg-[var(--hover-overlay)] px-1">+</kbd> / <kbd className="rounded bg-[var(--hover-overlay)] px-1">−</kbd> ajustam o zoom.
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--hover-overlay)] text-[var(--text-primary)]">
+                      <MessageCircle className="size-4" />
+                    </span>
+                    <span className="pt-1"><b className="font-medium text-[var(--text-primary)]">Discussão:</b> cada página tem comentários — toque em “Comentários” na barra de baixo.</span>
+                  </li>
                 </ul>
                 <button
                   onClick={dispensarDica}
-                  className="mt-4 w-full rounded-full bg-[var(--text-primary)] px-4 py-2 text-sm font-medium text-[var(--bg-card)]"
+                  className="mt-5 w-full rounded-full bg-[var(--text-primary)] px-4 py-2 text-sm font-medium text-[var(--bg-card)]"
                 >
                   Entendi
                 </button>
