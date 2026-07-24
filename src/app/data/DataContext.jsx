@@ -1,8 +1,10 @@
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import { supabase, isSupabaseReady } from "./supabase";
 import { loadContent } from "./contentLoader";
 import { pickCurrentSubscription } from "@/lib/subscription";
 import { runSupabaseQuery } from "@/lib/supabase-query";
+import { releaseStatus } from "@/lib/releases";
+import { handleDoPerfil } from "@/lib/mentions";
 import { useAuth } from "./AuthContext";
 
 const DataContext = createContext(null);
@@ -19,6 +21,11 @@ export function DataProvider({ children }) {
   const [profiles, setProfiles] = useState([]);
   const [profile, setProfile] = useState(null);
   const [weeklyReleases, setWeeklyReleases] = useState([]);
+  const [follows, setFollows] = useState([]);
+  const [savedPostIds, setSavedPostIds] = useState([]);
+  // Contagens do proprio usuario que nao vem nas listas ja carregadas
+  // (comentarios e reacoes que ele escreveu). Alimentam as conquistas.
+  const [myCounts, setMyCounts] = useState({ comments: 0, reactions: 0 });
   const [loading, setLoading] = useState(true);
 
   const isSupabase = isSupabaseReady();
@@ -73,10 +80,11 @@ export function DataProvider({ children }) {
               "carregar assinatura atual"
             )
           : { data: [], error: null };
-      // Admin precisa da tabela inteira (email, role, gestao de assinaturas).
-      // Usuario comum le a view public_profiles, que expoe so id/nome/avatar/bio
-      // de quem nao marcou o perfil como privado — e o suficiente para o feed
-      // mostrar o autor dos posts sem vazar email de ninguem.
+      // Admin le a tabela inteira (role, gestao de assinaturas). O email agora
+      // mora em user_emails (fora de profiles), so visivel para admin — e
+      // buscado em separado e mesclado abaixo. Usuario comum le a view
+      // public_profiles: id/nome/@/avatar/bio de quem nao e privado, o
+      // suficiente para o feed sem vazar email de ninguem.
       const profilesRes = isCurrentAdmin
         ? await runSupabaseQuery(
             () => supabase.from("profiles").select("*").order("created_at", { ascending: false }),
@@ -88,6 +96,12 @@ export function DataProvider({ children }) {
               "carregar perfis publicos"
             )
           : { data: currentProfile ? [currentProfile] : [], error: null };
+      const emailsRes = isCurrentAdmin
+        ? await runSupabaseQuery(
+            () => supabase.from("user_emails").select("user_id, email"),
+            "carregar emails"
+          )
+        : { data: [], error: null };
       const postsRes = currentUserId
         ? await runSupabaseQuery(
             () => supabase.from("posts").select("*").order("created_at", { ascending: false }),
@@ -98,6 +112,18 @@ export function DataProvider({ children }) {
         ? await runSupabaseQuery(
             () => supabase.from("weekly_releases").select("*, books(*, authors(name))").order("release_date", { ascending: true }),
             "carregar lancamentos"
+          )
+        : { data: [], error: null };
+      const followsRes = currentUserId
+        ? await runSupabaseQuery(
+            () => supabase.from("follows").select("follower_id, following_id"),
+            "carregar seguidores"
+          )
+        : { data: [], error: null };
+      const savedRes = currentUserId
+        ? await runSupabaseQuery(
+            () => supabase.from("saved_posts").select("post_id"),
+            "carregar posts salvos"
           )
         : { data: [], error: null };
 
@@ -132,7 +158,9 @@ export function DataProvider({ children }) {
             ...p,
             images: p.images || (p.image ? [p.image] : []),
             author: postProfile?.name || p.author || "Leitor",
-            handle: postProfile?.email?.split("@")[0] || postProfile?.name?.toLowerCase().replace(/\s+/g, "_") || "leitor",
+            // Handle vem de profiles.username. Antes vinha de email.split("@"),
+            // o que publicava a parte local do email de todo mundo no feed.
+            handle: handleDoPerfil(postProfile),
             avatar: postProfile?.avatar || p.avatar || "L",
             book: postBook ? {
               ...postBook,
@@ -156,7 +184,12 @@ export function DataProvider({ children }) {
       }
 
       if (!profilesRes.error) {
-        const list = profilesRes.data || [];
+        let list = profilesRes.data || [];
+        // So o admin recebe emailsRes preenchido; mescla email por id.
+        if (!emailsRes.error && (emailsRes.data || []).length > 0) {
+          const emailPorId = new Map((emailsRes.data || []).map((item) => [item.user_id, item.email]));
+          list = list.map((item) => ({ ...item, email: emailPorId.get(item.id) || item.email || "" }));
+        }
         setProfiles(list);
         setProfile(currentProfile || list.find((item) => item.id === currentUserId) || null);
       } else {
@@ -166,6 +199,26 @@ export function DataProvider({ children }) {
 
       if (!releasesRes.error) setWeeklyReleases(releasesRes.data || []);
       else setWeeklyReleases([]);
+
+      setFollows(followsRes.error ? [] : (followsRes.data || []));
+
+      setSavedPostIds(savedRes.error ? [] : (savedRes.data || []).map((item) => item.post_id));
+
+      if (currentUserId) {
+        // head:true => so o total, sem trazer as linhas. Barato o suficiente
+        // para rodar junto do carregamento inicial.
+        const [reacoesCount, replyCount, pageCommentCount] = await Promise.all([
+          runSupabaseQuery(() => supabase.from("reactions").select("id", { count: "exact", head: true }).eq("user_id", currentUserId), "contar reacoes"),
+          runSupabaseQuery(() => supabase.from("post_replies").select("id", { count: "exact", head: true }).eq("user_id", currentUserId), "contar respostas"),
+          runSupabaseQuery(() => supabase.from("book_page_comments").select("id", { count: "exact", head: true }).eq("user_id", currentUserId), "contar comentarios"),
+        ]);
+        setMyCounts({
+          reactions: reacoesCount.count || 0,
+          comments: (replyCount.count || 0) + (pageCommentCount.count || 0),
+        });
+      } else {
+        setMyCounts({ comments: 0, reactions: 0 });
+      }
 
       setLoading(false);
     }
@@ -498,6 +551,88 @@ export function DataProvider({ children }) {
     return data;
   }, [isSupabase]);
 
+  // SOCIAL — seguir / salvar
+  // `follows` e a fonte unica: quem eu sigo e quantos seguidores cada perfil
+  // tem saem dele, entao o otimismo do clique nao pode dessincronizar nada.
+  const following = useMemo(
+    () => follows.filter((item) => item.follower_id === user?.id).map((item) => item.following_id),
+    [follows, user?.id]
+  );
+
+  const followerCounts = useMemo(
+    () => follows.reduce((acc, item) => {
+      acc[item.following_id] = (acc[item.following_id] || 0) + 1;
+      return acc;
+    }, {}),
+    [follows]
+  );
+
+  const followingCounts = useMemo(
+    () => follows.reduce((acc, item) => {
+      acc[item.follower_id] = (acc[item.follower_id] || 0) + 1;
+      return acc;
+    }, {}),
+    [follows]
+  );
+
+  const followUser = useCallback(async (targetId) => {
+    const currentUserId = user?.id;
+    if (!isSupabase || !currentUserId || !targetId || targetId === currentUserId) return;
+
+    const novo = { follower_id: currentUserId, following_id: targetId };
+    setFollows((prev) =>
+      prev.some((item) => item.follower_id === currentUserId && item.following_id === targetId)
+        ? prev
+        : [...prev, novo]
+    );
+
+    const { error } = await supabase.from("follows").insert(novo);
+
+    // 23505 = ja seguia (clique duplo / outra aba): o estado otimista ja bate.
+    if (error && error.code !== "23505") {
+      setFollows((prev) => prev.filter((item) => !(item.follower_id === currentUserId && item.following_id === targetId)));
+      throw error;
+    }
+  }, [isSupabase, user?.id]);
+
+  const unfollowUser = useCallback(async (targetId) => {
+    const currentUserId = user?.id;
+    if (!isSupabase || !currentUserId || !targetId) return;
+
+    const anterior = follows;
+    setFollows((prev) => prev.filter((item) => !(item.follower_id === currentUserId && item.following_id === targetId)));
+
+    const { error } = await supabase
+      .from("follows")
+      .delete()
+      .eq("follower_id", currentUserId)
+      .eq("following_id", targetId);
+
+    if (error) {
+      setFollows(anterior);
+      throw error;
+    }
+  }, [isSupabase, user?.id, follows]);
+
+  const isFollowing = useCallback((targetId) => following.includes(targetId), [following]);
+
+  const toggleSavedPost = useCallback(async (postId) => {
+    const currentUserId = user?.id;
+    if (!isSupabase || !currentUserId || !postId) return;
+
+    const jaSalvo = savedPostIds.includes(postId);
+    setSavedPostIds((prev) => jaSalvo ? prev.filter((id) => id !== postId) : [...prev, postId]);
+
+    const { error } = jaSalvo
+      ? await supabase.from("saved_posts").delete().eq("user_id", currentUserId).eq("post_id", postId)
+      : await supabase.from("saved_posts").insert({ user_id: currentUserId, post_id: postId });
+
+    if (error && error.code !== "23505") {
+      setSavedPostIds((prev) => jaSalvo ? [...prev, postId] : prev.filter((id) => id !== postId));
+      throw error;
+    }
+  }, [isSupabase, user?.id, savedPostIds]);
+
   // HELPERS
   const getBooksByAuthor = useCallback((authorId) => {
     return books.filter(b => (b.author_id || b.authorId) === authorId);
@@ -511,9 +646,41 @@ export function DataProvider({ children }) {
     return books.find(b => b.id === id) || null;
   }, [books]);
 
+  // Espelho do public.is_book_released() — o banco e quem realmente barra a
+  // URL assinada; aqui e so para a tela nao oferecer o que vai falhar.
+  const getReleaseStatus = useCallback(
+    (bookId) => releaseStatus(bookId, weeklyReleases),
+    [weeklyReleases]
+  );
+
+  const isBookReleased = useCallback(
+    (bookId) => releaseStatus(bookId, weeklyReleases).liberado,
+    [weeklyReleases]
+  );
+
+  // Metricas cruas para o sistema de conquistas. Livros lidos/concluidos,
+  // comentarios e reacoes so existem para o usuario logado (o progresso e as
+  // contagens sao dele); para outros perfis, valem posts/seguidores/seguindo.
+  const getUserMetrics = useCallback((userId) => {
+    const ehUsuarioAtual = userId === user?.id;
+    return {
+      posts: posts.filter((p) => p.user_id === userId).length,
+      followers: followerCounts[userId] || 0,
+      followingCount: followingCounts[userId] || 0,
+      completed: ehUsuarioAtual ? books.filter((b) => Number(b.progress || 0) >= 100).length : 0,
+      reading: ehUsuarioAtual ? books.filter((b) => Number(b.progress || 0) > 0).length : 0,
+      comments: ehUsuarioAtual ? myCounts.comments : 0,
+      reactions: ehUsuarioAtual ? myCounts.reactions : 0,
+      saved: ehUsuarioAtual ? savedPostIds.length : 0,
+    };
+  }, [user?.id, posts, followerCounts, followingCounts, books, myCounts, savedPostIds]);
+
   return (
     <DataContext.Provider value={{
       books, authors, posts, subscription, subscriptions, profiles, profile, weeklyReleases, loading,
+      follows, following, followerCounts, followingCounts, savedPostIds,
+      followUser, unfollowUser, isFollowing, toggleSavedPost,
+      isBookReleased, getReleaseStatus, getUserMetrics,
       addBook, updateBook, deleteBook, markBookCompleted, updateReadingProgress,
       addAuthor, updateAuthor, deleteAuthor,
       addPost, deletePost,

@@ -1,12 +1,14 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { BookOpen, CheckCircle2, ChevronLeft, Heart } from "lucide-react";
+import { BookOpen, CheckCircle2, ChevronLeft, Heart, Lock } from "lucide-react";
 import { useData } from "../data/DataContext";
+import { contagemRegressiva, formatarData } from "@/lib/releases";
 
 export function BookDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getBookById, getAuthorById, markBookCompleted } = useData();
+  const { getBookById, getAuthorById, markBookCompleted, getReleaseStatus } = useData();
   const book = getBookById(id);
+  const release = getReleaseStatus(id);
 
   if (!book) {
     return (
@@ -39,13 +41,23 @@ export function BookDetailPage() {
             className="aspect-[2/3] w-full rounded-[12px] border border-[var(--border)] object-cover"
           />
 
-          {hasPdf && (
+          {hasPdf && release.liberado && (
             <button
               onClick={() => navigate(`/app/ler/${book.id}`)}
               className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-full bg-[var(--text-primary)] text-sm font-medium text-[var(--bg-card)] transition-colors hover:opacity-90"
             >
               <BookOpen className="size-4" /> Ler agora
             </button>
+          )}
+
+          {hasPdf && !release.liberado && (
+            <div className="mt-3 rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-3 text-center">
+              <Lock className="mx-auto mb-1.5 size-4 text-[var(--text-muted)]" />
+              <p className="text-xs font-medium text-[var(--text-primary)]">
+                Libera em {formatarData(release.data)}
+              </p>
+              <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">{contagemRegressiva(release.diasRestantes)}</p>
+            </div>
           )}
 
           <button

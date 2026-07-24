@@ -1,13 +1,18 @@
 import { useState } from "react";
 import {
   Camera, Heart, MessageCircle, BookOpen, Users,
-  Trophy, PenLine, Clock, Bookmark, TrendingUp,
+  PenLine, Clock, Bookmark,
 } from "lucide-react";
 import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
 import { supabase, isSupabaseReady } from "@/app/data/supabase";
+import { handleDoPerfil } from "@/lib/mentions";
+import { AchievementsPanel } from "../components/AchievementsPanel";
+import { UserTitlePill } from "../components/UserTitlePill";
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
+// Mesmo formato do CHECK profiles_username_format (migration 00011).
+const HANDLE_VALIDO = /^[a-z0-9_]{3,24}$/;
 
 function Card({ className, children, ...props }) {
   return (
@@ -23,15 +28,18 @@ function Card({ className, children, ...props }) {
 
 export function ProfilePage() {
   const { user, profile: authProfile } = useAuth();
-  const { posts, books } = useData();
+  const { posts, books, followerCounts, followingCounts, getUserMetrics } = useData();
+  const metrics = getUserMetrics(user?.id);
   const [editing, setEditing] = useState(false);
   const [profile, setProfile] = useState({
     name: authProfile?.name || user?.user_metadata?.name || user?.email?.split("@")[0] || "Visitante",
-    handle: user?.email?.split("@")[0] || "visitante",
+    // O handle publico vem de profiles.username; o email nunca vai para a tela.
+    handle: handleDoPerfil(authProfile),
     bio: authProfile?.bio || "Leitor de filosofia e literatura.",
     avatar: authProfile?.avatar || user?.user_metadata?.avatar_url || null,
   });
   const [editName, setEditName] = useState(profile.name);
+  const [editHandle, setEditHandle] = useState(profile.handle);
   const [editBio, setEditBio] = useState(profile.bio);
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [avatarBroken, setAvatarBroken] = useState(false);
@@ -39,15 +47,12 @@ export function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
-  const achievements = [];
-  const readingStats = [];
-
   const userPosts = posts.filter(p => p.user_id === user?.id);
   const stats = [
     { label: "Livros", value: books.length, icon: BookOpen },
     { label: "Publicações", value: userPosts.length, icon: MessageCircle },
-    { label: "Seguidores", value: 0, icon: Users },
-    { label: "Seguindo", value: 0, icon: Users },
+    { label: "Seguidores", value: followerCounts[user?.id] || 0, icon: Users },
+    { label: "Seguindo", value: followingCounts[user?.id] || 0, icon: Users },
   ];
 
   const handleAvatarChange = (e) => {
@@ -72,8 +77,15 @@ export function ProfilePage() {
   };
 
   const saveProfile = async () => {
+    const handleNormalizado = editHandle.trim().toLowerCase();
+
+    if (!HANDLE_VALIDO.test(handleNormalizado)) {
+      setSaveError("O @ precisa ter de 3 a 24 caracteres, só letras minúsculas, números e _.");
+      return;
+    }
+
     if (!isSupabaseReady() || !user?.id) {
-      setProfile({ ...profile, name: editName, bio: editBio, avatar: avatarPreview || profile.avatar });
+      setProfile({ ...profile, name: editName, handle: handleNormalizado, bio: editBio, avatar: avatarPreview || profile.avatar });
       setEditing(false);
       return;
     }
@@ -102,16 +114,22 @@ export function ProfilePage() {
         avatarUrl = data.publicUrl;
       }
 
-      const nextProfile = { ...profile, name: editName, bio: editBio, avatar: avatarUrl };
+      const nextProfile = { ...profile, name: editName, handle: handleNormalizado, bio: editBio, avatar: avatarUrl };
 
+      // email nao entra mais aqui: mora em user_emails, preenchido pelo trigger
+      // de cadastro. profiles ficou sem coluna sensivel.
       const { error: profileError } = await supabase.from("profiles").upsert({
         id: user.id,
-        email: user.email,
         name: nextProfile.name,
+        username: nextProfile.handle,
         bio: nextProfile.bio,
         avatar: nextProfile.avatar,
       });
 
+      // 23505 = o @ escolhido ja pertence a outra pessoa.
+      if (profileError?.code === "23505") {
+        throw new Error("Esse @ já está em uso. Escolha outro.");
+      }
       if (profileError) throw profileError;
 
       // Apenas o nome vai para o user_metadata: ele é embutido em todo JWT.
@@ -136,6 +154,7 @@ export function ProfilePage() {
 
   const cancelEdit = () => {
     setEditName(profile.name);
+    setEditHandle(profile.handle);
     setEditBio(profile.bio);
     setAvatarFile(null);
     setAvatarPreview(null);
@@ -173,6 +192,17 @@ export function ProfilePage() {
                   placeholder="Seu nome"
                   className="w-full bg-[var(--bg-canvas)] border border-[var(--border)] rounded-[6px] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-none focus:border-[var(--border-strong)] transition-colors"
                 />
+                <div className="flex items-center gap-2 rounded-[6px] border border-[var(--border)] bg-[var(--bg-canvas)] px-4 py-2.5 focus-within:border-[var(--border-strong)]">
+                  <span className="text-sm text-[var(--text-muted)]">@</span>
+                  <input
+                    type="text"
+                    value={editHandle}
+                    onChange={(e) => setEditHandle(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
+                    placeholder="seu_usuario"
+                    maxLength={24}
+                    className="min-w-0 flex-1 bg-transparent text-sm text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-none"
+                  />
+                </div>
                 <textarea
                   value={editBio}
                   onChange={(e) => setEditBio(e.target.value)}
@@ -194,7 +224,10 @@ export function ProfilePage() {
               </div>
             ) : (
               <>
-                <h1 className="text-xl sm:text-2xl font-[600] text-[var(--text-primary)]">{profile.name}</h1>
+                <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                  <h1 className="text-xl sm:text-2xl font-[600] text-[var(--text-primary)]">{profile.name}</h1>
+                  <UserTitlePill userId={user?.id} />
+                </div>
                 <p className="text-sm" style={{ color: "var(--text-muted)" }}>@{profile.handle}</p>
                 <p className="text-sm mt-2 max-w-md leading-relaxed" style={{ color: "var(--text-secondary)" }}>{profile.bio}</p>
                 <button
@@ -225,41 +258,7 @@ export function ProfilePage() {
         })}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="p-5">
-          <div className="flex items-center gap-2 mb-5">
-            <Trophy className="size-4" style={{ color: "var(--text-muted)" }} />
-            <h3 className="text-sm font-[600] text-[var(--text-primary)]">Conquistas</h3>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            {achievements.map((a) => {
-              const Icon = a.icon;
-              return (
-                <div key={a.label} className="rounded-[8px] border border-[var(--border)] bg-[var(--hover-overlay)] p-3.5 text-center hover:border-[var(--border-strong)] transition-all duration-200">
-                  <Icon className="size-5 mx-auto" style={{ color: a.color }} strokeWidth={1.5} />
-                  <p className="text-xs font-medium text-[var(--text-primary)] mt-2">{a.label}</p>
-                  <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{a.desc}</p>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-
-        <Card className="p-5">
-          <div className="flex items-center gap-2 mb-5">
-            <TrendingUp className="size-4" style={{ color: "var(--text-muted)" }} />
-            <h3 className="text-sm font-[600] text-[var(--text-primary)]">Estatísticas</h3>
-          </div>
-          <div className="space-y-3.5">
-            {readingStats.map((s) => (
-              <div key={s.label} className="flex items-center justify-between text-sm">
-                <span style={{ color: "var(--text-secondary)" }}>{s.label}</span>
-                <span className="font-medium text-[var(--text-primary)]">{s.value}</span>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
+      <AchievementsPanel metrics={metrics} />
 
       <section>
         <h3 className="text-sm font-[600] text-[var(--text-primary)] mb-4 flex items-center gap-2">

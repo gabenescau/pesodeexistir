@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search } from "lucide-react";
+import { isSupabaseReady, supabase } from "../data/supabase";
 import { TabNav } from "../components/TabNav";
 import { CreatePost } from "../components/CreatePost";
 import { FilterPills } from "../components/FilterPills";
@@ -26,6 +27,35 @@ export function CommunityPage() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState("Todos");
   const [tab, setTab] = useState("Comunidade");
+  const [busca, setBusca] = useState("");
+  const [reacoes, setReacoes] = useState([]);
+
+  // Uma consulta para as reacoes do feed inteiro, em vez de uma por card.
+  useEffect(() => {
+    let ativo = true;
+    if (!isSupabaseReady()) return undefined;
+
+    supabase
+      .from("reactions")
+      .select("target_id, user_id, emoji")
+      .eq("target_type", "post")
+      .then(({ data, error }) => {
+        if (!ativo || error) return;
+        setReacoes(data || []);
+      });
+
+    return () => {
+      ativo = false;
+    };
+  }, [posts.length]);
+
+  const reacoesPorPost = useMemo(() => {
+    const mapa = {};
+    for (const reacao of reacoes) {
+      (mapa[reacao.target_id] ||= []).push(reacao);
+    }
+    return mapa;
+  }, [reacoes]);
 
   const filteredPosts = (() => {
     let result = posts;
@@ -36,6 +66,17 @@ export function CommunityPage() {
         result = posts.filter(p => p.tag === filter);
       }
     }
+
+    // O campo de busca existia na tela mas nao filtrava nada.
+    const termo = busca.trim().toLowerCase();
+    if (termo) {
+      result = result.filter((post) =>
+        [post.text, post.author, post.handle, post.tag, post.book?.title]
+          .filter(Boolean)
+          .some((campo) => String(campo).toLowerCase().includes(termo))
+      );
+    }
+
     return result;
   })();
 
@@ -58,7 +99,9 @@ export function CommunityPage() {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-[18px] text-[var(--text-placeholder)]" />
           <input
             type="text"
-            placeholder="Pesquisar..."
+            value={busca}
+            onChange={(event) => setBusca(event.target.value)}
+            placeholder="Pesquisar posts, pessoas ou livros..."
             className="w-full h-10 sm:h-12 pl-11 pr-4 rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] text-sm text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-none focus:border-[var(--border-strong)] transition-colors"
           />
         </div>
@@ -75,8 +118,19 @@ export function CommunityPage() {
 
         <div className="space-y-4 sm:space-y-5">
           {filteredPosts.map((post) => (
-            <PostCard key={post.id} post={post} onDelete={deletePost} />
+            <PostCard
+              key={post.id}
+              post={post}
+              onDelete={deletePost}
+              reacoesIniciais={reacoesPorPost[post.id] || []}
+            />
           ))}
+
+          {filteredPosts.length === 0 && (
+            <p className="rounded-xl border border-dashed border-[var(--border)] p-8 text-center text-sm text-[var(--text-muted)]">
+              Nada encontrado por aqui.
+            </p>
+          )}
         </div>
       </div>
 

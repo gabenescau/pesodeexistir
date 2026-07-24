@@ -9,6 +9,7 @@ import { AuthorPage } from "./pages/AuthorPage";
 import { ExplorePage } from "./pages/ExplorePage";
 import { ReleasesPage } from "./pages/ReleasesPage";
 import { ProfilePage } from "./pages/ProfilePage";
+import { PublicProfilePage } from "./pages/PublicProfilePage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { AdminPage } from "./pages/AdminPage";
 import { SubscriptionGuard } from "./components/SubscriptionGuard";
@@ -27,6 +28,7 @@ export function AppShell() {
         <Route path="explorar" element={<SubscriptionGuard><ExplorePage /></SubscriptionGuard>} />
         <Route path="lancamentos" element={<SubscriptionGuard><ReleasesPage /></SubscriptionGuard>} />
         <Route path="perfil" element={<SubscriptionGuard><ProfilePage /></SubscriptionGuard>} />
+        <Route path="perfil/:id" element={<SubscriptionGuard><PublicProfilePage /></SubscriptionGuard>} />
         <Route path="configuracoes" element={<SettingsPage />} />
         <Route path="admin" element={<AdminPage />} />
         <Route path="*" element={<Navigate to="inicio" replace />} />

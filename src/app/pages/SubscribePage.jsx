@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase, isSupabaseReady } from "@/app/data/supabase";
 import { useAuth } from "@/app/data/AuthContext";
 import { getCurrentSubscription, isActiveSubscription } from "@/lib/subscription";
 
-const CHECKOUT_URL = import.meta.env.VITE_CAKTO_CHECKOUT_URL || "https://pay.cakto.com.br/yxdvb3z_700613";
+// URL externa do checkout, configurável por variável de ambiente. Fica vazia
+// por padrão: sem provedor de pagamento acoplado ao código.
+const CHECKOUT_URL = import.meta.env.VITE_CHECKOUT_URL || "";
 
 export function SubscribePage() {
   const { user, isAdmin } = useAuth();
@@ -12,7 +13,6 @@ export function SubscribePage() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
-  const isSupabase = isSupabaseReady();
 
   useEffect(() => {
     if (!user) {
@@ -33,33 +33,17 @@ export function SubscribePage() {
     });
   }, [user, isAdmin, navigate]);
 
-  async function handleSubscribe() {
+  function handleSubscribe() {
     if (!user) return;
-    setCreating(true);
     setError(null);
 
-    try {
-      if (isSupabase) {
-        const { error: insertError } = await supabase
-          .from("checkout_sessions")
-          .insert({
-            user_id: user.id,
-            user_email: user.email,
-            status: "pending",
-            checkout_url: CHECKOUT_URL,
-          });
-
-        if (insertError) {
-          console.warn("Sessão local de checkout não foi registrada:", insertError.message);
-        }
-      }
-
-      window.location.assign(CHECKOUT_URL);
-    } catch (e) {
-      setError(e.message || "Erro ao iniciar assinatura");
-    } finally {
-      setCreating(false);
+    if (!CHECKOUT_URL) {
+      setError("O checkout ainda não está configurado. Fale com a administração para liberar seu acesso.");
+      return;
     }
+
+    setCreating(true);
+    window.location.assign(CHECKOUT_URL);
   }
 
   if (loading) {
@@ -139,7 +123,7 @@ export function SubscribePage() {
         </div>
 
         <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-          Pagamento processado com segurança pela Cakto.
+          Pagamento processado com segurança pelo provedor externo.
         </p>
       </div>
     </div>

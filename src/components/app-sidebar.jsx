@@ -1,4 +1,5 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/logo";
 import {
@@ -16,11 +17,17 @@ import { useAuth } from "@/app/data/AuthContext";
 
 export function AppSidebar() {
   const location = useLocation();
-  const { isAdmin } = useAuth();
+  const navigate = useNavigate();
+  const { isAdmin, logout } = useAuth();
 
   const groups = isAdmin
     ? [...navGroups, adminGroup]
     : navGroups;
+
+  async function handleLogout() {
+    await logout();
+    navigate("/entrar", { replace: true });
+  }
 
   return (
     <Sidebar
@@ -59,6 +66,16 @@ export function AppSidebar() {
               </SidebarMenuItem>
             );
           })}
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              className="text-muted-foreground"
+              size="sm"
+              onClick={handleLogout}
+            >
+              <LogOut className="size-4" />
+              <span>Sair da conta</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>

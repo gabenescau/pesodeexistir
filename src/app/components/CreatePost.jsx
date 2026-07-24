@@ -1,9 +1,16 @@
 import { useState, useRef } from "react";
-import { AtSign, BookOpen, Image, Plus, UserRound, X } from "lucide-react";
+import { AtSign, BookOpen, Image, Plus, UserRound, Users, X } from "lucide-react";
 import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
+import { handleDoPerfil } from "@/lib/mentions";
 
 const TAGS = ["Filosofia", "Literatura", "Ciência", "Política", "Arte", "História", "Poesia", "Romance", "Conto", "Ensaio"];
+
+// Espelham os CHECKs de public.posts (migration 00011). A imagem ainda vira
+// data URL dentro da linha do post, entao o teto por arquivo e baixo de proposito.
+const MAX_TEXTO = 5000;
+const MAX_IMAGENS = 4;
+const MAX_BYTES_IMAGEM = 700 * 1024;
 
 function Avatar({ src, fallback }) {
   const [broken, setBroken] = useState(false);
@@ -22,7 +29,7 @@ function Avatar({ src, fallback }) {
 
 export function CreatePost() {
   const { user, profile } = useAuth();
-  const { addPost, books, authors } = useData();
+  const { addPost, books, authors, profiles } = useData();
   const fileInputRef = useRef(null);
   const [text, setText] = useState("");
   const [tag, setTag] = useState("");
@@ -32,8 +39,9 @@ export function CreatePost() {
   const [error, setError] = useState("");
   const [publishing, setPublishing] = useState(false);
 
-  const name = profile?.name || user?.user_metadata?.name || user?.email?.split("@")[0] || "Você";
-  const handle = user?.email?.split("@")[0] || name.toLowerCase().replace(/\s+/g, "_");
+  const name = profile?.name || user?.user_metadata?.name || "Você";
+  // Handle publico vem de profiles.username — nunca do email.
+  const handle = handleDoPerfil(profile);
   const avatar = profile?.avatar || user?.user_metadata?.avatar_url;
   const initial = name.charAt(0).toUpperCase();
   const selectedBook = books.find((book) => book.id === bookId);
@@ -45,14 +53,32 @@ export function CreatePost() {
 
   function handleImageSelect(e) {
     const files = Array.from(e.target.files || []);
-    files.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setImages(prev => [...prev, ev.target.result]);
-      };
-      reader.readAsDataURL(file);
-    });
     e.target.value = "";
+
+    const grandes = files.filter((file) => file.size > MAX_BYTES_IMAGEM);
+    if (grandes.length > 0) {
+      setError("Cada imagem precisa ter no máximo 700 KB.");
+    }
+
+    const validas = files.filter((file) => file.size <= MAX_BYTES_IMAGEM);
+
+    setImages((prev) => {
+      const espaco = MAX_IMAGENS - prev.length;
+      if (espaco <= 0) {
+        setError(`Máximo de ${MAX_IMAGENS} imagens por publicação.`);
+        return prev;
+      }
+
+      validas.slice(0, espaco).forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => setImages((atual) =>
+          atual.length >= MAX_IMAGENS ? atual : [...atual, ev.target.result]
+        );
+        reader.readAsDataURL(file);
+      });
+
+      return prev;
+    });
   }
 
   function removeImage(index) {
@@ -109,7 +135,8 @@ export function CreatePost() {
       <textarea
         placeholder="O que você está pensando hoje?"
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => setText(e.target.value.slice(0, MAX_TEXTO))}
+        maxLength={MAX_TEXTO}
         rows={3}
         className="min-h-24 w-full resize-none rounded-xl border border-[var(--border)] bg-[var(--bg-canvas)] px-4 py-3 text-[15px] leading-relaxed text-[var(--text-primary)] outline-none transition-colors placeholder:text-[var(--text-placeholder)] focus:border-[var(--border-strong)]"
       />
@@ -151,7 +178,7 @@ export function CreatePost() {
 
       {menu && (
         <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-canvas)] p-3">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
             <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center justify-center gap-2 rounded-full border border-[var(--border)] px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]">
               <Image className="size-4" /> Imagem
             </button>
@@ -161,10 +188,31 @@ export function CreatePost() {
             <button type="button" onClick={() => setMenu(menu === "authors" ? "more" : "authors")} className="flex items-center justify-center gap-2 rounded-full border border-[var(--border)] px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]">
               <UserRound className="size-4" /> Autor
             </button>
+            <button type="button" onClick={() => setMenu(menu === "pessoas" ? "more" : "pessoas")} className="flex items-center justify-center gap-2 rounded-full border border-[var(--border)] px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]">
+              <Users className="size-4" /> Pessoa
+            </button>
             <button type="button" onClick={() => setMenu(menu === "tags" ? "more" : "tags")} className="flex items-center justify-center gap-2 rounded-full border border-[var(--border)] px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]">
               <AtSign className="size-4" /> Tag
             </button>
           </div>
+
+          {menu === "pessoas" && (
+            <div className="mt-3 flex max-h-44 flex-col gap-1 overflow-y-auto">
+              {profiles.filter((item) => item.id !== user?.id).map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => addText(`@${handleDoPerfil(item)}`)}
+                  className="rounded-lg px-3 py-2 text-left text-xs text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"
+                >
+                  {item.name || "Leitor"} <span className="text-[var(--text-muted)]">@{handleDoPerfil(item)}</span>
+                </button>
+              ))}
+              {profiles.length <= 1 && (
+                <p className="px-3 py-2 text-xs text-[var(--text-muted)]">Ninguém para marcar ainda.</p>
+              )}
+            </div>
+          )}
 
           {menu === "books" && (
             <div className="mt-3 flex max-h-44 flex-col gap-1 overflow-y-auto">
