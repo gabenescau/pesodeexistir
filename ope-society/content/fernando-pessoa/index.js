@@ -1,1 +1,0 @@
-﻿export default { "name": "Fernando Pessoa", "image": "/autores/fernando pessoa.jpg", "theme": "Modernismo", "era": "século XX" }

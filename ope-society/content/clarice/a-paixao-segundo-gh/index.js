@@ -1,1 +1,0 @@
-﻿export default { "title": "A Paixão Segundo G.H.", "image": "/placeholder-book.svg" }

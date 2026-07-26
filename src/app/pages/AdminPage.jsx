@@ -3,15 +3,15 @@ import { useAuth } from "../data/AuthContext";
 import { useData } from "../data/DataContext";
 import { supabase, isSupabaseReady } from "../data/supabase";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, Plus, Trash2, Edit3, X, Check, Crown, BookOpen, Users, MessageSquare, FileText, ShieldAlert, Sparkles } from "lucide-react";
+import { ChevronLeft, Plus, Trash2, Edit3, X, Check, Crown, BookOpen, Users, MessageSquare, FileText, ShieldAlert, Sparkles, FolderOpen } from "lucide-react";
 import { isActiveSubscription } from "@/lib/subscription";
-import { CATEGORIES } from "@/lib/categories";
 
 const tabs = [
   { id: "users", label: "Usuários", icon: Users },
   { id: "subscriptions", label: "Assinaturas", icon: Crown },
   { id: "posts", label: "Posts", icon: MessageSquare },
   { id: "releases", label: "Lançamentos", icon: Sparkles },
+  { id: "categories", label: "Categorias", icon: FolderOpen },
   { id: "books", label: "Livros", icon: BookOpen },
   { id: "authors", label: "Autores", icon: Users },
 ];
@@ -242,8 +242,8 @@ function PostsTab() {
 }
 
 function WeeklyReleasesTab() {
-  const { books, weeklyReleases, addWeeklyRelease, deleteWeeklyRelease } = useData();
-  const [form, setForm] = useState({ bookId: "", releaseDate: "", note: "" });
+  const { books, weeklyReleases, addWeeklyRelease, deleteWeeklyRelease, toggleWeeklyReleaseVisibility } = useData();
+  const [form, setForm] = useState({ bookId: "", releaseDate: "", note: "", visible: true });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -256,8 +256,9 @@ function WeeklyReleasesTab() {
         bookId: form.bookId,
         releaseDate: form.releaseDate,
         note: form.note,
+        visible: form.visible,
       });
-      setForm({ bookId: "", releaseDate: "", note: "" });
+      setForm({ bookId: "", releaseDate: "", note: "", visible: true });
     } catch (err) {
       setError(err?.message || "Não foi possível salvar o lançamento.");
     } finally {
@@ -312,6 +313,14 @@ function WeeklyReleasesTab() {
                 {release.note && <p className="mt-1 text-xs text-[var(--text-secondary)]">{release.note}</p>}
               </div>
               <button
+                onClick={() => toggleWeeklyReleaseVisibility(release.id, release.visible === false)}
+                className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-medium transition-colors ${
+                  release.visible !== false ? "bg-green-500/10 text-green-500 border border-green-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20"
+                }`}
+              >
+                {release.visible === false ? "Oculto" : "Visível"}
+              </button>
+              <button
                 onClick={() => deleteWeeklyRelease(release.id)}
                 className="flex size-8 items-center justify-center rounded-full text-red-400 hover:bg-red-500/10"
               >
@@ -326,11 +335,12 @@ function WeeklyReleasesTab() {
 }
 
 function BooksTab() {
-  const { books, authors, addBook, updateBook, deleteBook } = useData();
+  const { books, authors, addBook, updateBook, deleteBook, categories } = useData();
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ title: "", authorId: "", image: "", pdfFile: "", category: "" });
   const [uploading, setUploading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [error, setError] = useState("");
 
   function openNew() {
@@ -386,6 +396,28 @@ function BooksTab() {
     }
   }
 
+  async function handleImageUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { alert("Selecione uma imagem."); return; }
+    if (!isSupabaseReady()) { setError("Supabase não configurado."); return; }
+    setUploadingImage(true);
+    setError("");
+    try {
+      const safeTitle = (form.title || "capa").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "capa";
+      const filePath = `covers/${safeTitle}-${Date.now()}.jpg`;
+      const { error: uploadError } = await supabase.storage.from("covers").upload(filePath, file, { cacheControl: "3600", contentType: file.type, upsert: false });
+      if (uploadError) throw uploadError;
+      const { data } = supabase.storage.from("covers").getPublicUrl(filePath);
+      setForm(p => ({ ...p, image: data.publicUrl }));
+    } catch (err) {
+      setError(err?.message || "Não foi possível enviar a imagem.");
+    } finally {
+      setUploadingImage(false);
+      e.target.value = "";
+    }
+  }
+
   async function handleSave() {
     if (!form.title.trim()) return;
     setError("");
@@ -426,13 +458,27 @@ function BooksTab() {
                 {authors.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </div>
-            <FormField label="URL da imagem (capa)" value={form.image} onChange={v => setForm(p => ({ ...p, image: v }))} placeholder="/livros/capa.jpg" />
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">URL da imagem (capa)</label>
+              <div className="flex gap-2">
+                <FormField label="" value={form.image} onChange={v => setForm(p => ({ ...p, image: v }))} placeholder="/livros/capa.jpg" className="flex-1" />
+                <label className="flex h-[38px] cursor-pointer items-center gap-2 rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] px-3 text-xs text-[var(--text-muted)] hover:border-[var(--border-strong)] transition-colors shrink-0">
+                  <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                  {uploadingImage ? "..." : "Upload"}
+                </label>
+              </div>
+              {form.image && (
+                <div className="mt-2 h-16 w-12 overflow-hidden rounded-[6px] border border-[var(--border)]">
+                  <img src={form.image} alt="" className="h-full w-full object-cover" />
+                </div>
+              )}
+            </div>
             <div>
               <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Categoria</label>
               <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}
                 className="w-full rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-strong)]">
                 <option value="">Sem categoria</option>
-                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
               </select>
             </div>
             <div>
@@ -502,18 +548,18 @@ function AuthorsTab() {
   const { authors, books, addAuthor, updateAuthor, deleteAuthor, getBooksByAuthor } = useData();
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
-  const [form, setForm] = useState({ name: "", theme: "", era: "", image: "" });
+  const [form, setForm] = useState({ name: "", theme: "", era: "", image: "", bio: "" });
   const [error, setError] = useState("");
 
   function openNew() {
     setEditId(null);
-    setForm({ name: "", theme: "", era: "", image: "" });
+    setForm({ name: "", theme: "", era: "", image: "", bio: "" });
     setShowForm(true);
   }
 
   function openEdit(author) {
     setEditId(author.id);
-    setForm({ name: author.name, theme: author.theme, era: author.era, image: author.image });
+    setForm({ name: author.name, theme: author.theme, era: author.era, image: author.image || "", bio: author.bio || "" });
     setShowForm(true);
   }
 
@@ -528,7 +574,7 @@ function AuthorsTab() {
       }
       setShowForm(false);
       setEditId(null);
-      setForm({ name: "", theme: "", era: "", image: "" });
+      setForm({ name: "", theme: "", era: "", image: "", bio: "" });
     } catch (err) {
       setError(err?.message || "Não foi possível salvar o autor. Confira as permissões no Supabase.");
     }
@@ -552,6 +598,11 @@ function AuthorsTab() {
             <FormField label="Corrente/Tema" value={form.theme} onChange={v => setForm(p => ({ ...p, theme: v }))} placeholder="Existencialismo" />
             <FormField label="Época" value={form.era} onChange={v => setForm(p => ({ ...p, era: v }))} placeholder="século XIX" />
             <FormField label="URL da imagem" value={form.image} onChange={v => setForm(p => ({ ...p, image: v }))} placeholder="/autores/nietzsche.jpg" />
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Bio / frase famosa</label>
+              <textarea value={form.bio} onChange={e => setForm(p => ({ ...p, bio: e.target.value }))} placeholder="Frase ou biografia curta que aparece na página do autor..." rows={3}
+                className="w-full rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-none focus:border-[var(--border-strong)] resize-none" />
+            </div>
           </div>
           <div className="flex items-center gap-2 pt-2">
             <button onClick={handleSave}
@@ -610,6 +661,86 @@ function AuthorsTab() {
   );
 }
 
+function CategoriesTab() {
+  const { categories, addCategory, updateCategory, deleteCategory } = useData();
+  const [nome, setNome] = useState("");
+  const [editando, setEditando] = useState(null);
+  const [editNome, setEditNome] = useState("");
+  const [erro, setErro] = useState("");
+
+  async function handleCriar() {
+    if (!nome.trim()) return;
+    setErro("");
+    try { await addCategory(nome.trim()); setNome(""); }
+    catch (err) { setErro(err?.message || "Erro ao criar categoria."); }
+  }
+
+  async function handleSalvarEdicao() {
+    if (!editNome.trim() || !editando) return;
+    setErro("");
+    try { await updateCategory(editando.id, { name: editNome.trim() }); setEditando(null); setEditNome(""); }
+    catch (err) { setErro(err?.message || "Erro ao atualizar categoria."); }
+  }
+
+  async function handleExcluir(id) {
+    if (!confirm("Remover esta categoria? Livros que a usam ficam sem categoria.")) return;
+    setErro("");
+    try { await deleteCategory(id); }
+    catch (err) { setErro(err?.message || "Erro ao remover categoria."); }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-5 space-y-4">
+        <h3 className="text-sm font-semibold text-[var(--text-primary)]">Nova categoria</h3>
+        <div className="flex gap-2">
+          <input value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex: Existencialismo, Literatura..."
+            className="h-10 flex-1 rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] px-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-none focus:border-[var(--border-strong)]" />
+          <button onClick={handleCriar} disabled={!nome.trim()}
+            className="inline-flex items-center gap-1.5 rounded-full bg-[var(--text-primary)] px-4 py-2 text-sm font-medium text-[var(--bg-card)] disabled:opacity-50">
+            <Plus className="size-4" /> Criar
+          </button>
+        </div>
+        {erro && <p className="text-xs text-red-400">{erro}</p>}
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {categories.map((cat) => (
+          <div key={cat.id} className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
+            {editando?.id === cat.id ? (
+              <div className="flex gap-2">
+                <input value={editNome} onChange={e => setEditNome(e.target.value)}
+                  className="h-9 flex-1 rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-strong)]" />
+                <button onClick={handleSalvarEdicao} className="rounded-full bg-[var(--text-primary)] px-3 py-1.5 text-xs font-medium text-[var(--bg-card)]">Salvar</button>
+                <button onClick={() => { setEditando(null); setEditNome(""); }} className="rounded-full border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-muted)]">Cancelar</button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-[var(--text-primary)]">{cat.name}</p>
+                  <p className="text-[11px] text-[var(--text-muted)]">Ordem: {cat.sort_order}</p>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <button onClick={() => { setEditando(cat); setEditNome(cat.name); }} className="size-8 rounded-full flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] transition-all">
+                    <Edit3 className="size-3.5" />
+                  </button>
+                  <button onClick={() => handleExcluir(cat.id)} className="size-8 rounded-full flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-all">
+                    <Trash2 className="size-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {categories.length === 0 && (
+        <p className="text-sm text-[var(--text-muted)] text-center py-8">Nenhuma categoria cadastrada. Crie a primeira acima.</p>
+      )}
+    </div>
+  );
+}
+
 export function AdminPage() {
   const { isAdmin, user } = useAuth();
   const [activeTab, setActiveTab] = useState("users");
@@ -656,6 +787,7 @@ export function AdminPage() {
         {activeTab === "subscriptions" && <SubscriptionsTab />}
         {activeTab === "posts" && <PostsTab />}
         {activeTab === "releases" && <WeeklyReleasesTab />}
+        {activeTab === "categories" && <CategoriesTab />}
         {activeTab === "books" && <BooksTab />}
         {activeTab === "authors" && <AuthorsTab />}
       </div>

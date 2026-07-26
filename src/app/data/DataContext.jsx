@@ -23,6 +23,9 @@ export function DataProvider({ children }) {
   const [weeklyReleases, setWeeklyReleases] = useState([]);
   const [follows, setFollows] = useState([]);
   const [savedPostIds, setSavedPostIds] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [bookFavorites, setBookFavorites] = useState([]);
+  const [authorFavorites, setAuthorFavorites] = useState([]);
   // Contagens do proprio usuario que nao vem nas listas ja carregadas
   // (comentarios e reacoes que ele escreveu). Alimentam as conquistas.
   const [myCounts, setMyCounts] = useState({ comments: 0, reactions: 0 });
@@ -126,6 +129,24 @@ export function DataProvider({ children }) {
             "carregar posts salvos"
           )
         : { data: [], error: null };
+      const categoriesRes = currentUserId
+        ? await runSupabaseQuery(
+            () => supabase.from("categories").select("*").order("sort_order").order("name"),
+            "carregar categorias"
+          )
+        : { data: [], error: null };
+      const bookFavRes = currentUserId
+        ? await runSupabaseQuery(
+            () => supabase.from("book_favorites").select("book_id"),
+            "carregar livros favoritos"
+          )
+        : { data: [], error: null };
+      const authorFavRes = currentUserId
+        ? await runSupabaseQuery(
+            () => supabase.from("author_favorites").select("author_id"),
+            "carregar autores favoritos"
+          )
+        : { data: [], error: null };
 
       if (!booksRes.error) {
         const progressList = progressRes.error ? [] : progressRes.data || [];
@@ -203,6 +224,10 @@ export function DataProvider({ children }) {
       setFollows(followsRes.error ? [] : (followsRes.data || []));
 
       setSavedPostIds(savedRes.error ? [] : (savedRes.data || []).map((item) => item.post_id));
+
+      setCategories(categoriesRes.error ? [] : (categoriesRes.data || []));
+      setBookFavorites(bookFavRes.error ? [] : (bookFavRes.data || []).map((item) => item.book_id));
+      setAuthorFavorites(authorFavRes.error ? [] : (authorFavRes.data || []).map((item) => item.author_id));
 
       if (currentUserId) {
         // head:true => so o total, sem trazer as linhas. Barato o suficiente
@@ -482,7 +507,7 @@ export function DataProvider({ children }) {
     return data;
   }, [isSupabase, subscriptions]);
 
-  const addWeeklyRelease = useCallback(async ({ bookId, releaseDate, note }) => {
+  const addWeeklyRelease = useCallback(async ({ bookId, releaseDate, note, visible = true }) => {
     if (!isSupabase) return null;
     const { data, error } = await supabase
       .from("weekly_releases")
@@ -490,6 +515,7 @@ export function DataProvider({ children }) {
         book_id: bookId,
         release_date: releaseDate,
         note: note || "",
+        visible,
       })
       .select("*, books(*, authors(name))")
       .single();
@@ -498,6 +524,109 @@ export function DataProvider({ children }) {
     setWeeklyReleases((prev) => [...prev, data].sort((a, b) => new Date(a.release_date) - new Date(b.release_date)));
     return data;
   }, [isSupabase]);
+
+  const toggleWeeklyReleaseVisibility = useCallback(async (id, visible) => {
+    if (!isSupabase || !id) return;
+    setWeeklyReleases((prev) => prev.map((item) => item.id === id ? { ...item, visible } : item));
+    const { error } = await supabase.from("weekly_releases").update({ visible }).eq("id", id);
+    if (error) {
+      setWeeklyReleases((prev) => prev.map((item) => item.id === id ? { ...item, visible: !visible } : item));
+      throw error;
+    }
+  }, [isSupabase]);
+
+  // CATEGORIES CRUD — categorias dinamimicas gerenciadas pelo admin.
+  const addCategory = useCallback(async (name) => {
+    if (!name || !name.trim()) return null;
+    if (isSupabase) {
+      const { data, error } = await supabase.from("categories").insert({ name: name.trim() }).select().single();
+      if (error) throw error;
+      if (data) { setCategories(prev => [...prev, data].sort((a, b) => (a.sort_order - b.sort_order) || a.name.localeCompare(b.name))); return data; }
+      return null;
+    }
+    const cat = { id: `cat-${Date.now()}`, name: name.trim(), sort_order: 0 };
+    setCategories(prev => [...prev, cat].sort((a, b) => a.name.localeCompare(b.name)));
+    return cat;
+  }, [isSupabase]);
+
+  const updateCategory = useCallback(async (id, data) => {
+    if (isSupabase) {
+      const { data: updated, error } = await supabase.from("categories").update({ ...data, updated_at: new Date().toISOString() }).eq("id", id).select().single();
+      if (error) throw error;
+      setCategories(prev => prev.map(c => c.id === id ? updated : c));
+    } else {
+      setCategories(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
+    }
+  }, [isSupabase]);
+
+  const deleteCategory = useCallback(async (id) => {
+    if (isSupabase) {
+      const { error } = await supabase.from("categories").delete().eq("id", id);
+      if (error) throw error;
+    }
+    setCategories(prev => prev.filter(c => c.id !== id));
+  }, [isSupabase]);
+
+  // FAVORITOS — livros e autores. Estado otimista, rollback em erro.
+  const favoriteBook = useCallback(async (bookId) => {
+    const currentUserId = user?.id;
+    if (!isSupabase || !currentUserId || !bookId) return;
+    const jaFav = bookFavorites.includes(bookId);
+    setBookFavorites((prev) => jaFav ? prev : [...prev, bookId]);
+    const { error } = await supabase.from("book_favorites").insert({ user_id: currentUserId, book_id: bookId });
+    if (error && error.code !== "23505") {
+      setBookFavorites((prev) => prev.filter((b) => b !== bookId));
+      throw error;
+    }
+  }, [isSupabase, user?.id, bookFavorites]);
+
+  const unfavoriteBook = useCallback(async (bookId) => {
+    const currentUserId = user?.id;
+    if (!isSupabase || !currentUserId || !bookId) return;
+    setBookFavorites((prev) => prev.filter((b) => b !== bookId));
+    const { error } = await supabase.from("book_favorites").delete().eq("user_id", currentUserId).eq("book_id", bookId);
+    if (error) {
+      setBookFavorites((prev) => prev.includes(bookId) ? prev : [...prev, bookId]);
+      throw error;
+    }
+  }, [isSupabase, user?.id]);
+
+  const toggleFavoriteBook = useCallback(async (bookId) => {
+    if (bookFavorites.includes(bookId)) return unfavoriteBook(bookId);
+    return favoriteBook(bookId);
+  }, [bookFavorites, favoriteBook, unfavoriteBook]);
+
+  const isFavoriteBook = useCallback((bookId) => bookFavorites.includes(bookId), [bookFavorites]);
+
+  const favoriteAuthor = useCallback(async (authorId) => {
+    const currentUserId = user?.id;
+    if (!isSupabase || !currentUserId || !authorId) return;
+    const jaFav = authorFavorites.includes(authorId);
+    setAuthorFavorites((prev) => jaFav ? prev : [...prev, authorId]);
+    const { error } = await supabase.from("author_favorites").insert({ user_id: currentUserId, author_id: authorId });
+    if (error && error.code !== "23505") {
+      setAuthorFavorites((prev) => prev.filter((a) => a !== authorId));
+      throw error;
+    }
+  }, [isSupabase, user?.id, authorFavorites]);
+
+  const unfavoriteAuthor = useCallback(async (authorId) => {
+    const currentUserId = user?.id;
+    if (!isSupabase || !currentUserId || !authorId) return;
+    setAuthorFavorites((prev) => prev.filter((a) => a !== authorId));
+    const { error } = await supabase.from("author_favorites").delete().eq("user_id", currentUserId).eq("author_id", authorId);
+    if (error) {
+      setAuthorFavorites((prev) => prev.includes(authorId) ? prev : [...prev, authorId]);
+      throw error;
+    }
+  }, [isSupabase, user?.id]);
+
+  const toggleFavoriteAuthor = useCallback(async (authorId) => {
+    if (authorFavorites.includes(authorId)) return unfavoriteAuthor(authorId);
+    return favoriteAuthor(authorId);
+  }, [authorFavorites, favoriteAuthor, unfavoriteAuthor]);
+
+  const isFavoriteAuthor = useCallback((authorId) => authorFavorites.includes(authorId), [authorFavorites]);
 
   const deleteWeeklyRelease = useCallback(async (id) => {
     if (!isSupabase || !id) return;
@@ -680,14 +809,18 @@ export function DataProvider({ children }) {
     <DataContext.Provider value={{
       books, authors, posts, subscription, subscriptions, profiles, profile, weeklyReleases, loading,
       follows, following, followerCounts, followingCounts, savedPostIds,
+      categories, bookFavorites, authorFavorites,
       followUser, unfollowUser, isFollowing, toggleSavedPost,
+      toggleFavoriteBook, isFavoriteBook,
+      toggleFavoriteAuthor, isFavoriteAuthor,
       isBookReleased, getReleaseStatus, getUserMetrics,
       addBook, updateBook, deleteBook, markBookCompleted, updateReadingProgress,
       addAuthor, updateAuthor, deleteAuthor,
       addPost, deletePost,
       cancelSubscription,
       upsertUserSubscription, updateUserSubscriptionDuration, removeUserSubscription,
-      addWeeklyRelease, deleteWeeklyRelease,
+      addWeeklyRelease, deleteWeeklyRelease, toggleWeeklyReleaseVisibility,
+      addCategory, updateCategory, deleteCategory,
       updateProfilePreferences,
       getBooksByAuthor, getAuthorById, getBookById,
     }}>

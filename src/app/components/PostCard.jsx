@@ -144,7 +144,7 @@ export function PostCard({ post, onDelete, reacoesIniciais = null }) {
   }
 
   async function compartilhar() {
-    const url = `${window.location.origin}/app/comunidade`;
+    const url = `${window.location.origin}/app/inicio`;
     try {
       if (navigator.share) await navigator.share({ title: "OPE Club", text: post.text, url });
       else await navigator.clipboard.writeText(`${post.text}\n${url}`);

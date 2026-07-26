@@ -1,12 +1,12 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { BookOpen, CheckCircle2, ChevronLeft, Heart, Lock } from "lucide-react";
+import { BookOpen, CheckCircle2, ChevronLeft, Heart, Lock, Share2 } from "lucide-react";
 import { useData } from "../data/DataContext";
 import { contagemRegressiva, formatarData } from "@/lib/releases";
 
 export function BookDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getBookById, getAuthorById, markBookCompleted, getReleaseStatus } = useData();
+  const { getBookById, getAuthorById, markBookCompleted, getReleaseStatus, toggleFavoriteBook, isFavoriteBook } = useData();
   const book = getBookById(id);
   const release = getReleaseStatus(id);
 
@@ -23,16 +23,47 @@ export function BookDetailPage() {
 
   const author = getAuthorById(book.authorId || book.author_id);
   const hasPdf = Boolean(book.pdfFile || book.pdf_url);
+  const favoritado = isFavoriteBook(book.id);
 
   return (
     <div className="space-y-6">
-      <button
-        onClick={() => navigate(-1)}
-        className="flex items-center gap-1 text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
-      >
-        <ChevronLeft className="size-4" /> Voltar
-      </button>
+      {/* Header com botão voltar + compartilhar */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-1 text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
+        >
+          <ChevronLeft className="size-4" /> Voltar
+        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={async () => {
+              await toggleFavoriteBook(book.id);
+            }}
+            className={`flex h-9 w-9 items-center justify-center rounded-full border transition-colors ${
+              favoritado ? "border-[var(--text-primary)] bg-[var(--text-primary)]/10" : "border-[var(--border)] hover:bg-[var(--hover-overlay)]"
+            }`}
+            aria-label={favoritado ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+          >
+            <Heart className={`size-4 ${favoritado ? "text-[var(--text-primary)] fill-[var(--text-primary)]" : "text-[var(--text-muted)]"}`} />
+          </button>
+          <button
+            onClick={() => {
+              if (navigator.share) {
+                navigator.share({ title: book.title, text: `Confira ${book.title} no OPE Club`, url: window.location.href });
+              } else {
+                navigator.clipboard.writeText(window.location.href);
+              }
+            }}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] hover:bg-[var(--hover-overlay)] transition-colors"
+            aria-label="Compartilhar"
+          >
+            <Share2 className="size-4 text-[var(--text-muted)]" />
+          </button>
+        </div>
+      </div>
 
+      {/* Layout mobile-first: capa + ações em cima, conteúdo embaixo */}
       <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
         <div className="mx-auto w-full max-w-48 shrink-0 lg:mx-0 lg:w-48">
           <img
@@ -67,17 +98,15 @@ export function BookDetailPage() {
             <CheckCircle2 className="size-4" />
             {Number(book.progress || 0) >= 100 ? "Concluído" : "Marcar como concluído"}
           </button>
-
-          <div className="mt-3 flex gap-2">
-            <button className="flex h-10 flex-1 items-center justify-center rounded-full border border-[var(--border)] transition-colors hover:bg-[var(--hover-overlay)]">
-              <Heart className="size-4 text-[var(--text-muted)]" />
-            </button>
-          </div>
         </div>
 
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold text-[var(--text-primary)]">{book.title}</h1>
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">{author?.name || book.authorName}</p>
+          {author && (
+            <Link to={`/app/autor/${author.id}`} className="mt-1 text-sm text-[var(--text-secondary)] hover:underline">
+              {author.name}
+            </Link>
+          )}
           {book.category && (
             <span className="mt-2 inline-block rounded-full border border-[var(--border)] bg-[var(--hover-overlay)] px-3 py-1 text-xs text-[var(--text-muted)]">
               {book.category}

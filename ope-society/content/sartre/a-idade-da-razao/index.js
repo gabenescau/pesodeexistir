@@ -1,1 +1,0 @@
-﻿export default { "title": "A Idade da Razão", "image": "/placeholder-book.svg" }

@@ -43,7 +43,7 @@ export function PublicProfilePage() {
         <p className="text-sm text-[var(--text-muted)]">
           Perfil não encontrado ou marcado como privado.
         </p>
-        <Link to="/app/comunidade" className="mt-4 inline-block text-sm text-[var(--text-primary)] hover:underline">
+        <Link to="/app/inicio" className="mt-4 inline-block text-sm text-[var(--text-primary)] hover:underline">
           Voltar para a comunidade
         </Link>
       </div>
@@ -69,7 +69,7 @@ export function PublicProfilePage() {
 
   return (
     <div className="space-y-6 pb-24 lg:pb-8">
-      <Link to="/app/comunidade" className="inline-flex items-center gap-1 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+      <Link to="/app/inicio" className="inline-flex items-center gap-1 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)]">
         <ChevronLeft className="size-4" /> Comunidade
       </Link>
 

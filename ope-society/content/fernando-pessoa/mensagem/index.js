@@ -1,1 +1,0 @@
-﻿export default { "title": "Mensagem", "image": "/placeholder-book.svg" }

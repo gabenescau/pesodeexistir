@@ -3,7 +3,6 @@ import { Home, MessageCircle, Library, Compass, Users, Calendar, Mail, Bell, Use
 
 const navItems = [
   { id: "home", label: "Início", icon: Home },
-  { id: "community", label: "Comunidade", icon: MessageCircle },
   { id: "library", label: "Biblioteca", icon: Library },
   { id: "explore", label: "Explorar", icon: Compass },
   { id: "clubs", label: "Clubes", icon: Users },

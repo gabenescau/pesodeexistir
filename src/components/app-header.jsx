@@ -10,7 +10,6 @@ import { useTheme } from "@/components/theme-provider";
 
 const pathLabels = {
   "/app/inicio": "Início",
-  "/app/comunidade": "Comunidade",
   "/app/biblioteca": "Biblioteca",
   "/app/explorar": "Explorar",
   "/app/perfil": "Perfil",

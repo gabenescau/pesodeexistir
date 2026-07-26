@@ -13,24 +13,28 @@ import { PublicProfilePage } from "./pages/PublicProfilePage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { AdminPage } from "./pages/AdminPage";
 import { SubscriptionGuard } from "./components/SubscriptionGuard";
+import { AdminGuard } from "./components/AdminGuard";
 
 export function AppShell() {
   return (
     <Shell>
       <Routes>
         <Route path="/" element={<Navigate to="inicio" replace />} />
-        <Route path="inicio" element={<CommunityPage />} />
-        <Route path="comunidade" element={<CommunityPage />} />
+        {/* Início == Comunidade: a comunidade e o feed do app. Pago p/ assinantes. */}
+        <Route path="inicio" element={<SubscriptionGuard><CommunityPage /></SubscriptionGuard>} />
+        {/* Rota legada /comunidade redireciona para /inicio (mesma pagina). */}
+        <Route path="comunidade" element={<Navigate to="/app/inicio" replace />} />
         <Route path="biblioteca" element={<SubscriptionGuard><LibraryPage /></SubscriptionGuard>} />
         <Route path="livro/:id" element={<SubscriptionGuard><BookDetailPage /></SubscriptionGuard>} />
         <Route path="ler/:id" element={<SubscriptionGuard><BookReaderPage /></SubscriptionGuard>} />
-        <Route path="autor/:id" element={<AuthorPage />} />
+        <Route path="autor/:id" element={<SubscriptionGuard><AuthorPage /></SubscriptionGuard>} />
         <Route path="explorar" element={<SubscriptionGuard><ExplorePage /></SubscriptionGuard>} />
         <Route path="lancamentos" element={<SubscriptionGuard><ReleasesPage /></SubscriptionGuard>} />
         <Route path="perfil" element={<SubscriptionGuard><ProfilePage /></SubscriptionGuard>} />
         <Route path="perfil/:id" element={<SubscriptionGuard><PublicProfilePage /></SubscriptionGuard>} />
         <Route path="configuracoes" element={<SettingsPage />} />
-        <Route path="admin" element={<AdminPage />} />
+        {/* Admin nao exige assinatura, so role=admin. Nao-admin -> inicio. */}
+        <Route path="admin" element={<AdminGuard><AdminPage /></AdminGuard>} />
         <Route path="*" element={<Navigate to="inicio" replace />} />
       </Routes>
       <MobileBottomNav />

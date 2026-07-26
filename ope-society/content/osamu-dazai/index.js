@@ -1,1 +1,0 @@
-﻿export default { "name": "Osamu Dazai", "image": "/autores/osamudazai.jpg", "theme": "Literatura Japonesa", "era": "século XX" }

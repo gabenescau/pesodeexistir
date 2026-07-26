@@ -21,7 +21,6 @@ function SEOHead() {
       '/app/inicio': 'Início | OPE Club',
       '/app/biblioteca': 'Biblioteca | OPE Club',
       '/app/explorar': 'Explorar | OPE Club',
-      '/app/comunidade': 'Comunidade | OPE Club',
       '/app/perfil': 'Perfil | OPE Club',
       '/app/configuracoes': 'Configurações | OPE Club',
       '/app/admin': 'Painel Admin | OPE Club',

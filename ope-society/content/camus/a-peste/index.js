@@ -1,1 +1,0 @@
-﻿export default { "title": "A Peste", "image": "/placeholder-book.svg" }

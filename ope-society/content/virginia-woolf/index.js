@@ -1,1 +1,0 @@
-﻿export default { "name": "Virginia Woolf", "image": "/autores/virginia wolf.jpg", "theme": "Modernismo", "era": "século XX" }

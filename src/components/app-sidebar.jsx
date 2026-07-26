@@ -11,7 +11,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { footerNavLinks, navGroups, adminGroup } from "@/components/app-shared";
+import { footerNavLinks, useNavGroups, adminGroup } from "@/components/app-shared";
 import { NavGroup } from "@/components/nav-group";
 import { useAuth } from "@/app/data/AuthContext";
 
@@ -19,10 +19,11 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAdmin, logout } = useAuth();
+  const dynamicNavGroups = useNavGroups();
 
   const groups = isAdmin
-    ? [...navGroups, adminGroup]
-    : navGroups;
+    ? [...dynamicNavGroups, adminGroup]
+    : dynamicNavGroups;
 
   async function handleLogout() {
     await logout();
