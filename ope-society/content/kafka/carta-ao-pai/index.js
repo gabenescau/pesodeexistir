@@ -1,0 +1,1 @@
+﻿export default { "title": "Carta ao Pai", "image": "/placeholder-book.svg" }
