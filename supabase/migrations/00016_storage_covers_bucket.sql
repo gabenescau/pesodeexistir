@@ -31,7 +31,7 @@ create policy "covers_insert_admin"
   to authenticated
   with check (
     bucket_id = 'covers'
-    and public.is_admin()
+    and private.is_admin()
   );
 
 create policy "covers_update_admin"
@@ -39,11 +39,11 @@ create policy "covers_update_admin"
   to authenticated
   using (
     bucket_id = 'covers'
-    and public.is_admin()
+    and private.is_admin()
   )
   with check (
     bucket_id = 'covers'
-    and public.is_admin()
+    and private.is_admin()
   );
 
 create policy "covers_delete_admin"
@@ -51,7 +51,7 @@ create policy "covers_delete_admin"
   to authenticated
   using (
     bucket_id = 'covers'
-    and public.is_admin()
+    and private.is_admin()
   );
 
 -- Se no futuro quiser upload de fotos de autores no storage também,
