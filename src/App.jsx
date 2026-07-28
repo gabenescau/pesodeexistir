@@ -24,6 +24,7 @@ function SEOHead() {
       '/app/perfil': 'Perfil | OPE Club',
       '/app/configuracoes': 'Configurações | OPE Club',
       '/app/admin': 'Painel Admin | OPE Club',
+      '/app/planos': 'Planos | OPE Club',
       '/app/lancamentos': 'Lançamentos Semanais | OPE Club',
     }
     const base = Object.keys(titles)

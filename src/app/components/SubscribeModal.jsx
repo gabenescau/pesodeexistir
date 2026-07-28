@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Check, Lock, X } from "lucide-react";
-
-const CHECKOUT_URL = import.meta.env.VITE_CHECKOUT_URL || "";
+import { useAuth } from "@/app/data/AuthContext";
+import { createCheckout, PLANS } from "@/lib/abacatepay";
+import { Check, Loader2, Lock, X } from "lucide-react";
 
 const BENEFITS = [
   "Acesso completo à biblioteca",
@@ -11,20 +12,40 @@ const BENEFITS = [
   "Sem anúncios",
 ];
 
-// Pop-up de assinatura. Substitui o redirecionamento para /assinar: o usuário
-// vê o conteúdo bloqueado atrás do modal e decide ali mesmo.
 export function SubscribeModal({ open, onClose, dismissible = true }) {
+  const { user } = useAuth();
   const navigate = useNavigate();
+  const [selectedPlan, setSelectedPlan] = useState("monthly");
+  const [creating, setCreating] = useState(null);
+  const [error, setError] = useState(null);
+
   if (!open) return null;
 
-  function assinar() {
-    if (CHECKOUT_URL) {
-      window.location.assign(CHECKOUT_URL);
-    } else {
-      // Sem checkout configurado: cai na tela dedicada, que explica o próximo passo.
-      navigate("/assinar");
+  async function assinar(plan) {
+    if (!user) {
+      navigate("/entrar");
+      return;
+    }
+
+    setCreating(plan);
+    setError(null);
+
+    try {
+      const data = await createCheckout({
+        plan,
+        userId: user.id,
+        email: user.email,
+        name: user.email?.split("@")[0] || "",
+      });
+      window.location.assign(data.url);
+    } catch (e) {
+      setError(e.message);
+      setCreating(null);
     }
   }
+
+  const plan = PLANS[selectedPlan];
+  const isAnnual = selectedPlan === "annual";
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -35,7 +56,7 @@ export function SubscribeModal({ open, onClose, dismissible = true }) {
         className="absolute inset-0 cursor-default bg-black/60 backdrop-blur-sm"
       />
 
-      <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-[0_30px_80px_rgba(0,0,0,.45)]">
+      <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-[0_30px_80px_rgba(0,0,0,.45)]">
         {dismissible && (
           <button
             type="button"
@@ -56,9 +77,37 @@ export function SubscribeModal({ open, onClose, dismissible = true }) {
             Assine o OPE Club para desbloquear a biblioteca e a comunidade.
           </p>
 
-          <div className="mt-5 flex items-baseline justify-center gap-1">
-            <span className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">R$ 27</span>
-            <span className="text-sm text-[var(--text-muted)]">/mês</span>
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            {Object.values(PLANS).map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setSelectedPlan(p.id)}
+                className={`relative rounded-xl p-4 text-left transition-all ${
+                  selectedPlan === p.id
+                    ? "border-2 border-[var(--accent-mint)]"
+                    : "border border-[var(--border)]"
+                }`}
+                style={{ background: selectedPlan === p.id ? "var(--hover-overlay)" : "transparent" }}
+              >
+                {p.id === "annual" && (
+                  <span className="absolute -top-2 right-2 rounded-full bg-[var(--accent-mint)] px-2 py-0.5 text-[9px] font-[600] uppercase tracking-[0.08em] text-white">
+                    {p.discountText}
+                  </span>
+                )}
+                <div className="text-[13px] font-[600] text-[var(--text-primary)]">{p.label}</div>
+                <div className="mt-1 flex items-baseline gap-0.5">
+                  <span className="text-[20px] font-[700] tracking-[-0.8px] text-[var(--text-primary)]">
+                    {p.priceFormatted}
+                  </span>
+                  <span className="text-[11px] text-[var(--text-muted)]">{p.period}</span>
+                </div>
+                {p.id === "annual" && (
+                  <div className="text-[11px] font-[500] text-[var(--accent-mint)] mt-0.5">
+                    R$ {p.monthlyEquivalent}/mês
+                  </div>
+                )}
+              </button>
+            ))}
           </div>
 
           <ul className="mt-5 space-y-2.5 text-left">
@@ -71,12 +120,27 @@ export function SubscribeModal({ open, onClose, dismissible = true }) {
           </ul>
 
           <button
-            onClick={assinar}
-            className="mt-6 w-full rounded-full bg-[var(--text-primary)] px-5 py-3 text-sm font-medium text-[var(--bg-card)] transition-opacity hover:opacity-90"
+            onClick={() => assinar(selectedPlan)}
+            disabled={creating !== null}
+            className="mt-6 w-full rounded-full bg-[var(--text-primary)] px-5 py-3 text-sm font-medium text-[var(--bg-card)] transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Assinar agora
+            {creating ? (
+              <span className="flex items-center justify-center gap-2">
+                <Loader2 className="size-4 animate-spin" />
+                Redirecionando...
+              </span>
+            ) : (
+              `Assinar ${plan.label} — ${plan.priceFormatted}${plan.period}`
+            )}
           </button>
-          <p className="mt-3 text-xs text-[var(--text-muted)]">Cancele quando quiser.</p>
+
+          {error && (
+            <p className="mt-3 text-xs text-red-400">{error}</p>
+          )}
+
+          <p className="mt-3 text-xs text-[var(--text-muted)]">
+            Pagamento via AbacatePay. Cartão e PIX. Cancele quando quiser.
+          </p>
         </div>
       </div>
     </div>

@@ -1,18 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/app/data/AuthContext";
 import { getCurrentSubscription, isActiveSubscription } from "@/lib/subscription";
-
-// URL externa do checkout, configurável por variável de ambiente. Fica vazia
-// por padrão: sem provedor de pagamento acoplado ao código.
-const CHECKOUT_URL = import.meta.env.VITE_CHECKOUT_URL || "";
+import { createCheckout, PLANS } from "@/lib/abacatepay";
+import { useEffect } from "react";
+import { Check, Loader2 } from "lucide-react";
 
 export function SubscribePage() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, profile } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState(null);
   const [error, setError] = useState(null);
+  const [selectedPlan, setSelectedPlan] = useState("monthly");
 
   useEffect(() => {
     if (!user) {
@@ -33,17 +33,24 @@ export function SubscribePage() {
     });
   }, [user, isAdmin, navigate]);
 
-  function handleSubscribe() {
+  async function handleSubscribe(plan) {
     if (!user) return;
     setError(null);
+    setCreating(plan);
 
-    if (!CHECKOUT_URL) {
-      setError("O checkout ainda não está configurado. Fale com a administração para liberar seu acesso.");
-      return;
+    try {
+      const data = await createCheckout({
+        plan,
+        userId: user.id,
+        email: user.email,
+        name: profile?.name || user.email?.split("@")[0] || "",
+      });
+
+      window.location.assign(data.url);
+    } catch (e) {
+      setError(e.message);
+      setCreating(null);
     }
-
-    setCreating(true);
-    window.location.assign(CHECKOUT_URL);
   }
 
   if (loading) {
@@ -55,75 +62,113 @@ export function SubscribePage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4" style={{ background: "var(--bg-page)" }}>
-      <div className="max-w-md w-full space-y-8 text-center">
-        <div>
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12" style={{ background: "var(--bg-page)" }}>
+      <div className="max-w-4xl w-full space-y-8">
+        <div className="text-center">
           <h1 className="text-[32px] font-[600] leading-[40px] tracking-[-1.28px] text-[var(--text-primary)]">
-            OPE Club
+            Escolha seu plano
           </h1>
           <p className="text-[16px] mt-2" style={{ color: "var(--text-muted)" }}>
-            Biblioteca, comunidade e clubes de leitura
+            Assine o OPE Club e tenha acesso completo à biblioteca e comunidade
           </p>
         </div>
 
-        <div
-          className="rounded-[16px] p-8 space-y-6"
-          style={{
-            background: "var(--bg-card)",
-            border: "1px solid var(--border)",
-            boxShadow: "var(--shadow-md)",
-          }}
-        >
-          <div className="space-y-2">
-            <div className="text-[40px] font-[700] tracking-[-1.6px] text-[var(--text-primary)]">
-              R$ 27
-              <span className="text-[16px] font-[400] tracking-normal" style={{ color: "var(--text-muted)" }}>/mês</span>
-            </div>
-            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-              Cancele quando quiser. Renovação automática mensal.
-            </p>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+          {Object.values(PLANS).map((plan) => {
+            const isSelected = selectedPlan === plan.id;
+            const isAnnual = plan.id === "annual";
 
-          <ul className="space-y-3 text-left">
-            {[
-              "Acesso completo à biblioteca",
-              "Comunidade exclusiva de leitores",
-              "Grupos de leitura (clubes)",
-              "Participação em eventos ao vivo",
-              "Leitura offline",
-              "Sem anúncios",
-            ].map((f) => (
-              <li key={f} className="flex items-center gap-3 text-sm" style={{ color: "var(--text-secondary)" }}>
-                <svg className="size-4 shrink-0 text-[var(--accent-mint)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                {f}
-              </li>
-            ))}
-          </ul>
+            return (
+              <button
+                key={plan.id}
+                onClick={() => setSelectedPlan(plan.id)}
+                className={`relative text-left w-full rounded-[16px] p-8 transition-all ${
+                  isSelected
+                    ? "border-2 border-[var(--accent-mint)] shadow-[0_0_0_1px_var(--accent-mint)]"
+                    : "border border-[var(--border)]"
+                }`}
+                style={{
+                  background: "var(--bg-card)",
+                  boxShadow: isSelected ? "var(--shadow-md)" : undefined,
+                }}
+              >
+                {isAnnual && (
+                  <span className="absolute -top-3 right-6 rounded-full bg-[var(--accent-mint)] px-3 py-1 text-[11px] font-[600] uppercase tracking-[0.1em] text-white">
+                    {plan.discountText}
+                  </span>
+                )}
 
-          <button
-            onClick={handleSubscribe}
-            disabled={creating}
-            className="w-full py-3 rounded-[100px] bg-[var(--text-primary)] text-[var(--bg-card)] text-[16px] font-[500] leading-[24px] hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {creating ? (
-              <span className="flex items-center justify-center gap-2">
-                <div className="size-4 border-2 border-[var(--bg-card)] border-t-transparent rounded-full animate-spin" />
-                Redirecionando...
-              </span>
-            ) : (
-              "Assinar agora"
-            )}
-          </button>
+                <div className="text-[20px] font-[600] tracking-[-0.8px] text-[var(--text-primary)]">
+                  {plan.label}
+                </div>
+                <p className="text-[13px] mt-1" style={{ color: "var(--text-muted)" }}>
+                  {plan.description}
+                </p>
 
-          {error && (
-            <p className="text-sm text-red-400 mt-4">{error}</p>
-          )}
+                <div className="mt-4 flex items-baseline gap-1">
+                  <span className="text-[36px] font-[700] tracking-[-1.44px] text-[var(--text-primary)]">
+                    {plan.priceFormatted}
+                  </span>
+                  <span className="text-[14px]" style={{ color: "var(--text-muted)" }}>
+                    {plan.period}
+                  </span>
+                </div>
+
+                {isAnnual && (
+                  <p className="text-[13px] mt-1 font-[500]" style={{ color: "var(--accent-mint)" }}>
+                    Apenas R$ {plan.monthlyEquivalent}/mês
+                  </p>
+                )}
+
+                <ul className="mt-6 space-y-2.5">
+                  {[
+                    "Acesso completo à biblioteca",
+                    "Comunidade exclusiva",
+                    "Grupos de leitura",
+                    "Leitura offline",
+                    "Sem anúncios",
+                    ...(isAnnual ? ["Melhor custo-benefício"] : []),
+                  ].map((f) => (
+                    <li key={f} className="flex items-center gap-2 text-[13px]" style={{ color: "var(--text-secondary)" }}>
+                      <Check className="size-3.5 shrink-0 text-[var(--accent-mint)]" strokeWidth={2.5} />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSubscribe(plan.id);
+                  }}
+                  disabled={creating !== null}
+                  className={`mt-6 w-full py-3 rounded-[100px] text-[14px] font-[500] leading-[20px] transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                    isSelected
+                      ? "bg-[var(--text-primary)] text-[var(--bg-card)] hover:opacity-90"
+                      : "border border-[var(--border)] text-[var(--text-primary)] hover:bg-[var(--hover-overlay)]"
+                  }`}
+                >
+                  {creating === plan.id ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Loader2 className="size-4 animate-spin" />
+                      Redirecionando...
+                    </span>
+                  ) : (
+                    `Assinar ${plan.label}`
+                  )}
+                </button>
+              </button>
+            );
+          })}
         </div>
 
-        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-          Pagamento processado com segurança pelo provedor externo.
+        {error && (
+          <p className="text-sm text-red-400 text-center max-w-md mx-auto">{error}</p>
+        )}
+
+        <p className="text-xs text-center max-w-md mx-auto" style={{ color: "var(--text-muted)" }}>
+          Pagamento 100% seguro via AbacatePay. Aceitamos cartão de crédito e PIX.
+          Cancele quando quiser.
         </p>
       </div>
     </div>

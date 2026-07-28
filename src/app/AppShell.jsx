@@ -12,6 +12,7 @@ import { ProfilePage } from "./pages/ProfilePage";
 import { PublicProfilePage } from "./pages/PublicProfilePage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { AdminPage } from "./pages/AdminPage";
+import { SubscribePage } from "./pages/SubscribePage";
 import { SubscriptionGuard } from "./components/SubscriptionGuard";
 import { AdminGuard } from "./components/AdminGuard";
 
@@ -30,6 +31,7 @@ export function AppShell() {
         <Route path="autor/:id" element={<SubscriptionGuard><AuthorPage /></SubscriptionGuard>} />
         <Route path="explorar" element={<SubscriptionGuard><ExplorePage /></SubscriptionGuard>} />
         <Route path="lancamentos" element={<SubscriptionGuard><ReleasesPage /></SubscriptionGuard>} />
+        <Route path="planos" element={<SubscribePage />} />
         <Route path="perfil" element={<SubscriptionGuard><ProfilePage /></SubscriptionGuard>} />
         <Route path="perfil/:id" element={<SubscriptionGuard><PublicProfilePage /></SubscriptionGuard>} />
         <Route path="configuracoes" element={<SettingsPage />} />

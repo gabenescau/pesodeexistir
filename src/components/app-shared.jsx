@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { HomeIcon, BookOpenIcon, CompassIcon, Sparkles, UserIcon, SettingsIcon, ShieldIcon } from "lucide-react";
+import { HomeIcon, BookOpenIcon, CompassIcon, Sparkles, UserIcon, SettingsIcon, ShieldIcon, CreditCardIcon } from "lucide-react";
 import { useData } from "@/app/data/DataContext";
 
 // "Comunidade" foi removido: Início == Comunidade (mesma página,/feed). A rota
@@ -30,6 +30,12 @@ export const navGroups = [
     label: "Novidades",
     items: [
       { title: "Lançamentos Semanais", path: "/app/lancamentos", icon: <Sparkles />, match: "/app/lancamentos" },
+    ],
+  },
+  {
+    label: "Assinatura",
+    items: [
+      { title: "Planos", path: "/app/planos", icon: <CreditCardIcon />, match: "/app/planos" },
     ],
   },
   {
