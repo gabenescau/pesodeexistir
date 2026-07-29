@@ -1,4 +1,8 @@
-import { findOrCreateCustomer, findOrCreateProduct, createCheckout } from "./abacatepay.js";
+import {
+  findOrCreateCustomer,
+  findOrCreateProduct,
+  createSubscriptionCheckout,
+} from "./abacatepay.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
@@ -7,19 +11,21 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const PLAN_CATALOG = {
   monthly: {
     plan: "ope_club_monthly",
-    externalId: "ope_club_monthly",
+    externalId: "ope_club_monthly_subscription_v1",
     name: "OPE Club Mensal",
     price: 2400,
     durationDays: 30,
     description: "Assinatura mensal OPE Club",
+    cycle: "MONTHLY",
   },
   annual: {
     plan: "ope_club_annual",
-    externalId: "ope_club_annual",
+    externalId: "ope_club_annual_subscription_v1",
     name: "OPE Club Anual",
     price: 14400,
     durationDays: 365,
     description: "Assinatura anual OPE Club com mais de 50% de desconto",
+    cycle: "ANNUALLY",
   },
 };
 
@@ -74,7 +80,56 @@ async function fetchProfileName(userId) {
   return rows?.[0]?.name || "";
 }
 
-async function createPendingSubscription({ user, planKey, planConfig, checkout, product }) {
+async function listUserSubscriptions(userId) {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc`,
+    {
+      headers: {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error(`Erro ao consultar assinatura atual: ${await res.text()}`);
+  }
+  return res.json();
+}
+
+function isCurrentlyActive(subscription) {
+  if (!["active", "past_due", "trialing"].includes(subscription?.status)) return false;
+  if (!subscription.current_period_end) return true;
+  return new Date(subscription.current_period_end).getTime() > Date.now();
+}
+
+async function expireStaleSubscriptions(subscriptions) {
+  const stale = subscriptions.filter((subscription) =>
+    ["active", "past_due", "trialing"].includes(subscription.status) &&
+    subscription.current_period_end &&
+    new Date(subscription.current_period_end).getTime() <= Date.now()
+  );
+
+  const responses = await Promise.all(stale.map((subscription) =>
+    fetch(`${SUPABASE_URL}/rest/v1/subscriptions?id=eq.${subscription.id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
+      },
+      body: JSON.stringify({ status: "expired", updated_at: new Date().toISOString() }),
+    })
+  ));
+
+  for (const response of responses) {
+    if (!response.ok) {
+      throw new Error(`Erro ao expirar assinatura antiga: ${await response.text()}`);
+    }
+  }
+}
+
+async function savePendingSubscription({ user, planKey, planConfig, checkout, product, customer, existingPending }) {
   const now = new Date();
   const expiresAt = new Date(now);
   expiresAt.setDate(expiresAt.getDate() + planConfig.durationDays);
@@ -87,8 +142,11 @@ async function createPendingSubscription({ user, planKey, planConfig, checkout, 
     current_period_start: now.toISOString(),
     current_period_end: expiresAt.toISOString(),
     provider: "abacatepay",
+    provider_customer_id: customer.id || checkout.customerId || null,
+    provider_subscription_id: null,
     metadata: {
-      source: "abacatepay_checkout",
+      source: "abacatepay_subscription_checkout",
+      integration_version: "subscriptions_v2",
       plan_key: planKey,
       checkout_id: checkout.id,
       checkout_url: checkout.url,
@@ -96,13 +154,18 @@ async function createPendingSubscription({ user, planKey, planConfig, checkout, 
       product_external_id: planConfig.externalId,
       checkout_external_id: checkout.externalId || null,
       amount_cents: planConfig.price,
-      methods: ["PIX"],
+      cycle: planConfig.cycle,
+      methods: ["PIX", "CARD"],
     },
     updated_at: now.toISOString(),
   };
 
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/subscriptions`, {
-    method: "POST",
+  const persist = (pending) => fetch(
+    pending
+      ? `${SUPABASE_URL}/rest/v1/subscriptions?id=eq.${encodeURIComponent(pending.id)}`
+      : `${SUPABASE_URL}/rest/v1/subscriptions`,
+    {
+    method: pending ? "PATCH" : "POST",
     headers: {
       "Content-Type": "application/json",
       "apikey": SUPABASE_SERVICE_KEY,
@@ -111,6 +174,20 @@ async function createPendingSubscription({ user, planKey, planConfig, checkout, 
     },
     body: JSON.stringify(payload),
   });
+
+  let res = await persist(existingPending);
+
+  if (res.status === 409) {
+    const current = await listUserSubscriptions(user.id);
+    const pending = current.find((subscription) => subscription.status === "pending");
+    if (pending) {
+      res = await persist(pending);
+    } else if (current.some(isCurrentlyActive)) {
+      const error = new Error("Voce ja possui uma assinatura ativa.");
+      error.status = 409;
+      throw error;
+    }
+  }
 
   if (!res.ok) {
     throw new Error(`Erro ao salvar assinatura pendente: ${await res.text()}`);
@@ -150,6 +227,17 @@ export default async function handler(req, res) {
       return res.status(400).json({ success: false, error: "Plano invalido" });
     }
 
+    const currentSubscriptions = await listUserSubscriptions(user.id);
+    await expireStaleSubscriptions(currentSubscriptions);
+    const activeSubscription = currentSubscriptions.find(isCurrentlyActive);
+    if (activeSubscription) {
+      return res.status(409).json({
+        success: false,
+        error: "Voce ja possui uma assinatura ativa. Cancele o plano atual antes de assinar outro.",
+      });
+    }
+    const existingPending = currentSubscriptions.find((subscription) => subscription.status === "pending");
+
     const profileName = name || await fetchProfileName(user.id);
     const customer = await findOrCreateCustomer({
       email: user.email,
@@ -161,13 +249,14 @@ export default async function handler(req, res) {
       name: planConfig.name,
       price: planConfig.price,
       description: planConfig.description,
+      cycle: planConfig.cycle,
     });
 
     const baseUrl = getBaseUrl(req);
-    const checkout = await createCheckout({
+    const checkout = await createSubscriptionCheckout({
       customerId: customer.id,
       items: [{ id: product.id, quantity: 1 }],
-      methods: ["PIX"],
+      methods: ["PIX", "CARD"],
       returnUrl: `${baseUrl}/pagamento/processando`,
       completionUrl: `${baseUrl}/pagamento/processando`,
       externalId: `${user.id}:${planConfig.externalId}:${Date.now()}`,
@@ -179,12 +268,14 @@ export default async function handler(req, res) {
       },
     });
 
-    const subscription = await createPendingSubscription({
+    const subscription = await savePendingSubscription({
       user,
       planKey,
       planConfig,
       checkout,
       product,
+      customer,
+      existingPending,
     });
 
     return res.status(200).json({
@@ -197,9 +288,12 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error("Erro ao criar checkout:", error);
+    const unavailableCard = /card is not available for this store/i.test(error.message || "");
     return res.status(error.status || 500).json({
       success: false,
-      error: error.message || "Erro interno ao criar checkout",
+      error: unavailableCard
+        ? "Cartao ainda nao esta habilitado nesta loja AbacatePay. Solicite a liberacao do metodo CARD no painel/suporte da AbacatePay e tente novamente."
+        : error.message || "Erro interno ao criar checkout",
     });
   }
 }

@@ -53,7 +53,7 @@ alter table public.subscriptions
 
 alter table public.subscriptions
   add constraint subscriptions_status_check
-  check (status in ('pending', 'active', 'past_due', 'canceled', 'refunded', 'expired'));
+  check (status in ('pending', 'active', 'past_due', 'trialing', 'canceled', 'refunded', 'expired'));
 
 alter table public.subscriptions
   drop constraint if exists subscriptions_plan_check;
@@ -70,6 +70,17 @@ create index if not exists subscriptions_current_period_end_idx
 
 create index if not exists subscriptions_checkout_id_idx
   on public.subscriptions((metadata->>'checkout_id'));
+
+-- Uma conta pode manter historico cancelado/expirado, mas so pode ter um fluxo
+-- de assinatura aberto. A API atualiza a linha pending em novas tentativas.
+alter table public.subscriptions
+  drop constraint if exists unique_active_subscription;
+
+drop index if exists public.unique_active_subscription;
+
+create unique index unique_active_subscription
+  on public.subscriptions(user_id)
+  where status in ('pending', 'active', 'past_due', 'trialing');
 
 create table if not exists public.abacatepay_webhook_events (
   id uuid primary key default gen_random_uuid(),

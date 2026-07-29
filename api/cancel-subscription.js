@@ -1,3 +1,5 @@
+import { cancelAbacateSubscription } from "./abacatepay.js";
+
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -71,12 +73,18 @@ async function getSubscription(subscriptionId) {
 
 async function updateSubscription(subscription, user) {
   const now = new Date().toISOString();
+  let remoteCancellation = null;
+
+  if (subscription.provider === "abacatepay" && subscription.provider_subscription_id) {
+    remoteCancellation = await cancelAbacateSubscription(subscription.provider_subscription_id);
+  }
+
   const metadata = {
     ...(subscription.metadata || {}),
     canceled_by: user.id,
     canceled_source: "user_request",
-    cancellation_mode: "local_access",
-    cancellation_note: "Checkout AbacatePay nao expoe cancelamento remoto neste fluxo; acesso cancelado no backend do app.",
+    cancellation_mode: remoteCancellation ? "abacatepay_api" : "local_legacy",
+    abacatepay_cancellation_status: remoteCancellation?.status || null,
   };
 
   const res = await fetch(`${SUPABASE_URL}/rest/v1/subscriptions?id=eq.${subscription.id}`, {

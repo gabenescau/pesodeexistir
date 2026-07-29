@@ -135,7 +135,7 @@ export function SubscribeModal({ open, onClose, dismissible = true }) {
           )}
 
           <p className="mt-3 text-xs text-[var(--text-muted)]">
-            Pagamento via PIX no checkout da AbacatePay, com confirmacao automatica.
+            Pagamento via PIX ou cartão no checkout da AbacatePay, com confirmação automática.
           </p>
         </div>
       </div>

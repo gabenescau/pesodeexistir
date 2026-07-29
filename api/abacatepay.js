@@ -58,8 +58,13 @@ async function abacateFetch(path, options = {}) {
 }
 
 async function findProductByExternalId(externalId) {
-  const products = await abacateFetch("/products/list");
-  return asArray(products).find((product) => product.externalId === externalId) || null;
+  const query = new URLSearchParams({ externalId });
+  try {
+    return await abacateFetch(`/products/get?${query.toString()}`);
+  } catch (error) {
+    if (error.status === 404) return null;
+    throw error;
+  }
 }
 
 function isDuplicateExternalIdError(error) {
@@ -90,9 +95,14 @@ export async function findOrCreateCustomer({ email, name, taxId }) {
   });
 }
 
-export async function findOrCreateProduct({ externalId, name, price, description }) {
+export async function findOrCreateProduct({ externalId, name, price, description, cycle }) {
   const existing = await findProductByExternalId(externalId);
-  if (existing) return existing;
+  if (existing) {
+    if ((existing.cycle || null) !== (cycle || null)) {
+      throw new Error(`Produto ${externalId} existe com ciclo incorreto`);
+    }
+    return existing;
+  }
 
   try {
     return await abacateFetch("/products/create", {
@@ -103,13 +113,19 @@ export async function findOrCreateProduct({ externalId, name, price, description
         price,
         description: description || "",
         currency: "BRL",
+        ...(cycle ? { cycle } : {}),
       }),
     });
   } catch (error) {
     if (!isDuplicateExternalIdError(error)) throw error;
 
     const product = await findProductByExternalId(externalId);
-    if (product) return product;
+    if (product) {
+      if ((product.cycle || null) !== (cycle || null)) {
+        throw new Error(`Produto ${externalId} existe com ciclo incorreto`);
+      }
+      return product;
+    }
 
     throw error;
   }
@@ -130,5 +146,43 @@ export async function createCheckout({ customerId, items, returnUrl, completionU
   return abacateFetch("/checkouts/create", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export async function createSubscriptionCheckout({
+  customerId,
+  items,
+  returnUrl,
+  completionUrl,
+  methods,
+  externalId,
+  metadata,
+}) {
+  const payload = {
+    items,
+    methods: methods || ["PIX", "CARD"],
+    retryPolicy: {
+      maxRetry: 3,
+      retryEvery: 2,
+    },
+  };
+
+  if (customerId) payload.customerId = customerId;
+  if (returnUrl) payload.returnUrl = returnUrl;
+  if (completionUrl) payload.completionUrl = completionUrl;
+  if (externalId) payload.externalId = externalId;
+  if (metadata && Object.keys(metadata).length > 0) payload.metadata = metadata;
+
+  return abacateFetch("/subscriptions/create", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function cancelAbacateSubscription(id) {
+  if (!id) throw new Error("ID da assinatura AbacatePay nao informado");
+  return abacateFetch("/subscriptions/cancel", {
+    method: "POST",
+    body: JSON.stringify({ id }),
   });
 }

@@ -36,7 +36,7 @@ export const PLANS = {
     priceFormatted: "R$ 24",
     period: "/mes",
     description: "Acesso completo a biblioteca e comunidade",
-    externalId: "ope_club_monthly",
+    externalId: "ope_club_monthly_subscription_v1",
   },
   annual: {
     id: "annual",
@@ -45,7 +45,7 @@ export const PLANS = {
     priceFormatted: "R$ 144",
     period: "/ano",
     description: "O melhor custo-beneficio",
-    externalId: "ope_club_annual",
+    externalId: "ope_club_annual_subscription_v1",
     monthlyEquivalent: 12,
     discountText: "Mais de 50% de desconto",
   },
