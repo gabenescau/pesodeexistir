@@ -4,4 +4,4 @@ Disallow: /app/
 Disallow: /assinar
 Disallow: /pagamento/
 
-Sitemap: https://ope.club/sitemap.xml
+Sitemap: https://pesodeexistir.online/sitemap.xml

@@ -5,8 +5,8 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  // The Vercel/Supabase integration uses NEXT_PUBLIC_*. Unprefixed
-  // SUPABASE_* variables stay private and are never bundled.
+  // Only the public URL and publishable key are read by client code.
+  // Unprefixed SUPABASE_* variables stay server-only and are never bundled.
   envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
   resolve: {
     alias: {

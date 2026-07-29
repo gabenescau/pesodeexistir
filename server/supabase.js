@@ -1,20 +1,50 @@
 import crypto from "node:crypto";
 
-const SUPABASE_URL =
-  process.env.SUPABASE_URL ||
-  process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  process.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLIC_KEY =
-  process.env.SUPABASE_PUBLISHABLE_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-  process.env.SUPABASE_ANON_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  process.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_PUBLIC_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
 const SUPABASE_SERVICE_KEY =
   process.env.SUPABASE_SECRET_KEY ||
   process.env.SUPABASE_SERVICE_ROLE_KEY;
 const MAX_JSON_BODY_BYTES = 32 * 1024;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const PRODUCTION_ORIGINS = new Set([
+  "https://pesodeexistir.online",
+  "https://www.pesodeexistir.online",
+  "https://ope.club",
+  "https://www.ope.club",
+]);
+
+function allowedOrigins() {
+  const configured = String(process.env.CORS_ALLOWED_ORIGINS || "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  const origins = new Set([...PRODUCTION_ORIGINS, ...configured]);
+  if (process.env.NODE_ENV !== "production") {
+    origins.add("http://localhost:5173");
+    origins.add("http://127.0.0.1:5173");
+  }
+  return origins;
+}
+
+function appendVary(res, value) {
+  const current = String(res.getHeader?.("Vary") || "");
+  const values = new Set(
+    current.split(",").map((item) => item.trim()).filter(Boolean)
+  );
+  values.add(value);
+  res.setHeader("Vary", [...values].join(", "));
+}
+
+export function applyCors(req, res) {
+  const origin = String(req.headers.origin || "").trim();
+  if (!origin) return true;
+  if (!allowedOrigins().has(origin)) return false;
+
+  res.setHeader("Access-Control-Allow-Origin", origin);
+  appendVary(res, "Origin");
+  return true;
+}
 
 function requireConfig() {
   if (!SUPABASE_URL || !SUPABASE_PUBLIC_KEY || !SUPABASE_SERVICE_KEY) {
@@ -273,10 +303,20 @@ export async function insertSubscription(payload) {
 
 export function allowPost(req, res) {
   prepareResponse(req, res);
+  const corsAllowed = applyCors(req, res);
   if (req.method === "OPTIONS") {
+    if (!corsAllowed) {
+      res.status(403).json({ success: false, error: "Origem nao permitida" });
+      return false;
+    }
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
+    res.setHeader("Access-Control-Max-Age", "600");
     res.status(204).end();
+    return false;
+  }
+  if (!corsAllowed) {
+    res.status(403).json({ success: false, error: "Origem nao permitida" });
     return false;
   }
   if (req.method !== "POST") {
