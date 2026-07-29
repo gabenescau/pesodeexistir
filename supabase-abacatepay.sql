@@ -197,6 +197,19 @@ set public = false,
     file_size_limit = excluded.file_size_limit,
     allowed_mime_types = excluded.allowed_mime_types;
 
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'post-media',
+  'post-media',
+  false,
+  5242880,
+  array['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+)
+on conflict (id) do update
+set public = false,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
 create or replace function public.has_active_subscription()
 returns boolean
 language sql
@@ -503,7 +516,9 @@ alter table public.profiles
   add column if not exists reading_activity boolean not null default true,
   add column if not exists show_online_status boolean not null default true;
 
-create or replace view public.public_profiles as
+drop view if exists public.public_profiles;
+
+create view public.public_profiles as
 select
   p.id,
   p.name,
@@ -640,19 +655,6 @@ with check (
       and option_row.poll_id = poll_id
   )
 );
-
-insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values (
-  'post-media',
-  'post-media',
-  false,
-  5242880,
-  array['image/jpeg', 'image/png', 'image/webp', 'image/gif']
-)
-on conflict (id) do update
-set public = false,
-    file_size_limit = excluded.file_size_limit,
-    allowed_mime_types = excluded.allowed_mime_types;
 
 drop policy if exists "post_media_owner_read" on storage.objects;
 create policy "post_media_owner_read"
