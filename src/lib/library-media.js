@@ -32,7 +32,8 @@ export function validateLibraryFile(file, kind) {
 
 export async function uploadLibraryFile({ file, bucket, kind }) {
   if (!isSupabaseReady()) throw new Error("Supabase nao configurado.");
-  validateLibraryFile(file, kind);
+  const validationKind = bucket === LIBRARY_BUCKETS.covers ? "image" : "pdf";
+  validateLibraryFile(file, validationKind);
 
   const { data: authData, error: authError } = await supabase.auth.getUser();
   const userId = authData?.user?.id;
