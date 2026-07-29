@@ -1,10 +1,22 @@
+import { supabase } from "@/app/data/supabase";
+
 const API_BASE = "/api";
 
-export async function createCheckout({ plan, userId, email, name }) {
+export async function createCheckout({ plan, name }) {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData?.session?.access_token;
+
+  if (!accessToken) {
+    throw new Error("Sua sessao expirou. Entre novamente para assinar.");
+  }
+
   const res = await fetch(`${API_BASE}/create-checkout`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ plan, userId, email, name }),
+    headers: {
+      "Authorization": `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ plan, name }),
   });
 
   const body = await res.json();
@@ -22,8 +34,8 @@ export const PLANS = {
     label: "Mensal",
     price: 2400,
     priceFormatted: "R$ 24",
-    period: "/mês",
-    description: "Acesso completo à biblioteca e comunidade",
+    period: "/mes",
+    description: "Acesso completo a biblioteca e comunidade",
     externalId: "ope_club_monthly",
   },
   annual: {
@@ -32,7 +44,7 @@ export const PLANS = {
     price: 14400,
     priceFormatted: "R$ 144",
     period: "/ano",
-    description: "O melhor custo-benefício",
+    description: "O melhor custo-beneficio",
     externalId: "ope_club_annual",
     monthlyEquivalent: 12,
     discountText: "Mais de 50% de desconto",

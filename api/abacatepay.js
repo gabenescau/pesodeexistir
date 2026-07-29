@@ -17,25 +17,31 @@ async function abacateFetch(path, options = {}) {
     },
   });
 
-  const body = await res.json();
+  let body;
+  try {
+    body = await res.json();
+  } catch {
+    body = null;
+  }
 
   if (!res.ok) {
     const msg = body?.error || `AbacatePay erro ${res.status}`;
     throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
   }
 
-  return body?.data ?? body;
+  if (body && typeof body === "object" && "data" in body) return body.data;
+  return body;
 }
 
 export async function findOrCreateCustomer({ email, name, taxId }) {
-  const customers = await abacateFetch("/customer/list");
+  const customers = await abacateFetch("/customers/list?limit=100");
 
   const existing = (customers || []).find(
     (c) => c.email?.toLowerCase() === email?.toLowerCase()
   );
   if (existing) return existing;
 
-  return abacateFetch("/customer/create", {
+  return abacateFetch("/customers/create", {
     method: "POST",
     body: JSON.stringify({
       email,
@@ -46,12 +52,14 @@ export async function findOrCreateCustomer({ email, name, taxId }) {
 }
 
 export async function findOrCreateProduct({ externalId, name, price, description }) {
-  const products = await abacateFetch("/product/list");
+  const products = await abacateFetch(
+    `/products/list?limit=100&externalId=${encodeURIComponent(externalId)}`
+  );
 
   const existing = (products || []).find((p) => p.externalId === externalId);
   if (existing) return existing;
 
-  return abacateFetch("/product/create", {
+  return abacateFetch("/products/create", {
     method: "POST",
     body: JSON.stringify({
       externalId,
@@ -63,15 +71,17 @@ export async function findOrCreateProduct({ externalId, name, price, description
   });
 }
 
-export async function createCheckout({ customerId, items, returnUrl, completionUrl, methods }) {
-  return abacateFetch("/checkout/create", {
+export async function createCheckout({ customerId, items, returnUrl, completionUrl, methods, externalId, metadata }) {
+  return abacateFetch("/checkouts/create", {
     method: "POST",
     body: JSON.stringify({
-      customerId,
       items,
+      customerId,
+      methods: methods || ["PIX", "CARD"],
       returnUrl: returnUrl || "",
       completionUrl: completionUrl || "",
-      methods: methods || ["PIX", "CARD"],
+      externalId: externalId || "",
+      metadata: metadata || {},
     }),
   });
 }

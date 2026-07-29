@@ -41,8 +41,6 @@ export function SubscribePage() {
     try {
       const data = await createCheckout({
         plan,
-        userId: user.id,
-        email: user.email,
         name: profile?.name || user.email?.split("@")[0] || "",
       });
 
@@ -167,8 +165,8 @@ export function SubscribePage() {
         )}
 
         <p className="text-xs text-center max-w-md mx-auto" style={{ color: "var(--text-muted)" }}>
-          Pagamento 100% seguro via AbacatePay. Aceitamos cartão de crédito e PIX.
-          Cancele quando quiser.
+          Pagamento 100% seguro via AbacatePay. Aceitamos cartao e PIX.
+          Acesso liberado apos a confirmacao do pagamento.
         </p>
       </div>
     </div>

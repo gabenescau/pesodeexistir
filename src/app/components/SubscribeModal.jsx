@@ -33,8 +33,6 @@ export function SubscribeModal({ open, onClose, dismissible = true }) {
     try {
       const data = await createCheckout({
         plan,
-        userId: user.id,
-        email: user.email,
         name: user.email?.split("@")[0] || "",
       });
       window.location.assign(data.url);
@@ -45,8 +43,6 @@ export function SubscribeModal({ open, onClose, dismissible = true }) {
   }
 
   const plan = PLANS[selectedPlan];
-  const isAnnual = selectedPlan === "annual";
-
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <button
@@ -139,7 +135,7 @@ export function SubscribeModal({ open, onClose, dismissible = true }) {
           )}
 
           <p className="mt-3 text-xs text-[var(--text-muted)]">
-            Pagamento via AbacatePay. Cartão e PIX. Cancele quando quiser.
+            Pagamento via AbacatePay. Cartao e PIX com confirmacao automatica.
           </p>
         </div>
       </div>
