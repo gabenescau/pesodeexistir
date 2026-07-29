@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Lightbulb, MessageSquare, Plus, Send, X } from "lucide-react";
 import { useAuth } from "@/app/data/AuthContext";
 import { supabase, isSupabaseReady } from "@/app/data/supabase";
+import { sanitizePlainText, sanitizeSingleLine } from "@/lib/sanitize";
 
 const columns = [
   { id: "ideas", title: "Ideias da comunidade", accent: "#9ca3af" },
@@ -34,7 +35,7 @@ function statusIndex(status) {
   return Math.max(0, columns.findIndex((column) => column.id === status));
 }
 
-function SuggestionCard({ suggestion, isAdmin, onMove, moving }) {
+function SuggestionCard({ suggestion, canManage, onMove, moving }) {
   const index = statusIndex(suggestion.status);
   const author = suggestion.author_name || "Leitor";
 
@@ -60,7 +61,7 @@ function SuggestionCard({ suggestion, isAdmin, onMove, moving }) {
           {suggestion.comment_count || 0}
         </span>
 
-        {isAdmin && (
+        {canManage && (
           <div className="flex items-center gap-1">
             <button
               type="button"
@@ -104,11 +105,14 @@ function SuggestionForm({ open, onClose, onCreated }) {
 
     try {
       if (!isSupabaseReady()) throw new Error("Supabase nao configurado.");
+      const cleanTitle = sanitizeSingleLine(title, 90);
+      const cleanDescription = sanitizePlainText(description, 500);
+      if (!cleanTitle) throw new Error("Digite um titulo para a sugestao.");
       const payload = {
         user_id: user.id,
-        title: title.trim(),
-        description: description.trim(),
-        category,
+        title: cleanTitle,
+        description: cleanDescription,
+        category: categoryOptions.includes(category) ? category : categoryOptions[0],
         status: "ideas",
         author_name: profile?.name || user?.user_metadata?.name || "Leitor",
       };
@@ -190,7 +194,7 @@ function SuggestionForm({ open, onClose, onCreated }) {
 }
 
 export function SuggestionsPage() {
-  const { isAdmin } = useAuth();
+  const { canManageContent } = useAuth();
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -232,7 +236,7 @@ export function SuggestionsPage() {
   }, [suggestions]);
 
   async function moveSuggestion(suggestion, status) {
-    if (!isAdmin || !status || suggestion.status === status) return;
+    if (!canManageContent || !status || suggestion.status === status) return;
     setMovingId(suggestion.id);
     setError("");
     try {
@@ -287,7 +291,7 @@ export function SuggestionsPage() {
                   <SuggestionCard
                     key={suggestion.id}
                     suggestion={suggestion}
-                    isAdmin={isAdmin}
+                    canManage={canManageContent}
                     moving={movingId === suggestion.id}
                     onMove={moveSuggestion}
                   />

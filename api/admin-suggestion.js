@@ -2,8 +2,10 @@ import {
   allowPost,
   enforceRateLimit,
   getAuthenticatedUser,
+  logAuditEvent,
   logServerError,
-  requireAdmin,
+  PERMISSIONS,
+  requirePermission,
   requireUuid,
   sendError,
   supabaseRequest,
@@ -16,7 +18,7 @@ export default async function handler(req, res) {
     if (!allowPost(req, res)) return;
 
     const user = await getAuthenticatedUser(req);
-    await requireAdmin(user);
+    await requirePermission(user, PERMISSIONS.MANAGE_SUGGESTIONS);
     if (!await enforceRateLimit(req, res, {
       scope: "admin_suggestion",
       limit: 60,
@@ -50,6 +52,11 @@ export default async function handler(req, res) {
       return res.status(404).json({ success: false, error: "Sugestao nao encontrada" });
     }
 
+    logAuditEvent("suggestion.move", req, {
+      actorId: user.id,
+      targetId: suggestionId,
+      outcome: "success",
+    });
     return res.status(200).json({ success: true, data: updated });
   } catch (error) {
     logServerError("admin_suggestion", error, req);

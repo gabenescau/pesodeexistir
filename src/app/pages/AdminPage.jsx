@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../data/AuthContext";
 import { useData } from "../data/DataContext";
 import { isSupabaseReady } from "../data/supabase";
@@ -970,10 +970,20 @@ function CategoriesTab() {
 }
 
 export function AdminPage() {
-  const { isAdmin } = useAuth();
-  const [activeTab, setActiveTab] = useState("users");
+  const { isAdmin, canManageContent } = useAuth();
+  const allowedTabs = useMemo(
+    () => isAdmin ? tabs : tabs.filter((tab) => !["users", "subscriptions"].includes(tab.id)),
+    [isAdmin]
+  );
+  const [activeTab, setActiveTab] = useState(isAdmin ? "users" : "posts");
 
-  if (!isAdmin) {
+  useEffect(() => {
+    if (!allowedTabs.some((tab) => tab.id === activeTab)) {
+      setActiveTab(allowedTabs[0]?.id || "posts");
+    }
+  }, [activeTab, allowedTabs]);
+
+  if (!canManageContent) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4">
         <ShieldAlert className="size-12 text-[var(--text-muted)]" />
@@ -993,7 +1003,7 @@ export function AdminPage() {
       </div>
 
       <div className="flex gap-1 overflow-x-auto pb-1 border-b border-[var(--border)]" style={{ scrollbarWidth: "none" }}>
-        {tabs.map(tab => {
+        {allowedTabs.map(tab => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (

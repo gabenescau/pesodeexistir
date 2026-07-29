@@ -8,6 +8,7 @@ import { handleDoPerfil } from "@/lib/mentions";
 import { createSignedUrlMap, LIBRARY_BUCKETS, removeLibraryFile } from "@/lib/library-media";
 import { useAuth } from "./AuthContext";
 import { POST_IMAGE_BUCKET } from "@/lib/social";
+import { normalizeEmail, sanitizePlainText, sanitizeSingleLine } from "@/lib/sanitize";
 
 const DataContext = createContext(null);
 
@@ -421,10 +422,10 @@ export function DataProvider({ children }) {
   const addAuthor = useCallback(async (data) => {
     if (isSupabase) {
       const payload = {
-        name: data.name,
-        theme: data.theme,
-        era: data.era,
-        bio: data.bio,
+        name: sanitizeSingleLine(data.name, 120),
+        theme: sanitizeSingleLine(data.theme, 120),
+        era: sanitizeSingleLine(data.era, 80),
+        bio: sanitizePlainText(data.bio, 3000),
         image: data.image || null,
         image_path: data.imagePath || null,
       };
@@ -447,10 +448,10 @@ export function DataProvider({ children }) {
     const previous = authors.find((author) => author.id === id);
     if (isSupabase) {
       const { error } = await supabase.from("authors").update({
-        name: data.name,
-        theme: data.theme,
-        era: data.era,
-        bio: data.bio,
+        name: sanitizeSingleLine(data.name, 120),
+        theme: sanitizeSingleLine(data.theme, 120),
+        era: sanitizeSingleLine(data.era, 80),
+        bio: sanitizePlainText(data.bio, 3000),
         image: data.image || null,
         image_path: data.imagePath || null,
       }).eq("id", id);
@@ -488,13 +489,13 @@ export function DataProvider({ children }) {
   // BOOKS CRUD
   const addBook = useCallback(async (data) => {
     const payload = {
-      title: data.title,
+      title: sanitizeSingleLine(data.title, 180),
       image: data.image || null,
       image_path: data.imagePath || null,
       pdf_url: data.pdfFile || null,
       pdf_path: data.pdfPath || null,
       author_id: data.authorId || null,
-      category: data.category || null,
+      category: sanitizeSingleLine(data.category, 80) || null,
     };
     if (isSupabase) {
       const { data: inserted, error } = await supabase.from("books").insert(payload).select("*, authors(name)").single();
@@ -523,13 +524,13 @@ export function DataProvider({ children }) {
     const previous = books.find((book) => book.id === id);
     if (isSupabase) {
       const { error } = await supabase.from("books").update({
-        title: data.title,
+        title: sanitizeSingleLine(data.title, 180),
         image: data.image || null,
         image_path: data.imagePath || null,
         pdf_url: data.pdfFile || null,
         pdf_path: data.pdfPath || null,
         author_id: data.authorId || null,
-        category: data.category || null,
+        category: sanitizeSingleLine(data.category, 80) || null,
       }).eq("id", id);
       if (error) throw error;
 
@@ -637,8 +638,8 @@ export function DataProvider({ children }) {
     if (isSupabase) {
       const { data: inserted, error } = await supabase.from("posts").insert({
         user_id: post.userId,
-        text: post.text,
-        tag: post.tag,
+        text: sanitizePlainText(post.text, 5000),
+        tag: sanitizeSingleLine(post.tag, 80) || null,
         book_id: post.bookId,
         images: post.images || [],
         image_paths: post.imagePaths || [],
@@ -648,7 +649,7 @@ export function DataProvider({ children }) {
       if (inserted && post.poll?.question && post.poll?.options?.length >= 2) {
         const { data: insertedPoll, error: pollError } = await supabase
           .from("post_polls")
-          .insert({ post_id: inserted.id, question: post.poll.question })
+          .insert({ post_id: inserted.id, question: sanitizeSingleLine(post.poll.question, 240) })
           .select("*")
           .single();
         if (pollError) {
@@ -660,7 +661,7 @@ export function DataProvider({ children }) {
           .from("post_poll_options")
           .insert(post.poll.options.map((label, index) => ({
             poll_id: insertedPoll.id,
-            label,
+            label: sanitizeSingleLine(label, 120),
             sort_order: index,
           })))
           .select("*");
@@ -803,7 +804,7 @@ export function DataProvider({ children }) {
       .insert({
         book_id: bookId,
         release_date: releaseDate,
-        note: note || "",
+        note: sanitizePlainText(note, 1000),
         visible,
       })
       .select("*, books(*, authors(name))")
@@ -826,25 +827,31 @@ export function DataProvider({ children }) {
 
   // CATEGORIES CRUD — categorias dinamimicas gerenciadas pelo admin.
   const addCategory = useCallback(async (name) => {
-    if (!name || !name.trim()) return null;
+    const cleanName = sanitizeSingleLine(name, 80);
+    if (!cleanName) return null;
     if (isSupabase) {
-      const { data, error } = await supabase.from("categories").insert({ name: name.trim() }).select().single();
+      const { data, error } = await supabase.from("categories").insert({ name: cleanName }).select().single();
       if (error) throw error;
       if (data) { setCategories(prev => [...prev, data].sort((a, b) => (a.sort_order - b.sort_order) || a.name.localeCompare(b.name))); return data; }
       return null;
     }
-    const cat = { id: `cat-${Date.now()}`, name: name.trim(), sort_order: 0 };
+    const cat = { id: `cat-${Date.now()}`, name: cleanName, sort_order: 0 };
     setCategories(prev => [...prev, cat].sort((a, b) => a.name.localeCompare(b.name)));
     return cat;
   }, [isSupabase]);
 
   const updateCategory = useCallback(async (id, data) => {
+    const payload = {
+      name: sanitizeSingleLine(data?.name, 80),
+      updated_at: new Date().toISOString(),
+    };
+    if (!payload.name) throw new Error("Digite o nome da categoria.");
     if (isSupabase) {
-      const { data: updated, error } = await supabase.from("categories").update({ ...data, updated_at: new Date().toISOString() }).eq("id", id).select().single();
+      const { data: updated, error } = await supabase.from("categories").update(payload).eq("id", id).select().single();
       if (error) throw error;
       setCategories(prev => prev.map(c => c.id === id ? updated : c));
     } else {
-      setCategories(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
+      setCategories(prev => prev.map(c => c.id === id ? { ...c, ...payload } : c));
     }
   }, [isSupabase]);
 
@@ -934,10 +941,13 @@ export function DataProvider({ children }) {
   const updateProfilePreferences = useCallback(async (userId, preferences) => {
     if (!isSupabase || !userId) return null;
 
-    const payload = {
-      ...preferences,
-      updated_at: new Date().toISOString(),
-    };
+    const payload = { updated_at: new Date().toISOString() };
+    for (const key of ["private_profile", "reading_activity", "show_online_status"]) {
+      if (typeof preferences?.[key] === "boolean") payload[key] = preferences[key];
+    }
+    if (typeof preferences?.email === "string") {
+      payload.email = normalizeEmail(preferences.email);
+    }
 
     const { data, error } = await supabase
       .from("profiles")

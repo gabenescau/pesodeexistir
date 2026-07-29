@@ -5,6 +5,7 @@ import {
   getAuthenticatedUser,
   insertSubscription,
   listUserSubscriptions,
+  logAuditEvent,
   logServerError,
   requireUuid,
   requireAdmin,
@@ -131,6 +132,12 @@ export default async function handler(req, res) {
       return res.status(400).json({ success: false, error: "Acao invalida" });
     }
 
+    logAuditEvent(`admin.subscription.${action}`, req, {
+      actorId: user.id,
+      targetId: updated?.id || userId,
+      outcome: "success",
+      provider: updated?.provider,
+    });
     return res.status(200).json({ success: true, data: updated });
   } catch (error) {
     logServerError("admin_subscription", error, req);

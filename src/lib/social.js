@@ -1,3 +1,5 @@
+import { sanitizeSingleLine } from "./sanitize.js";
+
 export const POST_IMAGE_BUCKET = "post-media";
 export const MAX_POST_IMAGES = 4;
 export const MAX_POST_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -34,7 +36,7 @@ export function safeFileName(name) {
 
 export function sanitizePollOptions(options) {
   return (options || [])
-    .map((option) => String(option || "").trim())
+    .map((option) => sanitizeSingleLine(option, 120))
     .filter(Boolean)
     .slice(0, 4);
 }

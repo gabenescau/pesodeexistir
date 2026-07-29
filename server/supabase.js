@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { hasPermission, normalizeRole, PERMISSIONS } from "../src/lib/rbac.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_PUBLIC_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
@@ -96,7 +97,28 @@ export function prepareResponse(req, res) {
   req.requestId = requestId;
   res.setHeader("X-Request-Id", requestId);
   res.setHeader("Cache-Control", "no-store");
+  console.info(JSON.stringify({
+    level: "info",
+    type: "access",
+    requestId,
+    method: String(req.method || "UNKNOWN").slice(0, 12),
+    path: String(req.url || "/").split("?")[0].slice(0, 200),
+  }));
   return requestId;
+}
+
+export function logAuditEvent(action, req, details = {}) {
+  const safeDetails = {};
+  for (const key of ["actorId", "targetId", "outcome", "provider"]) {
+    if (details[key] != null) safeDetails[key] = String(details[key]).slice(0, 120);
+  }
+  console.info(JSON.stringify({
+    level: "info",
+    type: "audit",
+    action: String(action || "unknown").slice(0, 120),
+    requestId: req?.requestId || null,
+    ...safeDetails,
+  }));
 }
 
 export function logServerError(context, error, req) {
@@ -184,13 +206,7 @@ function getClientAddress(req) {
   return forwarded || req.socket?.remoteAddress || "unknown";
 }
 
-export async function enforceRateLimit(req, res, {
-  scope,
-  limit,
-  windowSeconds,
-  userId,
-}) {
-  const rawIdentifier = userId ? `user:${userId}` : `ip:${getClientAddress(req)}`;
+async function consumeRateLimit({ scope, limit, windowSeconds, rawIdentifier }) {
   const secret = process.env.RATE_LIMIT_SECRET || SUPABASE_SERVICE_KEY;
   const keyHash = crypto
     .createHmac("sha256", secret)
@@ -198,7 +214,7 @@ export async function enforceRateLimit(req, res, {
     .digest("hex");
 
   try {
-    const result = await supabaseRequest("rpc/check_api_rate_limit", {
+    return await supabaseRequest("rpc/check_api_rate_limit", {
       method: "POST",
       body: JSON.stringify({
         p_key_hash: keyHash,
@@ -208,14 +224,56 @@ export async function enforceRateLimit(req, res, {
       }),
     });
 
-    const resetAt = Number(result?.reset_at) || Math.ceil(Date.now() / 1000) + windowSeconds;
-    const remaining = Math.max(0, Number(result?.remaining) || 0);
-    res.setHeader("X-RateLimit-Limit", String(limit));
+  } catch (error) {
+    error.rateLimitScope = scope;
+    throw error;
+  }
+}
+
+export async function enforceRateLimit(req, res, {
+  scope,
+  limit,
+  windowSeconds,
+  userId,
+}) {
+  const checks = userId
+    ? [
+        { scope, limit, rawIdentifier: `user:${userId}` },
+        {
+          scope: `${scope}:ip`,
+          limit: Math.max(limit * 5, 30),
+          rawIdentifier: `ip:${getClientAddress(req)}`,
+        },
+      ]
+    : [{ scope: `${scope}:ip`, limit, rawIdentifier: `ip:${getClientAddress(req)}` }];
+
+  try {
+    const results = [];
+    for (const check of checks) {
+      const result = await consumeRateLimit({
+        ...check,
+        windowSeconds,
+      });
+      results.push({ ...check, result });
+      if (result?.allowed === false) break;
+    }
+
+    const blocked = results.find(({ result }) => result?.allowed === false);
+    const strictest = blocked || results.reduce((lowest, current) => {
+      if (!lowest) return current;
+      return Number(current.result?.remaining) < Number(lowest.result?.remaining)
+        ? current
+        : lowest;
+    }, null);
+    const resetAt = Number(strictest?.result?.reset_at) ||
+      Math.ceil(Date.now() / 1000) + windowSeconds;
+    const remaining = Math.max(0, Number(strictest?.result?.remaining) || 0);
+    res.setHeader("X-RateLimit-Limit", String(strictest?.limit || limit));
     res.setHeader("X-RateLimit-Remaining", String(remaining));
     res.setHeader("X-RateLimit-Reset", String(resetAt));
-    res.setHeader("RateLimit-Policy", `${limit};w=${windowSeconds}`);
+    res.setHeader("RateLimit-Policy", `${strictest?.limit || limit};w=${windowSeconds}`);
 
-    if (result?.allowed === false) {
+    if (blocked) {
       const retryAfter = Math.max(1, resetAt - Math.floor(Date.now() / 1000));
       res.setHeader("Retry-After", String(retryAfter));
       res.status(429).json({
@@ -266,6 +324,19 @@ export async function requireAdmin(user) {
   }
   return profile;
 }
+
+export async function requirePermission(user, permission) {
+  const profile = await getProfile(user.id);
+  const role = normalizeRole(profile?.role || user?.app_metadata?.role);
+  if (!hasPermission(role, permission)) {
+    const error = new Error("Voce nao tem permissao para esta operacao");
+    error.status = 403;
+    throw error;
+  }
+  return profile;
+}
+
+export { PERMISSIONS };
 
 export async function getSubscription(subscriptionId) {
   const rows = await supabaseRequest(

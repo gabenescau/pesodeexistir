@@ -13,6 +13,7 @@ import { RichText } from "./RichText";
 import { SubscribeModal } from "./SubscribeModal";
 import { UserTitlePill } from "./UserTitlePill";
 import { VerifiedBadge } from "./VerifiedBadge";
+import { sanitizePlainText } from "@/lib/sanitize";
 
 function Avatar({ src, fallback, className = "size-11" }) {
   const [broken, setBroken] = useState(false);
@@ -158,7 +159,7 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
       setSubscribeOpen(true);
       return;
     }
-    const text = comment.trim();
+    const text = sanitizePlainText(comment, 2000);
     if (!text || !user?.id || busy) return;
     setComment("");
 

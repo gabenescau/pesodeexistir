@@ -11,6 +11,7 @@ import {
   allowPost,
   enforceRateLimit,
   getAuthenticatedUser,
+  logAuditEvent,
   logServerError,
   sendError,
 } from "../server/supabase.js";
@@ -433,6 +434,12 @@ export default async function handler(req, res) {
       existingPending,
     });
 
+    logAuditEvent("checkout.create", req, {
+      actorId: user.id,
+      targetId: subscription.id,
+      outcome: "success",
+      provider: "abacatepay",
+    });
     return res.status(200).json({
       success: true,
       data: {

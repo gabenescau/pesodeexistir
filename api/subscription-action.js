@@ -11,6 +11,7 @@ import {
   getAuthenticatedUser,
   getProfile,
   getSubscription,
+  logAuditEvent,
   logServerError,
   requireUuid,
   sendError,
@@ -161,6 +162,12 @@ export default async function handler(req, res) {
     else if (action === "change_plan") updated = await changePlan(subscription, plan);
     else return res.status(400).json({ success: false, error: "Acao invalida" });
 
+    logAuditEvent(`subscription.${action}`, req, {
+      actorId: user.id,
+      targetId: subscriptionId,
+      outcome: "success",
+      provider: subscription.provider,
+    });
     return res.status(200).json({ success: true, data: updated });
   } catch (error) {
     logServerError("subscription_action", error, req);

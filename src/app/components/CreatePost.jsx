@@ -15,6 +15,7 @@ import {
 } from "@/lib/social";
 import { SubscribeModal } from "./SubscribeModal";
 import { VerifiedBadge } from "./VerifiedBadge";
+import { sanitizePlainText, sanitizeSingleLine } from "@/lib/sanitize";
 
 const ALLOWED_POST_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
@@ -180,10 +181,11 @@ export function CreatePost() {
       setSubscribeOpen(true);
       return;
     }
-    const cleanText = text.trim();
+    const cleanText = sanitizePlainText(text, MAX_POST_TEXT);
+    const cleanPollQuestion = sanitizeSingleLine(pollQuestion, 240);
     const cleanPollOptions = sanitizePollOptions(pollOptions);
     if ((!cleanText && imageFiles.length === 0 && !pollEnabled) || publishing) return;
-    if (pollEnabled && (!pollQuestion.trim() || cleanPollOptions.length < 2)) {
+    if (pollEnabled && (!cleanPollQuestion || cleanPollOptions.length < 2)) {
       setError("A enquete precisa de pergunta e pelo menos 2 opcoes.");
       return;
     }
@@ -195,11 +197,11 @@ export function CreatePost() {
       uploadedPaths = await uploadPostImages(imageFiles, user.id);
       await addPost({
         userId: user?.id,
-        text: cleanText || pollQuestion.trim(),
+        text: cleanText || cleanPollQuestion,
         tag: null,
         bookId,
         imagePaths: uploadedPaths,
-        poll: pollEnabled ? { question: pollQuestion.trim(), options: cleanPollOptions } : null,
+        poll: pollEnabled ? { question: cleanPollQuestion, options: cleanPollOptions } : null,
         author: name,
         avatar: avatar || initial,
       });

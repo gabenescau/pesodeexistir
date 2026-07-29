@@ -18,10 +18,10 @@ import { useAuth } from "@/app/data/AuthContext";
 export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { isAdmin, logout } = useAuth();
+  const { canManageContent, logout } = useAuth();
   const dynamicNavGroups = useNavGroups();
 
-  const groups = isAdmin
+  const groups = canManageContent
     ? [...dynamicNavGroups, adminGroup]
     : dynamicNavGroups;
 

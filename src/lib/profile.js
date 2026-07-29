@@ -1,3 +1,5 @@
+import { sanitizePlainText, sanitizeSingleLine } from "./sanitize.js";
+
 export const PROFILE_LIMITS = Object.freeze({
   name: 80,
   bio: 500,
@@ -14,9 +16,9 @@ const AVATAR_EXTENSIONS = Object.freeze({
 
 export function validateProfileInput({ name, handle, bio }) {
   const normalized = {
-    name: String(name || "").trim(),
-    handle: String(handle || "").trim().toLowerCase(),
-    bio: String(bio || "").trim(),
+    name: sanitizeSingleLine(name, PROFILE_LIMITS.name),
+    handle: sanitizeSingleLine(handle, 24).toLowerCase(),
+    bio: sanitizePlainText(bio, PROFILE_LIMITS.bio),
   };
 
   if (!normalized.name || normalized.name.length > PROFILE_LIMITS.name) {

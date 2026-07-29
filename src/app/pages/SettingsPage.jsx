@@ -21,6 +21,7 @@ import { useTheme } from "@/components/theme-provider";
 import { useData } from "@/app/data/DataContext";
 import { useAuth } from "@/app/data/AuthContext";
 import { supabase, isSupabaseReady } from "@/app/data/supabase";
+import { validateStrongPassword } from "@/lib/sanitize";
 import { isActiveSubscription } from "@/lib/subscription";
 import { ProfilePage } from "./ProfilePage";
 
@@ -215,8 +216,14 @@ export function SettingsPage() {
   }
 
   async function handleUpdatePassword() {
-    if (!isSupabaseReady() || newPassword.length < 6) {
-      setAccountMessage("A senha precisa ter pelo menos 6 caracteres.");
+    if (!isSupabaseReady()) {
+      setAccountMessage("Supabase nao configurado.");
+      return;
+    }
+    try {
+      validateStrongPassword(newPassword);
+    } catch (error) {
+      setAccountMessage(error.message);
       return;
     }
     setAccountMessage("");

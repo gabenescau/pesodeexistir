@@ -2,6 +2,8 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef } f
 import { supabase, isSupabaseReady } from "./supabase";
 import { getSupabaseErrorMessage } from "@/lib/supabase-error";
 import { runSupabaseQuery } from "@/lib/supabase-query";
+import { normalizeEmail } from "@/lib/sanitize";
+import { hasPermission, normalizeRole, PERMISSIONS, ROLES } from "@/lib/rbac";
 
 const AuthContext = createContext(null);
 
@@ -66,8 +68,8 @@ export function AuthProvider({ children }) {
     async function restoreSession() {
       const { data: { session } } = await supabase.auth.getSession();
 
-      // getSession() apenas le o localStorage: uma sessao de conta ja apagada,
-      // ou com token invalidado no servidor, continua parecendo valida aqui e
+      // getSession() le o storage de sessao configurado no cliente. Uma conta
+      // apagada ou com token invalidado ainda pode parecer valida localmente e
       // o app entra "logado" sem conseguir carregar nada. getUser() bate no
       // servidor de auth e revela isso.
       if (session) {
@@ -141,7 +143,7 @@ export function AuthProvider({ children }) {
     }
 
     const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
+      email: normalizeEmail(email),
       password,
     });
     if (error) throw new Error(getSupabaseErrorMessage(error));
@@ -156,9 +158,15 @@ export function AuthProvider({ children }) {
     setProfile(null);
   }, []);
 
-  const isAdmin = isSupabaseReady()
-    ? profile?.role === "admin" || session?.user?.app_metadata?.role === "admin"
-    : user?.role === 'admin';
+  const role = normalizeRole(
+    profile?.role ||
+    session?.user?.app_metadata?.role ||
+    user?.role
+  );
+  const isAdmin = role === ROLES.ADMIN;
+  const isEditor = role === ROLES.EDITOR;
+  const can = (permission) => hasPermission(role, permission);
+  const canManageContent = can(PERMISSIONS.MANAGE_CONTENT);
 
   return (
     <AuthContext.Provider value={{
@@ -168,6 +176,10 @@ export function AuthProvider({ children }) {
       loading,
       isAuthenticated: !!user,
       isAdmin,
+      isEditor,
+      role,
+      can,
+      canManageContent,
       login,
       logout,
     }}>

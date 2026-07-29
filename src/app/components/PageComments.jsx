@@ -8,6 +8,7 @@ import { handleDoPerfil } from "@/lib/mentions";
 import { EmojiReactions } from "./EmojiReactions";
 import { RichText } from "./RichText";
 import { UserTitlePill } from "./UserTitlePill";
+import { sanitizePlainText } from "@/lib/sanitize";
 
 const LIMITE_TEXTO = 2000;
 
@@ -102,7 +103,7 @@ export function PageComments({ bookId, pageNumber }) {
   }, [carregar]);
 
   async function publicar() {
-    const conteudo = texto.trim();
+    const conteudo = sanitizePlainText(texto, LIMITE_TEXTO);
     if (!conteudo || enviando) return;
 
     if (!user?.id) {

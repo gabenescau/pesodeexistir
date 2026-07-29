@@ -6,7 +6,7 @@ import { useAuth } from "@/app/data/AuthContext";
 // acessar o painel. Um nao-admin e redirecionado para o início (RLS ja barra
 // qualquer mutacao no banco, entao isto e defesa em profundidade na UI).
 export function AdminGuard({ children }) {
-  const { user, isAdmin, loading: authLoading } = useAuth();
+  const { user, canManageContent, loading: authLoading } = useAuth();
 
   if (authLoading) {
     return (
@@ -17,7 +17,7 @@ export function AdminGuard({ children }) {
   }
 
   if (!user) return <Navigate to="/entrar" replace />;
-  if (!isAdmin) return <Navigate to="/app/inicio" replace />;
+  if (!canManageContent) return <Navigate to="/app/inicio" replace />;
 
   return children;
 }

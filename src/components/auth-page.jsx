@@ -12,6 +12,12 @@ import { ChevronLeftIcon, AtSignIcon, LockIcon, UserIcon } from "lucide-react";
 import { useAuth } from "@/app/data/AuthContext";
 import { supabase, isSupabaseReady } from "@/app/data/supabase";
 import { getSupabaseErrorMessage } from "@/lib/supabase-error";
+import {
+  normalizeEmail,
+  PASSWORD_MIN_LENGTH,
+  sanitizeSingleLine,
+  validateStrongPassword,
+} from "@/lib/sanitize";
 
 const MAX_AUTH_ATTEMPTS = 5;
 const AUTH_LOCKOUT_MS = 60 * 1000;
@@ -43,7 +49,9 @@ export function AuthPage() {
       return;
     }
 
-    if (!email.trim()) return;
+    const cleanEmail = normalizeEmail(email);
+    const cleanName = sanitizeSingleLine(name, 80);
+    if (!cleanEmail) return;
     if (!isSupabaseReady()) {
       setError("Supabase não está configurado. Confira a integração Supabase no painel da Vercel.");
       return;
@@ -55,19 +63,17 @@ export function AuthPage() {
         if (!password) {
           throw new Error("Digite sua senha.");
         }
-        await login(email.trim(), password);
+        await login(cleanEmail, password);
         navigate(location.state?.from?.pathname || "/app/inicio", { replace: true });
       } else {
-        if (!password || password.length < 6) {
-          throw new Error("A senha deve ter no mínimo 6 caracteres");
-        }
-        if (!name.trim()) {
+        validateStrongPassword(password);
+        if (!cleanName) {
           throw new Error("Digite seu nome");
         }
         const { data, error: signUpError } = await supabase.auth.signUp({
-          email: email.trim(),
+          email: cleanEmail,
           password,
-          options: { data: { name: name.trim() } },
+          options: { data: { name: cleanName } },
         });
         if (signUpError) throw signUpError;
 
@@ -79,8 +85,8 @@ export function AuthPage() {
           const { error: profileError } = await supabase
             .from("profiles")
             .update({
-              name: name.trim(),
-              avatar: name.trim().charAt(0).toUpperCase(),
+              name: cleanName,
+              avatar: cleanName.charAt(0).toUpperCase(),
             })
             .eq("id", data.user.id);
 
@@ -212,7 +218,7 @@ export function AuthPage() {
                 placeholder="Sua senha"
                 type="password"
                 value={password}
-                minLength={6}
+                minLength={mode === "signup" ? PASSWORD_MIN_LENGTH : 1}
                 maxLength={128}
                 autoComplete={mode === "login" ? "current-password" : "new-password"}
                 onChange={e => setPassword(e.target.value)}

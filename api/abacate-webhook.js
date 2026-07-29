@@ -5,6 +5,7 @@ import {
   verifyAbacateSignature,
 } from "../server/webhook-security.js";
 import {
+  logAuditEvent,
   logServerError,
   prepareResponse,
 } from "../server/supabase.js";
@@ -332,6 +333,11 @@ export default async function handler(req, res) {
       );
     }
 
+    logAuditEvent("webhook.process", req, {
+      targetId: checkoutId,
+      outcome: eventType,
+      provider: "abacatepay",
+    });
     return res.status(200).json({ success: true });
   } catch (error) {
     await releaseWebhookEvent(processedEventId);
