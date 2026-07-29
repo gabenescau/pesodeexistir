@@ -43,7 +43,7 @@ function normalizeAssetUrl(value, folder) {
 }
 
 export function DataProvider({ children }) {
-  const content = loadContent();
+  const content = useMemo(() => loadContent(), []);
   const { user, profile: authProfile, isAdmin, loading: authLoading } = useAuth();
 
   const [books, setBooks] = useState([]);
@@ -75,6 +75,25 @@ export function DataProvider({ children }) {
     }
 
     if (authLoading) {
+      return;
+    }
+
+    if (!user?.id) {
+      setBooks(content.books || []);
+      setAuthors(content.authors || []);
+      setPosts([]);
+      setSubscription(null);
+      setSubscriptions([]);
+      setProfiles([]);
+      setProfile(null);
+      setWeeklyReleases([]);
+      setFollows([]);
+      setSavedPostIds([]);
+      setCategories([]);
+      setBookFavorites([]);
+      setAuthorFavorites([]);
+      setMyCounts({ comments: 0, reactions: 0 });
+      setLoading(false);
       return;
     }
 
