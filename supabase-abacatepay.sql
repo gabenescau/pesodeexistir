@@ -497,6 +497,12 @@ as $$
   );
 $$;
 
+alter table public.profiles
+  add column if not exists avatar_url text,
+  add column if not exists private_profile boolean not null default false,
+  add column if not exists reading_activity boolean not null default true,
+  add column if not exists show_online_status boolean not null default true;
+
 create or replace view public.public_profiles as
 select
   p.id,
