@@ -1,33 +1,29 @@
-import { Header } from '@/components/header'
-import { HeroSection } from '@/components/hero'
-import { BooksSection } from '@/components/books-section'
-import { NotALibrary } from '@/components/not-a-library'
-import { FeatureSection } from '@/components/feature-section'
-import { AuthorsSection } from '@/components/authors-section'
-import { MoreThanReading } from '@/components/more-than-reading'
-import { TestimonialsSection } from '@/components/testimonials-section'
-import { AlwaysEvolving } from '@/components/always-evolving'
-import { HowItWorks } from '@/components/how-it-works'
-import { PricingSection } from '@/components/pricing-section'
-import { FAQ } from '@/components/faq'
+import { LandingAbout, LandingFeatures, LandingSteps } from "./landing-v2/LandingContent";
+import { LandingHeader, LandingHero } from "./landing-v2/LandingHeaderHero";
+import { LandingAuthors, LandingLibrary } from "./landing-v2/LandingLibraryAuthors";
+import {
+  LandingFaq,
+  LandingPricing,
+  LandingSupport,
+  LandingTestimonials,
+} from "./landing-v2/LandingSocialPricing";
 
 export function LandingPage() {
   return (
-    <div className="sales-page relative min-h-screen bg-background text-foreground">
-      <Header />
-      <main className="overflow-x-hidden">
-        <HeroSection />
-        <BooksSection />
-        <NotALibrary />
-        <FeatureSection />
-        <AuthorsSection />
-        <MoreThanReading />
-        <TestimonialsSection />
-        <AlwaysEvolving />
-        <HowItWorks />
-        <PricingSection />
-        <FAQ />
+    <div className="ope-landing min-h-screen overflow-x-hidden bg-[var(--landing-bg)] text-[var(--landing-fg)]">
+      <LandingHeader />
+      <main>
+        <LandingHero />
+        <LandingLibrary />
+        <LandingAbout />
+        <LandingFeatures />
+        <LandingAuthors />
+        <LandingTestimonials />
+        <LandingSteps />
+        <LandingPricing />
+        <LandingFaq />
       </main>
+      <LandingSupport />
     </div>
-  )
+  );
 }

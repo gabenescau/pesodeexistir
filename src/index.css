@@ -190,6 +190,81 @@
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
+/* Public landing v2, ported from the standalone Lovable project. Keeping its
+   tokens scoped prevents marketing styles from leaking into the app shell. */
+.ope-landing {
+  --landing-bg: #efe4d6;
+  --landing-section: #e4d1bd;
+  --landing-surface: rgba(255, 247, 238, .46);
+  --landing-bg-glass: rgba(246, 237, 227, .82);
+  --landing-fg: #2a1a13;
+  --landing-muted: #6f5546;
+  --landing-brand: #8a5535;
+  --landing-brand-strong: #683b25;
+  --landing-border: rgba(96, 50, 30, .16);
+  --landing-hover: rgba(138, 85, 53, .10);
+  font-family: "Geist Variable", Geist, Inter, system-ui, sans-serif;
+}
+
+.dark .ope-landing {
+  --landing-bg: #16110e;
+  --landing-section: #211914;
+  --landing-surface: rgba(255, 255, 255, .035);
+  --landing-bg-glass: rgba(22, 17, 14, .78);
+  --landing-fg: #f3eee6;
+  --landing-muted: #b8aca0;
+  --landing-brand: #c78359;
+  --landing-brand-strong: #8a5535;
+  --landing-border: rgba(255, 255, 255, .10);
+  --landing-hover: rgba(199, 131, 89, .12);
+}
+
+.ope-landing h1,
+.ope-landing h2 {
+  letter-spacing: 0;
+}
+
+@keyframes landingMarqueeLeft {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@keyframes landingMarqueeRight {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes landingMarqueeUp {
+  from { transform: translateY(0); }
+  to { transform: translateY(-33.333%); }
+}
+
+.landing-marquee-left {
+  animation: landingMarqueeLeft 60s linear infinite;
+}
+
+.landing-marquee-right {
+  animation: landingMarqueeRight 70s linear infinite;
+}
+
+.landing-marquee-up {
+  animation: landingMarqueeUp var(--landing-marquee-duration, 38s) linear infinite;
+}
+
+.landing-marquee-left:hover,
+.landing-marquee-right:hover,
+.landing-marquee-up:hover {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-marquee-left,
+  .landing-marquee-right,
+  .landing-marquee-up {
+    animation-play-state: paused;
+  }
+}
+
 /* Kirvano-derived sales surface. Copy remains OPE; these are the public visual
    tokens and layout language used by the current Kirvano marketing site. */
 .sales-page {
