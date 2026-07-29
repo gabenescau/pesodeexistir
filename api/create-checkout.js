@@ -100,9 +100,12 @@ async function reusePendingCheckout(pending, planConfig, paymentMethod) {
     return null;
   }
   if (checkout.status === "PAID") {
-    const error = new Error("Pagamento ja confirmado. Sincronize a assinatura ou aguarde o webhook.");
-    error.status = 409;
-    throw error;
+    return {
+      checkout,
+      checkoutId: checkout.id,
+      subscriptionId: pending.id,
+      confirmed: true,
+    };
   }
   if (checkout.status !== "PENDING") {
     const error = new Error(`Checkout existente com status ${checkout.status}`);
@@ -117,6 +120,50 @@ async function reusePendingCheckout(pending, planConfig, paymentMethod) {
     subscriptionId: pending.id,
     reused: true,
   };
+}
+
+async function activatePaidPending({ pending, planConfig, checkout, paymentMethod }) {
+  const start = new Date();
+  const end = new Date(start);
+  if (paymentMethod === "PIX") end.setDate(end.getDate() + planConfig.durationDays);
+  else if (planConfig.cycle === "ANNUALLY") end.setFullYear(end.getFullYear() + 1);
+  else end.setMonth(end.getMonth() + 1);
+
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/subscriptions?id=eq.${encodeURIComponent(pending.id)}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
+        "Prefer": "return=representation",
+      },
+      body: JSON.stringify({
+        plan: planConfig.plan,
+        status: "active",
+        current_period_start: start.toISOString(),
+        current_period_end: end.toISOString(),
+        provider_customer_id: checkout.customerId || pending.provider_customer_id || null,
+        metadata: {
+          ...(pending.metadata || {}),
+          paid_at: start.toISOString(),
+          payment_method: paymentMethod,
+          abacatepay_checkout_status: "PAID",
+          last_event: "checkout.status_reconciled",
+          last_synced_at: start.toISOString(),
+        },
+        updated_at: start.toISOString(),
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Pagamento confirmado, mas o acesso nao foi atualizado: ${await response.text()}`);
+  }
+
+  const rows = await response.json();
+  return rows?.[0] || null;
 }
 
 async function expireStaleSubscriptions(subscriptions) {
@@ -258,6 +305,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ success: false, error: "Metodo de pagamento invalido" });
     }
 
+    const baseUrl = getBaseUrl(req);
     const currentSubscriptions = await listUserSubscriptions(user.id);
     await expireStaleSubscriptions(currentSubscriptions);
     const activeSubscription = currentSubscriptions.find(isCurrentlyActive);
@@ -270,6 +318,23 @@ export default async function handler(req, res) {
     const existingPending = currentSubscriptions.find((subscription) => subscription.status === "pending");
     if (existingPending) {
       const reused = await reusePendingCheckout(existingPending, planConfig, paymentMethod);
+      if (reused?.confirmed) {
+        const subscription = await activatePaidPending({
+          pending: existingPending,
+          planConfig,
+          checkout: reused.checkout,
+          paymentMethod,
+        });
+        return res.status(200).json({
+          success: true,
+          data: {
+            url: `${baseUrl}/app/inicio`,
+            checkoutId: reused.checkoutId,
+            subscriptionId: subscription?.id || existingPending.id,
+            confirmed: true,
+          },
+        });
+      }
       if (reused) return res.status(200).json({ success: true, data: reused });
     }
 
@@ -282,7 +347,6 @@ export default async function handler(req, res) {
     const checkoutProduct = getCheckoutProduct(planConfig, paymentMethod);
     const product = await findOrCreateProduct(checkoutProduct);
 
-    const baseUrl = getBaseUrl(req);
     const checkoutParams = {
       customerId: customer.id,
       productId: product.id,
