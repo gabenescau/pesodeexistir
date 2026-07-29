@@ -96,7 +96,7 @@ async function createPendingSubscription({ user, planKey, planConfig, checkout, 
       product_external_id: planConfig.externalId,
       checkout_external_id: checkout.externalId || null,
       amount_cents: planConfig.price,
-      methods: ["PIX", "CARD"],
+      methods: ["PIX"],
     },
     updated_at: now.toISOString(),
   };
@@ -167,7 +167,7 @@ export default async function handler(req, res) {
     const checkout = await createCheckout({
       customerId: customer.id,
       items: [{ id: product.id, quantity: 1 }],
-      methods: ["PIX", "CARD"],
+      methods: ["PIX"],
       returnUrl: `${baseUrl}/pagamento/processando`,
       completionUrl: `${baseUrl}/pagamento/processando`,
       externalId: `${user.id}:${planConfig.externalId}:${Date.now()}`,

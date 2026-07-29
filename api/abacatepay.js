@@ -58,16 +58,8 @@ async function abacateFetch(path, options = {}) {
 }
 
 async function findProductByExternalId(externalId) {
-  const query = new URLSearchParams({ externalId });
-
-  try {
-    return await abacateFetch(`/products/get?${query.toString()}`);
-  } catch (error) {
-    if (error.status === 404 || String(error.message || "").toLowerCase().includes("produto nao encontrado")) {
-      return null;
-    }
-    throw error;
-  }
+  const products = await abacateFetch("/products/list");
+  return asArray(products).find((product) => product.externalId === externalId) || null;
 }
 
 function isDuplicateExternalIdError(error) {
@@ -124,17 +116,19 @@ export async function findOrCreateProduct({ externalId, name, price, description
 }
 
 export async function createCheckout({ customerId, items, returnUrl, completionUrl, methods, externalId, metadata }) {
+  const payload = {
+    items,
+    methods: methods || ["PIX"],
+  };
+
+  if (customerId) payload.customerId = customerId;
+  if (returnUrl) payload.returnUrl = returnUrl;
+  if (completionUrl) payload.completionUrl = completionUrl;
+  if (externalId) payload.externalId = externalId;
+  if (metadata && Object.keys(metadata).length > 0) payload.metadata = metadata;
+
   return abacateFetch("/checkouts/create", {
     method: "POST",
-    body: JSON.stringify({
-      items,
-      customerId,
-      methods: methods || ["PIX", "CARD"],
-      card: { maxInstallments: 12 },
-      returnUrl: returnUrl || "",
-      completionUrl: completionUrl || "",
-      externalId: externalId || "",
-      metadata: metadata || {},
-    }),
+    body: JSON.stringify(payload),
   });
 }

@@ -1,10 +1,15 @@
 import { useState } from "react";
 import { useAuth } from "../data/AuthContext";
 import { useData } from "../data/DataContext";
-import { supabase, isSupabaseReady } from "../data/supabase";
-import { useNavigate } from "react-router-dom";
-import { ChevronLeft, Plus, Trash2, Edit3, X, Check, Crown, BookOpen, Users, MessageSquare, FileText, ShieldAlert, Sparkles, FolderOpen } from "lucide-react";
+import { isSupabaseReady } from "../data/supabase";
+import { Plus, Trash2, Edit3, Check, Crown, BookOpen, Users, MessageSquare, ShieldAlert, Sparkles, FolderOpen } from "lucide-react";
 import { isActiveSubscription } from "@/lib/subscription";
+import {
+  LIBRARY_BUCKETS,
+  removeLibraryFile,
+  uploadLibraryFile,
+  validateLibraryFile,
+} from "@/lib/library-media";
 
 const tabs = [
   { id: "users", label: "Usuários", icon: Users },
@@ -338,100 +343,135 @@ function BooksTab() {
   const { books, authors, addBook, updateBook, deleteBook, categories } = useData();
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
-  const [form, setForm] = useState({ title: "", authorId: "", image: "", pdfFile: "", category: "" });
-  const [uploading, setUploading] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
+  const [form, setForm] = useState({
+    title: "", authorId: "", image: "", imagePath: "", pdfFile: "", pdfPath: "", category: "",
+  });
+  const [imageFile, setImageFile] = useState(null);
+  const [pdfFile, setPdfFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState("");
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   function openNew() {
     setEditId(null);
-    setForm({ title: "", authorId: authors[0]?.id || "", image: "", pdfFile: "", category: "" });
+    setForm({
+      title: "", authorId: authors[0]?.id || "", image: "", imagePath: "", pdfFile: "", pdfPath: "", category: "",
+    });
+    setImageFile(null);
+    setPdfFile(null);
+    setImagePreview("");
     setShowForm(true);
   }
 
   function openEdit(book) {
     setEditId(book.id);
-    setForm({ title: book.title, authorId: book.author_id || book.authorId || "", image: book.image || "", pdfFile: book.pdf_url || book.pdfFile || "", category: book.category || "" });
+    setForm({
+      title: book.title,
+      authorId: book.author_id || book.authorId || "",
+      image: book.image_path ? "" : book.image || "",
+      imagePath: book.image_path || "",
+      pdfFile: book.pdf_path ? "" : book.pdf_url || "",
+      pdfPath: book.pdf_path || "",
+      category: book.category || "",
+    });
+    setImageFile(null);
+    setPdfFile(null);
+    setImagePreview(book.image || "");
     setShowForm(true);
   }
 
-  async function handleFileUpload(e) {
+  function handleFileUpload(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.type !== "application/pdf") { alert("Selecione um arquivo PDF."); return; }
-    if (!isSupabaseReady()) {
-      setError("Supabase não está configurado. Não foi possível enviar o PDF.");
-      return;
-    }
-
-    setError("");
-    setUploading(true);
-
     try {
-      const safeTitle = (form.title || file.name.replace(/\.pdf$/i, "livro"))
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "") || "livro";
-      const filePath = `books/${safeTitle}-${Date.now()}.pdf`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("pdfs")
-        .upload(filePath, file, {
-          cacheControl: "3600",
-          contentType: "application/pdf",
-          upsert: false,
-        });
-
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage.from("pdfs").getPublicUrl(filePath);
-      setForm(p => ({ ...p, pdfFile: data.publicUrl }));
+      validateLibraryFile(file, "pdf");
+      setPdfFile(file);
+      setForm((current) => ({ ...current, pdfFile: "", pdfPath: "" }));
+      setError("");
     } catch (err) {
-      setError(err?.message || "Não foi possível enviar o PDF para o Supabase Storage.");
-    } finally {
-      setUploading(false);
+      setError(err?.message || "PDF inválido.");
       e.target.value = "";
     }
   }
 
-  async function handleImageUpload(e) {
+  function handleImageUpload(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) { alert("Selecione uma imagem."); return; }
-    if (!isSupabaseReady()) { setError("Supabase não configurado."); return; }
-    setUploadingImage(true);
-    setError("");
     try {
-      const safeTitle = (form.title || "capa").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "capa";
-      const filePath = `covers/${safeTitle}-${Date.now()}.jpg`;
-      const { error: uploadError } = await supabase.storage.from("covers").upload(filePath, file, { cacheControl: "3600", contentType: file.type, upsert: false });
-      if (uploadError) throw uploadError;
-      const { data } = supabase.storage.from("covers").getPublicUrl(filePath);
-      setForm(p => ({ ...p, image: data.publicUrl }));
+      validateLibraryFile(file, "image");
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+      setForm((current) => ({ ...current, image: "", imagePath: "" }));
+      setError("");
     } catch (err) {
-      setError(err?.message || "Não foi possível enviar a imagem.");
-    } finally {
-      setUploadingImage(false);
+      setError(err?.message || "Imagem inválida.");
       e.target.value = "";
     }
   }
 
   async function handleSave() {
-    if (!form.title.trim()) return;
+    if (!form.title.trim() || saving) return;
     setError("");
+    setSaving(true);
+    let uploadedImagePath = "";
+    let uploadedPdfPath = "";
+
     try {
+      if (!isSupabaseReady()) throw new Error("Supabase não configurado.");
+
+      if (imageFile) {
+        uploadedImagePath = await uploadLibraryFile({
+          file: imageFile,
+          bucket: LIBRARY_BUCKETS.covers,
+          kind: "book-cover",
+        });
+      }
+      if (pdfFile) {
+        uploadedPdfPath = await uploadLibraryFile({
+          file: pdfFile,
+          bucket: LIBRARY_BUCKETS.pdfs,
+          kind: "book-pdf",
+        });
+      }
+
+      const payload = {
+        ...form,
+        imagePath: uploadedImagePath || form.imagePath,
+        pdfPath: uploadedPdfPath || form.pdfPath,
+        previewImage: imagePreview,
+      };
+
       if (editId) {
-        await updateBook(editId, form);
+        await updateBook(editId, payload);
       } else {
-        await addBook(form);
+        await addBook(payload);
       }
       setShowForm(false);
       setEditId(null);
-      setForm({ title: "", authorId: "", image: "", pdfFile: "", category: "" });
+      setForm({
+        title: "", authorId: "", image: "", imagePath: "", pdfFile: "", pdfPath: "", category: "",
+      });
+      setImageFile(null);
+      setPdfFile(null);
+      setImagePreview("");
     } catch (err) {
+      await Promise.allSettled([
+        uploadedImagePath ? removeLibraryFile(LIBRARY_BUCKETS.covers, uploadedImagePath) : Promise.resolve(),
+        uploadedPdfPath ? removeLibraryFile(LIBRARY_BUCKETS.pdfs, uploadedPdfPath) : Promise.resolve(),
+      ]);
       setError(err?.message || "Não foi possível salvar o livro. Confira as permissões no Supabase.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(book) {
+    if (!window.confirm(`Remover "${book.title}" e seus arquivos do banco?`)) return;
+    setError("");
+    try {
+      await deleteBook(book.id);
+    } catch (err) {
+      setError(err?.message || "Não foi possível remover o livro.");
     }
   }
 
@@ -459,17 +499,23 @@ function BooksTab() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">URL da imagem (capa)</label>
-              <div className="flex gap-2">
-                <FormField label="" value={form.image} onChange={v => setForm(p => ({ ...p, image: v }))} placeholder="/livros/capa.jpg" className="flex-1" />
-                <label className="flex h-[38px] cursor-pointer items-center gap-2 rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] px-3 text-xs text-[var(--text-muted)] hover:border-[var(--border-strong)] transition-colors shrink-0">
-                  <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-                  {uploadingImage ? "..." : "Upload"}
+              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Capa do livro</label>
+              <div className="flex items-center gap-3">
+                <label className="flex h-[38px] cursor-pointer items-center gap-2 rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] px-3 text-xs text-[var(--text-muted)] hover:border-[var(--border-strong)] transition-colors">
+                  <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleImageUpload} className="hidden" />
+                  Selecionar imagem
                 </label>
+                {imagePreview && (
+                  <button type="button" onClick={() => {
+                    setImageFile(null);
+                    setImagePreview("");
+                    setForm((current) => ({ ...current, image: "", imagePath: "" }));
+                  }} className="text-xs text-red-400">Remover</button>
+                )}
               </div>
-              {form.image && (
+              {imagePreview && (
                 <div className="mt-2 h-16 w-12 overflow-hidden rounded-[6px] border border-[var(--border)]">
-                  <img src={form.image} alt="" className="h-full w-full object-cover" />
+                  <img src={imagePreview} alt="" className="h-full w-full object-cover" />
                 </div>
               )}
             </div>
@@ -486,10 +532,13 @@ function BooksTab() {
               <div className="flex items-center gap-2">
                 <label className="flex-1 flex items-center gap-2 px-3 py-2 rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] text-sm text-[var(--text-muted)] cursor-pointer hover:border-[var(--border-strong)] transition-colors">
                   <input type="file" accept=".pdf,application/pdf" onChange={handleFileUpload} className="hidden" />
-                  {uploading ? "Carregando..." : form.pdfFile ? "PDF anexado" : "Selecionar PDF"}
+                  {pdfFile?.name || (form.pdfPath || form.pdfFile ? "PDF anexado" : "Selecionar PDF")}
                 </label>
-                {form.pdfFile && (
-                  <button onClick={() => setForm(p => ({ ...p, pdfFile: "" }))}
+                {(pdfFile || form.pdfPath || form.pdfFile) && (
+                  <button onClick={() => {
+                    setPdfFile(null);
+                    setForm((current) => ({ ...current, pdfFile: "", pdfPath: "" }));
+                  }}
                     className="text-xs text-red-400 hover:text-red-300 transition-colors shrink-0">
                     Remover
                   </button>
@@ -499,9 +548,9 @@ function BooksTab() {
             </div>
           </div>
           <div className="flex items-center gap-2 pt-2">
-            <button onClick={handleSave}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-[var(--text-primary)] text-[var(--bg-card)] text-sm font-medium hover:opacity-90 transition-all">
-              <Check className="size-4" /> Salvar
+            <button onClick={handleSave} disabled={saving}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-[var(--text-primary)] text-[var(--bg-card)] text-sm font-medium hover:opacity-90 transition-all disabled:opacity-50">
+              <Check className="size-4" /> {saving ? "Salvando..." : "Salvar"}
             </button>
             <button onClick={() => setShowForm(false)}
               className="flex items-center gap-1.5 px-4 py-2 rounded-full border border-[var(--border)] text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all">
@@ -532,7 +581,7 @@ function BooksTab() {
                 <button onClick={() => openEdit(book)} className="size-7 rounded-full flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] transition-all">
                   <Edit3 className="size-3.5" />
                 </button>
-                <button onClick={() => deleteBook(book.id)} className="size-7 rounded-full flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-all">
+                <button onClick={() => handleDelete(book)} className="size-7 rounded-full flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-all">
                   <Trash2 className="size-3.5" />
                 </button>
               </div>
@@ -545,38 +594,102 @@ function BooksTab() {
 }
 
 function AuthorsTab() {
-  const { authors, books, addAuthor, updateAuthor, deleteAuthor, getBooksByAuthor } = useData();
+  const { authors, addAuthor, updateAuthor, deleteAuthor, getBooksByAuthor } = useData();
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
-  const [form, setForm] = useState({ name: "", theme: "", era: "", image: "", bio: "" });
+  const [form, setForm] = useState({ name: "", theme: "", era: "", image: "", imagePath: "", bio: "" });
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState("");
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   function openNew() {
     setEditId(null);
-    setForm({ name: "", theme: "", era: "", image: "", bio: "" });
+    setForm({ name: "", theme: "", era: "", image: "", imagePath: "", bio: "" });
+    setImageFile(null);
+    setImagePreview("");
     setShowForm(true);
   }
 
   function openEdit(author) {
     setEditId(author.id);
-    setForm({ name: author.name, theme: author.theme, era: author.era, image: author.image || "", bio: author.bio || "" });
+    setForm({
+      name: author.name,
+      theme: author.theme,
+      era: author.era,
+      image: author.image_path ? "" : author.image || "",
+      imagePath: author.image_path || "",
+      bio: author.bio || "",
+    });
+    setImageFile(null);
+    setImagePreview(author.image || "");
     setShowForm(true);
   }
 
-  async function handleSave() {
-    if (!form.name.trim()) return;
-    setError("");
+  function handleImageUpload(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
     try {
+      validateLibraryFile(file, "image");
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+      setForm((current) => ({ ...current, image: "", imagePath: "" }));
+      setError("");
+    } catch (err) {
+      setError(err?.message || "Imagem inválida.");
+      event.target.value = "";
+    }
+  }
+
+  async function handleSave() {
+    if (!form.name.trim() || saving) return;
+    setError("");
+    setSaving(true);
+    let uploadedImagePath = "";
+
+    try {
+      if (!isSupabaseReady()) throw new Error("Supabase não configurado.");
+      if (imageFile) {
+        uploadedImagePath = await uploadLibraryFile({
+          file: imageFile,
+          bucket: LIBRARY_BUCKETS.covers,
+          kind: "author-photo",
+        });
+      }
+
+      const payload = {
+        ...form,
+        imagePath: uploadedImagePath || form.imagePath,
+        previewImage: imagePreview,
+      };
+
       if (editId) {
-        await updateAuthor(editId, form);
+        await updateAuthor(editId, payload);
       } else {
-        await addAuthor(form);
+        await addAuthor(payload);
       }
       setShowForm(false);
       setEditId(null);
-      setForm({ name: "", theme: "", era: "", image: "", bio: "" });
+      setForm({ name: "", theme: "", era: "", image: "", imagePath: "", bio: "" });
+      setImageFile(null);
+      setImagePreview("");
     } catch (err) {
+      if (uploadedImagePath) {
+        await removeLibraryFile(LIBRARY_BUCKETS.covers, uploadedImagePath).catch(() => {});
+      }
       setError(err?.message || "Não foi possível salvar o autor. Confira as permissões no Supabase.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(author) {
+    if (!window.confirm(`Remover "${author.name}" do banco? Os livros continuarão cadastrados sem autor.`)) return;
+    setError("");
+    try {
+      await deleteAuthor(author.id);
+    } catch (err) {
+      setError(err?.message || "Não foi possível remover o autor.");
     }
   }
 
@@ -597,7 +710,27 @@ function AuthorsTab() {
             <FormField label="Nome" value={form.name} onChange={v => setForm(p => ({ ...p, name: v }))} placeholder="Friedrich Nietzsche" />
             <FormField label="Corrente/Tema" value={form.theme} onChange={v => setForm(p => ({ ...p, theme: v }))} placeholder="Existencialismo" />
             <FormField label="Época" value={form.era} onChange={v => setForm(p => ({ ...p, era: v }))} placeholder="século XIX" />
-            <FormField label="URL da imagem" value={form.image} onChange={v => setForm(p => ({ ...p, image: v }))} placeholder="/autores/nietzsche.jpg" />
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Foto do autor</label>
+              <div className="flex items-center gap-3">
+                <label className="flex h-[38px] cursor-pointer items-center rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] px-3 text-xs text-[var(--text-muted)] hover:border-[var(--border-strong)]">
+                  <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleImageUpload} className="hidden" />
+                  Selecionar imagem
+                </label>
+                {imagePreview && (
+                  <button type="button" onClick={() => {
+                    setImageFile(null);
+                    setImagePreview("");
+                    setForm((current) => ({ ...current, image: "", imagePath: "" }));
+                  }} className="text-xs text-red-400">Remover</button>
+                )}
+              </div>
+              {imagePreview && (
+                <div className="mt-2 size-14 overflow-hidden rounded-[6px] border border-[var(--border)]">
+                  <img src={imagePreview} alt="" className="h-full w-full object-cover" />
+                </div>
+              )}
+            </div>
             <div className="sm:col-span-2">
               <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Bio / frase famosa</label>
               <textarea value={form.bio} onChange={e => setForm(p => ({ ...p, bio: e.target.value }))} placeholder="Frase ou biografia curta que aparece na página do autor..." rows={3}
@@ -605,9 +738,9 @@ function AuthorsTab() {
             </div>
           </div>
           <div className="flex items-center gap-2 pt-2">
-            <button onClick={handleSave}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-[var(--text-primary)] text-[var(--bg-card)] text-sm font-medium hover:opacity-90 transition-all">
-              <Check className="size-4" /> Salvar
+            <button onClick={handleSave} disabled={saving}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-[var(--text-primary)] text-[var(--bg-card)] text-sm font-medium hover:opacity-90 transition-all disabled:opacity-50">
+              <Check className="size-4" /> {saving ? "Salvando..." : "Salvar"}
             </button>
             <button onClick={() => setShowForm(false)}
               className="flex items-center gap-1.5 px-4 py-2 rounded-full border border-[var(--border)] text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all">
@@ -638,7 +771,7 @@ function AuthorsTab() {
                   <button onClick={() => openEdit(author)} className="size-8 rounded-full flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] transition-all">
                     <Edit3 className="size-3.5" />
                   </button>
-                  <button onClick={() => deleteAuthor(author.id)} className="size-8 rounded-full flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-all">
+                  <button onClick={() => handleDelete(author)} className="size-8 rounded-full flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-all">
                     <Trash2 className="size-3.5" />
                   </button>
                 </div>
@@ -742,10 +875,8 @@ function CategoriesTab() {
 }
 
 export function AdminPage() {
-  const { isAdmin, user } = useAuth();
+  const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState("users");
-
-  const TabIcon = tabs.find(t => t.id === activeTab)?.icon || Crown;
 
   if (!isAdmin) {
     return (

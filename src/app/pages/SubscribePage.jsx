@@ -254,7 +254,7 @@ export function SubscribePage() {
         )}
 
         <p className="text-xs text-center max-w-md mx-auto" style={{ color: "var(--text-muted)" }}>
-          Pagamento 100% seguro via AbacatePay. Aceitamos cartao e PIX.
+          Pagamento 100% seguro via PIX no checkout da AbacatePay.
           Acesso liberado apos a confirmacao do pagamento.
         </p>
       </div>

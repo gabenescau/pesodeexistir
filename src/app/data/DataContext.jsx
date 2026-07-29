@@ -5,6 +5,7 @@ import { pickCurrentSubscription } from "@/lib/subscription";
 import { runSupabaseQuery } from "@/lib/supabase-query";
 import { releaseStatus } from "@/lib/releases";
 import { handleDoPerfil } from "@/lib/mentions";
+import { createSignedUrlMap, LIBRARY_BUCKETS, removeLibraryFile } from "@/lib/library-media";
 import { useAuth } from "./AuthContext";
 
 const DataContext = createContext(null);
@@ -165,6 +166,13 @@ export function DataProvider({ children }) {
       const localBookByTitle = new Map((content.books || []).map((book) => [book.title, book]));
       const localAuthorById = new Map((content.authors || []).map((author) => [author.id, author]));
       const localAuthorByName = new Map((content.authors || []).map((author) => [author.name, author]));
+      const coverUrlMap = await createSignedUrlMap(
+        LIBRARY_BUCKETS.covers,
+        [
+          ...(booksRes.data || []).map((book) => book.image_path),
+          ...(authorsRes.data || []).map((author) => author.image_path),
+        ]
+      );
       let normalizedBooks = [];
 
       if (!booksRes.error) {
@@ -178,10 +186,10 @@ export function DataProvider({ children }) {
             authorName: b.authors?.name || "",
             author: b.authors?.name || "",
             image: normalizeAssetUrl(
-              firstFilled(b.image, b.image_url, b.cover_url, b.cover, b.thumbnail_url, localBook.image),
+              firstFilled(coverUrlMap.get(b.image_path), b.image, b.image_url, b.cover_url, b.cover, b.thumbnail_url, localBook.image),
               "livros"
             ),
-            pdfFile: b.pdf_url,
+            pdfFile: firstFilled(b.pdf_path, b.pdf_url),
             progress: userProgress?.progress ?? 0,
             currentPage: userProgress?.current_page ?? 1,
             totalPages: userProgress?.total_pages ?? null,
@@ -197,7 +205,7 @@ export function DataProvider({ children }) {
           return {
             ...author,
             image: normalizeAssetUrl(
-              firstFilled(author.image, author.image_url, author.avatar_url, author.photo_url, localAuthor.image),
+              firstFilled(coverUrlMap.get(author.image_path), author.image, author.image_url, author.avatar_url, author.photo_url, localAuthor.image),
               "autores"
             ),
           };
@@ -290,9 +298,20 @@ export function DataProvider({ children }) {
   // AUTHORS CRUD
   const addAuthor = useCallback(async (data) => {
     if (isSupabase) {
-      const { data: inserted, error } = await supabase.from("authors").insert(data).select().single();
+      const payload = {
+        name: data.name,
+        theme: data.theme,
+        era: data.era,
+        bio: data.bio,
+        image: data.image || null,
+        image_path: data.imagePath || null,
+      };
+      const { data: inserted, error } = await supabase.from("authors").insert(payload).select().single();
       if (error) throw error;
-      if (inserted) { setAuthors(prev => [...prev, inserted]); return inserted.id; }
+      if (inserted) {
+        setAuthors(prev => [...prev, { ...inserted, image: data.previewImage || data.image || "" }]);
+        return inserted.id;
+      }
       return null;
     }
     const id = data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -303,30 +322,70 @@ export function DataProvider({ children }) {
   }, [isSupabase, authors]);
 
   const updateAuthor = useCallback(async (id, data) => {
+    const previous = authors.find((author) => author.id === id);
     if (isSupabase) {
-      const { error } = await supabase.from("authors").update(data).eq("id", id);
+      const { error } = await supabase.from("authors").update({
+        name: data.name,
+        theme: data.theme,
+        era: data.era,
+        bio: data.bio,
+        image: data.image || null,
+        image_path: data.imagePath || null,
+      }).eq("id", id);
       if (error) throw error;
+
+      if (previous?.image_path && previous.image_path !== data.imagePath) {
+        await removeLibraryFile(LIBRARY_BUCKETS.covers, previous.image_path).catch((cleanupError) => {
+          console.error("Falha ao remover imagem antiga do autor:", cleanupError);
+        });
+      }
     }
-    setAuthors(prev => prev.map(a => a.id === id ? { ...a, ...data } : a));
-  }, [isSupabase]);
+    setAuthors(prev => prev.map(a => a.id === id ? {
+      ...a,
+      ...data,
+      image: data.previewImage || data.image || "",
+      image_path: data.imagePath || null,
+    } : a));
+  }, [isSupabase, authors]);
 
   const deleteAuthor = useCallback(async (id) => {
+    const author = authors.find((item) => item.id === id);
     if (isSupabase) {
       const { error } = await supabase.from("authors").delete().eq("id", id);
       if (error) throw error;
+      if (author?.image_path) {
+        await removeLibraryFile(LIBRARY_BUCKETS.covers, author.image_path).catch((cleanupError) => {
+          console.error("Falha ao remover imagem do autor:", cleanupError);
+        });
+      }
     }
     setAuthors(prev => prev.filter(a => a.id !== id));
     setBooks(prev => prev.map(b => b.author_id === id || b.authorId === id ? { ...b, author_id: null, authorId: null, authorName: "" } : b));
-  }, [isSupabase]);
+  }, [isSupabase, authors]);
 
   // BOOKS CRUD
   const addBook = useCallback(async (data) => {
-    const payload = { title: data.title, image: data.image, pdf_url: data.pdfFile, author_id: data.authorId, category: data.category || null };
+    const payload = {
+      title: data.title,
+      image: data.image || null,
+      image_path: data.imagePath || null,
+      pdf_url: data.pdfFile || null,
+      pdf_path: data.pdfPath || null,
+      author_id: data.authorId || null,
+      category: data.category || null,
+    };
     if (isSupabase) {
       const { data: inserted, error } = await supabase.from("books").insert(payload).select("*, authors(name)").single();
       if (error) throw error;
       if (!error && inserted) {
-        setBooks(prev => [{ ...inserted, authorId: inserted.author_id, authorName: inserted.authors?.name || "", author: inserted.authors?.name || "", pdfFile: inserted.pdf_url }, ...prev]);
+        setBooks(prev => [{
+          ...inserted,
+          image: data.previewImage || data.image || "",
+          authorId: inserted.author_id,
+          authorName: inserted.authors?.name || "",
+          author: inserted.authors?.name || "",
+          pdfFile: inserted.pdf_path || inserted.pdf_url,
+        }, ...prev]);
         return inserted.id;
       }
       return null;
@@ -339,26 +398,52 @@ export function DataProvider({ children }) {
   }, [isSupabase, books, authors]);
 
   const updateBook = useCallback(async (id, data) => {
+    const previous = books.find((book) => book.id === id);
     if (isSupabase) {
       const { error } = await supabase.from("books").update({
         title: data.title,
-        image: data.image,
-        pdf_url: data.pdfFile,
-        author_id: data.authorId,
+        image: data.image || null,
+        image_path: data.imagePath || null,
+        pdf_url: data.pdfFile || null,
+        pdf_path: data.pdfPath || null,
+        author_id: data.authorId || null,
         category: data.category || null,
       }).eq("id", id);
       if (error) throw error;
+
+      await Promise.allSettled([
+        previous?.image_path && previous.image_path !== data.imagePath
+          ? removeLibraryFile(LIBRARY_BUCKETS.covers, previous.image_path)
+          : Promise.resolve(),
+        previous?.pdf_path && previous.pdf_path !== data.pdfPath
+          ? removeLibraryFile(LIBRARY_BUCKETS.pdfs, previous.pdf_path)
+          : Promise.resolve(),
+      ]);
     }
-    setBooks(prev => prev.map(b => b.id === id ? { ...b, ...data, author_id: data.authorId, pdf_url: data.pdfFile } : b));
-  }, [isSupabase]);
+    setBooks(prev => prev.map(b => b.id === id ? {
+      ...b,
+      ...data,
+      image: data.previewImage || data.image || "",
+      author_id: data.authorId || null,
+      image_path: data.imagePath || null,
+      pdf_path: data.pdfPath || null,
+      pdf_url: data.pdfFile || null,
+      pdfFile: data.pdfPath || data.pdfFile || "",
+    } : b));
+  }, [isSupabase, books]);
 
   const deleteBook = useCallback(async (id) => {
+    const book = books.find((item) => item.id === id);
     if (isSupabase) {
       const { error } = await supabase.from("books").delete().eq("id", id);
       if (error) throw error;
+      await Promise.allSettled([
+        book?.image_path ? removeLibraryFile(LIBRARY_BUCKETS.covers, book.image_path) : Promise.resolve(),
+        book?.pdf_path ? removeLibraryFile(LIBRARY_BUCKETS.pdfs, book.pdf_path) : Promise.resolve(),
+      ]);
     }
     setBooks(prev => prev.filter(b => b.id !== id));
-  }, [isSupabase]);
+  }, [isSupabase, books]);
 
   const markBookCompleted = useCallback(async (bookId) => {
     if (!bookId) return;

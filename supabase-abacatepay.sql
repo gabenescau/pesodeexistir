@@ -121,3 +121,242 @@ using (public.is_admin());
 
 -- O service role da API ignora RLS e e quem deve inserir eventos de webhook.
 -- Usuarios comuns nao recebem policy de insert/update/delete nesta tabela.
+
+-- Biblioteca privada: as tabelas guardam apenas o caminho do arquivo.
+-- O binario fica no Supabase Storage, que e a area apropriada e segura para
+-- imagens e PDFs. Nunca salve base64 ou binarios grandes nas tabelas.
+alter table public.books
+  add column if not exists image_path text,
+  add column if not exists pdf_path text;
+
+alter table public.authors
+  add column if not exists image_path text;
+
+alter table public.books enable row level security;
+alter table public.authors enable row level security;
+
+-- Ao apagar um autor, os livros permanecem no catalogo sem autor vinculado.
+do $$
+declare
+  constraint_row record;
+begin
+  for constraint_row in
+    select c.conname
+    from pg_constraint c
+    join pg_class source_table on source_table.oid = c.conrelid
+    join pg_namespace source_schema on source_schema.oid = source_table.relnamespace
+    where c.contype = 'f'
+      and source_schema.nspname = 'public'
+      and source_table.relname = 'books'
+      and pg_get_constraintdef(c.oid) ilike 'foreign key (author_id)%'
+  loop
+    execute format('alter table public.books drop constraint %I', constraint_row.conname);
+  end loop;
+end
+$$;
+
+alter table public.books alter column author_id drop not null;
+alter table public.books
+  add constraint books_author_id_fkey
+  foreign key (author_id) references public.authors(id) on delete set null;
+
+-- Recupera arquivos enviados por versoes antigas, que gravavam URL publica.
+update public.books
+set image_path = split_part(image, '/storage/v1/object/public/covers/', 2)
+where image_path is null
+  and image like '%/storage/v1/object/public/covers/%';
+
+update public.books
+set pdf_path = split_part(pdf_url, '/storage/v1/object/public/pdfs/', 2)
+where pdf_path is null
+  and pdf_url like '%/storage/v1/object/public/pdfs/%';
+
+update public.authors
+set image_path = split_part(image, '/storage/v1/object/public/covers/', 2)
+where image_path is null
+  and image like '%/storage/v1/object/public/covers/%';
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'covers',
+  'covers',
+  false,
+  5242880,
+  array['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+)
+on conflict (id) do update
+set public = false,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'pdfs',
+  'pdfs',
+  false,
+  52428800,
+  array['application/pdf']
+)
+on conflict (id) do update
+set public = false,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+create or replace function public.has_active_subscription()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.subscriptions s
+    where s.user_id = auth.uid()
+      and s.status = 'active'
+      and (s.current_period_end is null or s.current_period_end > now())
+  );
+$$;
+
+create or replace function public.can_read_book_pdf(object_name text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_admin()
+    or (
+      public.has_active_subscription()
+      and exists (
+        select 1
+        from public.books b
+        where b.pdf_path = object_name
+          and not exists (
+            select 1
+            from public.weekly_releases wr
+            where wr.book_id = b.id
+              and coalesce(wr.visible, true)
+              and wr.release_date > current_date
+          )
+      )
+    );
+$$;
+
+-- Somente administradores alteram o catalogo. A decisao fica no banco.
+drop policy if exists "books_authenticated_select" on public.books;
+create policy "books_authenticated_select"
+on public.books for select to authenticated
+using (true);
+
+drop policy if exists "books_admin_insert" on public.books;
+create policy "books_admin_insert"
+on public.books for insert to authenticated
+with check (public.is_admin());
+
+drop policy if exists "books_admin_update" on public.books;
+create policy "books_admin_update"
+on public.books for update to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
+drop policy if exists "books_admin_delete" on public.books;
+create policy "books_admin_delete"
+on public.books for delete to authenticated
+using (public.is_admin());
+
+drop policy if exists "authors_admin_insert" on public.authors;
+drop policy if exists "authors_authenticated_select" on public.authors;
+create policy "authors_authenticated_select"
+on public.authors for select to authenticated
+using (true);
+
+create policy "authors_admin_insert"
+on public.authors for insert to authenticated
+with check (public.is_admin());
+
+drop policy if exists "authors_admin_update" on public.authors;
+create policy "authors_admin_update"
+on public.authors for update to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
+drop policy if exists "authors_admin_delete" on public.authors;
+create policy "authors_admin_delete"
+on public.authors for delete to authenticated
+using (public.is_admin());
+
+-- Capas e fotos: leitura autenticada por URL assinada; escrita somente admin.
+-- Remove regras antigas desses dois buckets para nao deixar uma URL publica ou
+-- um usuario comum contornar as novas regras.
+do $$
+declare
+  policy_row record;
+begin
+  for policy_row in
+    select policyname
+    from pg_policies
+    where schemaname = 'storage'
+      and tablename = 'objects'
+      and (
+        coalesce(qual, '') ilike '%covers%'
+        or coalesce(with_check, '') ilike '%covers%'
+        or coalesce(qual, '') ilike '%pdfs%'
+        or coalesce(with_check, '') ilike '%pdfs%'
+      )
+  loop
+    execute format('drop policy if exists %I on storage.objects', policy_row.policyname);
+  end loop;
+end
+$$;
+
+drop policy if exists "covers_authenticated_read" on storage.objects;
+create policy "covers_authenticated_read"
+on storage.objects for select to authenticated
+using (bucket_id = 'covers');
+
+drop policy if exists "covers_admin_insert" on storage.objects;
+create policy "covers_admin_insert"
+on storage.objects for insert to authenticated
+with check (
+  bucket_id = 'covers'
+  and public.is_admin()
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+drop policy if exists "covers_admin_update" on storage.objects;
+create policy "covers_admin_update"
+on storage.objects for update to authenticated
+using (bucket_id = 'covers' and public.is_admin())
+with check (bucket_id = 'covers' and public.is_admin());
+
+drop policy if exists "covers_admin_delete" on storage.objects;
+create policy "covers_admin_delete"
+on storage.objects for delete to authenticated
+using (bucket_id = 'covers' and public.is_admin());
+
+-- PDF: o Storage confirma plano ativo, data de lancamento e vinculo ao livro.
+drop policy if exists "pdfs_authorized_read" on storage.objects;
+create policy "pdfs_authorized_read"
+on storage.objects for select to authenticated
+using (bucket_id = 'pdfs' and public.can_read_book_pdf(name));
+
+drop policy if exists "pdfs_admin_insert" on storage.objects;
+create policy "pdfs_admin_insert"
+on storage.objects for insert to authenticated
+with check (
+  bucket_id = 'pdfs'
+  and public.is_admin()
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+drop policy if exists "pdfs_admin_update" on storage.objects;
+create policy "pdfs_admin_update"
+on storage.objects for update to authenticated
+using (bucket_id = 'pdfs' and public.is_admin())
+with check (bucket_id = 'pdfs' and public.is_admin());
+
+drop policy if exists "pdfs_admin_delete" on storage.objects;
+create policy "pdfs_admin_delete"
+on storage.objects for delete to authenticated
+using (bucket_id = 'pdfs' and public.is_admin());

@@ -32,6 +32,7 @@ function base64ToBlobUrl(base64, mimeType = "application/pdf") {
 // que o Storage so emite se o RLS aprovar (assinante ativo, livro ja lancado
 // ou admin).
 function extractPdfStoragePath(pdfFile) {
+  if (!/^(https?:|data:|blob:|\/)/i.test(pdfFile)) return pdfFile;
   const marker = "/storage/v1/object/public/pdfs/";
   const index = pdfFile.indexOf(marker);
   if (index === -1) return null;
@@ -54,6 +55,17 @@ async function resolvePdfUrl(pdfFile) {
       throw new Error("Este livro ainda não está liberado para você (assinatura ativa e data de lançamento alcançada).");
     }
 
+    return data.signedUrl;
+  }
+
+  if (isSupabaseReady()) {
+    const { data, error } = await supabase.storage
+      .from("pdfs")
+      .createSignedUrl(pdfFile, SIGNED_URL_TTL_SECONDS);
+
+    if (error || !data?.signedUrl) {
+      throw new Error("Este livro ainda não está liberado para sua conta.");
+    }
     return data.signedUrl;
   }
 
