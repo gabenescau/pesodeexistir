@@ -55,7 +55,7 @@ export function SubscriptionGuard({ children }) {
         <div className="pointer-events-none max-h-[70vh] select-none overflow-hidden opacity-40 blur-sm" aria-hidden>
           {children}
         </div>
-        <SubscribeModal open onClose={() => navigate("/app/inicio")} />
+        <SubscribeModal open onClose={() => navigate("/app/planos", { replace: true })} />
       </div>
     );
   }

@@ -49,16 +49,20 @@ export function SubscribeModal({ open, onClose, dismissible = true }) {
         type="button"
         aria-label="Fechar"
         onClick={dismissible ? onClose : undefined}
-        className="absolute inset-0 cursor-default bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 z-0 cursor-default bg-black/60 backdrop-blur-sm"
       />
 
-      <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-[0_30px_80px_rgba(0,0,0,.45)]">
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="relative z-10 w-full max-w-lg overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-[0_30px_80px_rgba(0,0,0,.45)]"
+      >
         {dismissible && (
           <button
             type="button"
             onClick={onClose}
             aria-label="Fechar"
-            className="absolute right-3 top-3 flex size-8 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]"
+            className="absolute right-3 top-3 z-20 flex size-8 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]"
           >
             <X className="size-4" />
           </button>

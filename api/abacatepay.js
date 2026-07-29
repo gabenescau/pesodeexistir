@@ -66,13 +66,39 @@ export async function getStore() {
   return getData("/store/get");
 }
 
-export async function getProductByExternalId(externalId) {
+function isProductNotFound(error) {
+  const message = String(error?.message || "");
+  return error?.status === 404 || /product not found|produto n[aã]o encontrado/i.test(message);
+}
+
+async function getProduct(filters) {
   try {
-    return await getData(`/products/get${queryString({ externalId })}`);
+    return await getData(`/products/get${queryString(filters)}`);
   } catch (error) {
-    if (error.status === 404) return null;
+    if (isProductNotFound(error)) return null;
     throw error;
   }
+}
+
+async function listProducts(filters = {}) {
+  const body = await request(`/products/list${queryString({ limit: 100, ...filters })}`);
+  return Array.isArray(body.data) ? body.data : [];
+}
+
+export async function getProductByExternalId(externalId) {
+  const direct = await getProduct({ externalId });
+  if (direct) return direct;
+
+  const products = await listProducts({ externalId });
+  return products.find((product) => product.externalId === externalId) || null;
+}
+
+async function confirmProduct(product) {
+  const direct = await getProduct({ id: product.id });
+  if (direct) return direct;
+
+  const products = await listProducts({ id: product.id });
+  return products.find((candidate) => candidate.id === product.id) || null;
 }
 
 function validateCatalogProduct(product, expected) {
@@ -96,7 +122,13 @@ function validateCatalogProduct(product, expected) {
 
 export async function findOrCreateProduct(plan) {
   const existing = await getProductByExternalId(plan.externalId);
-  if (existing) return validateCatalogProduct(existing, plan);
+  if (existing) {
+    const confirmed = await confirmProduct(existing);
+    if (!confirmed) {
+      throw new Error(`Produto ${plan.externalId} existe, mas nao pode ser consultado pelo id ${existing.id}`);
+    }
+    return validateCatalogProduct(confirmed, plan);
+  }
 
   const created = await getData("/products/create", {
     method: "POST",
@@ -109,7 +141,13 @@ export async function findOrCreateProduct(plan) {
       cycle: plan.cycle,
     }),
   });
-  return validateCatalogProduct(created, plan);
+  validateCatalogProduct(created, plan);
+
+  const confirmed = await confirmProduct(created);
+  if (!confirmed) {
+    throw new Error(`Produto ${plan.externalId} foi criado, mas ainda nao esta disponivel para o checkout`);
+  }
+  return validateCatalogProduct(confirmed, plan);
 }
 
 export async function findOrCreateCustomer({ email, name }) {
@@ -143,7 +181,6 @@ export async function createSubscriptionCheckout({
       completionUrl,
       externalId,
       metadata,
-      retryPolicy: { maxRetry: 3, retryEvery: 2 },
     }),
   });
 
