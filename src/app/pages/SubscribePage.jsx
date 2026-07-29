@@ -8,7 +8,7 @@ import { useEffect } from "react";
 import { Check, CreditCard, Loader2, QrCode } from "lucide-react";
 
 export function SubscribePage() {
-  const { user, isAdmin, profile } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { subscription, cancelSubscription, changeSubscriptionPlan } = useData();
   const navigate = useNavigate();
   const location = useLocation();
@@ -65,7 +65,6 @@ export function SubscribePage() {
 
       const data = await createCheckout({
         plan,
-        name: profile?.name || user.email?.split("@")[0] || "",
         paymentMethod,
       });
 

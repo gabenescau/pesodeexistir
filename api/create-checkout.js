@@ -5,56 +5,35 @@ import {
   createSubscriptionCheckout,
   listHostedCheckouts,
   listSubscriptionCheckouts,
-} from "./abacatepay.js";
-import { getCheckoutProduct, getPlanByKey } from "./_plans.js";
+} from "../server/abacatepay.js";
+import { getCheckoutProduct, getPlanByKey } from "../server/plans.js";
+import {
+  allowPost,
+  enforceRateLimit,
+  getAuthenticatedUser,
+  logServerError,
+  sendError,
+} from "../server/supabase.js";
 
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-function getBearerToken(req) {
-  const authorization = req.headers.authorization || "";
-  const match = authorization.match(/^Bearer\s+(.+)$/i);
-  return match?.[1] || null;
-}
-
-function requireSupabaseServerConfig() {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-    throw new Error("Supabase server env vars nao configuradas");
-  }
-}
-
-async function getAuthenticatedUser(req) {
-  requireSupabaseServerConfig();
-
-  const token = getBearerToken(req);
-  if (!token) {
-    const error = new Error("Sessao obrigatoria para criar checkout");
-    error.status = 401;
-    throw error;
-  }
-
-  const authRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: {
-      "apikey": SUPABASE_ANON_KEY || SUPABASE_SERVICE_KEY,
-      "Authorization": `Bearer ${token}`,
-    },
-  });
-
-  if (!authRes.ok) {
-    const error = new Error("Sessao invalida ou expirada");
-    error.status = 401;
-    throw error;
-  }
-
-  return authRes.json();
-}
+const SUPABASE_URL =
+  process.env.SUPABASE_URL ||
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  process.env.VITE_SUPABASE_URL;
+const SUPABASE_SERVICE_KEY =
+  process.env.SUPABASE_SECRET_KEY ||
+  process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_SERVICE_HEADERS = {
+  "apikey": SUPABASE_SERVICE_KEY,
+  ...(!SUPABASE_SERVICE_KEY?.startsWith("sb_secret_")
+    ? { "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}` }
+    : {}),
+};
+const CHECKOUT_RESERVATION_MS = 2 * 60 * 1000;
 
 async function fetchProfileName(userId) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=name`, {
     headers: {
-      "apikey": SUPABASE_SERVICE_KEY,
-      "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
+      ...SUPABASE_SERVICE_HEADERS,
     },
   });
 
@@ -68,8 +47,7 @@ async function listUserSubscriptions(userId) {
     `${SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc`,
     {
       headers: {
-        "apikey": SUPABASE_SERVICE_KEY,
-        "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
+        ...SUPABASE_SERVICE_HEADERS,
       },
     }
   );
@@ -84,6 +62,59 @@ function isCurrentlyActive(subscription) {
   if (!["active", "past_due", "trialing"].includes(subscription?.status)) return false;
   if (!subscription.current_period_end) return true;
   return new Date(subscription.current_period_end).getTime() > Date.now();
+}
+
+export function isFreshCheckoutReservation(subscription, now = Date.now()) {
+  if (subscription?.status !== "pending") return false;
+  if (subscription?.metadata?.checkout_creation_status !== "creating") return false;
+  const updatedAt = new Date(subscription.updated_at || subscription.created_at || 0).getTime();
+  return Number.isFinite(updatedAt) && now - updatedAt < CHECKOUT_RESERVATION_MS;
+}
+
+async function reservePendingSubscription({ user, planKey, planConfig, paymentMethod }) {
+  const now = new Date().toISOString();
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/subscriptions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...SUPABASE_SERVICE_HEADERS,
+      "Prefer": "return=representation",
+    },
+    body: JSON.stringify({
+      user_id: user.id,
+      customer_email: user.email || "",
+      plan: planConfig.plan,
+      status: "pending",
+      provider: "abacatepay",
+      metadata: {
+        checkout_creation_status: "creating",
+        plan_key: planKey,
+        payment_method: paymentMethod,
+        amount_cents: planConfig.price,
+      },
+      created_at: now,
+      updated_at: now,
+    }),
+    signal: AbortSignal.timeout(10000),
+  });
+
+  if (response.ok) {
+    const rows = await response.json();
+    return { subscription: rows?.[0] || null, created: true };
+  }
+
+  if (response.status === 409) {
+    const current = await listUserSubscriptions(user.id);
+    const pending = current.find((subscription) => subscription.status === "pending");
+    if (pending) return { subscription: pending, created: false };
+    if (current.some(isCurrentlyActive)) {
+      const error = new Error("Voce ja possui uma assinatura ativa.");
+      error.status = 409;
+      throw error;
+    }
+  }
+
+  throw new Error(`Nao foi possivel reservar o checkout: ${await response.text()}`);
 }
 
 async function reusePendingCheckout(pending, planConfig, paymentMethod) {
@@ -135,8 +166,7 @@ async function activatePaidPending({ pending, planConfig, checkout, paymentMetho
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
-        "apikey": SUPABASE_SERVICE_KEY,
-        "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
+        ...SUPABASE_SERVICE_HEADERS,
         "Prefer": "return=representation",
       },
       body: JSON.stringify({
@@ -178,8 +208,7 @@ async function expireStaleSubscriptions(subscriptions) {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
-        "apikey": SUPABASE_SERVICE_KEY,
-        "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
+        ...SUPABASE_SERVICE_HEADERS,
       },
       body: JSON.stringify({ status: "expired", updated_at: new Date().toISOString() }),
     })
@@ -242,8 +271,7 @@ async function savePendingSubscription({
     method: pending ? "PATCH" : "POST",
     headers: {
       "Content-Type": "application/json",
-      "apikey": SUPABASE_SERVICE_KEY,
-      "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
+      ...SUPABASE_SERVICE_HEADERS,
       "Prefer": "return=representation",
     },
     body: JSON.stringify(payload),
@@ -272,29 +300,37 @@ async function savePendingSubscription({
 }
 
 function getBaseUrl(req) {
-  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    const configured = new URL(process.env.NEXT_PUBLIC_SITE_URL);
+    if (configured.protocol !== "https:" && configured.hostname !== "localhost") {
+      throw new Error("NEXT_PUBLIC_SITE_URL precisa usar HTTPS");
+    }
+    return configured.origin;
+  }
   if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
 
-  const proto = req.headers["x-forwarded-proto"] || "http";
+  const proto = req.headers["x-forwarded-proto"] === "https" ? "https" : "http";
   const host = req.headers["x-forwarded-host"] || req.headers.host || "localhost:5173";
+  if (!/^[a-z0-9.-]+(?::\d{1,5})?$/i.test(host)) {
+    throw new Error("Host invalido");
+  }
   return `${proto}://${host}`;
 }
 
 export default async function handler(req, res) {
-  if (req.method === "OPTIONS") {
-    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
-    return res.status(204).end();
-  }
-
-  if (req.method !== "POST") {
-    return res.status(405).json({ success: false, error: "Metodo nao permitido" });
-  }
+  if (!allowPost(req, res)) return;
 
   try {
     const user = await getAuthenticatedUser(req);
-    const { plan: planKey, name, paymentMethod: requestedMethod } = req.body || {};
+    if (!await enforceRateLimit(req, res, {
+      scope: "create_checkout",
+      limit: 8,
+      windowSeconds: 300,
+      userId: user.id,
+    })) return;
+
+    const { plan: planKey, paymentMethod: requestedMethod } = req.body || {};
     const planConfig = getPlanByKey(planKey);
     const paymentMethod = String(requestedMethod || "").toUpperCase();
 
@@ -315,7 +351,7 @@ export default async function handler(req, res) {
         error: "Voce ja possui uma assinatura ativa. Cancele o plano atual antes de assinar outro.",
       });
     }
-    const existingPending = currentSubscriptions.find((subscription) => subscription.status === "pending");
+    let existingPending = currentSubscriptions.find((subscription) => subscription.status === "pending");
     if (existingPending) {
       const reused = await reusePendingCheckout(existingPending, planConfig, paymentMethod);
       if (reused?.confirmed) {
@@ -336,9 +372,33 @@ export default async function handler(req, res) {
         });
       }
       if (reused) return res.status(200).json({ success: true, data: reused });
+      if (isFreshCheckoutReservation(existingPending)) {
+        return res.status(409).json({
+          success: false,
+          error: "Seu checkout ja esta sendo criado. Aguarde alguns segundos e tente novamente.",
+          requestId: req.requestId,
+        });
+      }
+    } else {
+      const reservation = await reservePendingSubscription({
+        user,
+        planKey,
+        planConfig,
+        paymentMethod,
+      });
+      existingPending = reservation.subscription;
+      if (!reservation.created) {
+        const reused = await reusePendingCheckout(existingPending, planConfig, paymentMethod);
+        if (reused) return res.status(200).json({ success: true, data: reused });
+        return res.status(409).json({
+          success: false,
+          error: "Seu checkout ja esta sendo criado. Aguarde alguns segundos e tente novamente.",
+          requestId: req.requestId,
+        });
+      }
     }
 
-    const profileName = name || await fetchProfileName(user.id);
+    const profileName = await fetchProfileName(user.id);
     const customer = await findOrCreateCustomer({
       email: user.email,
       name: profileName || user.email?.split("@")[0] || "",
@@ -385,13 +445,15 @@ export default async function handler(req, res) {
       },
     });
   } catch (error) {
-    console.error("Erro ao criar checkout:", error);
+    logServerError("create_checkout", error, req);
     const unavailableCard = /card is not available for this store/i.test(error.message || "");
-    return res.status(error.status || 500).json({
-      success: false,
-      error: unavailableCard
-        ? "Cartao ainda nao esta habilitado nesta loja AbacatePay. Solicite a liberacao do metodo CARD no painel/suporte da AbacatePay e tente novamente."
-        : error.message || "Erro interno ao criar checkout",
-    });
+    if (unavailableCard) {
+      return res.status(409).json({
+        success: false,
+        error: "Cartao ainda nao esta habilitado nesta loja AbacatePay. Solicite a liberacao do metodo CARD no painel/suporte da AbacatePay e tente novamente.",
+        requestId: req.requestId,
+      });
+    }
+    return sendError(req, res, error, "Erro interno ao criar checkout");
   }
 }

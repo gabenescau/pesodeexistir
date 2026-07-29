@@ -3,15 +3,19 @@ import {
   findOrCreateProduct,
   listHostedCheckouts,
   listSubscriptionCheckouts,
-} from "./abacatepay.js";
-import { getPlanByCode, getPlanByKey } from "./_plans.js";
+} from "../server/abacatepay.js";
+import { getPlanByCode, getPlanByKey } from "../server/plans.js";
 import {
   allowPost,
+  enforceRateLimit,
   getAuthenticatedUser,
   getProfile,
   getSubscription,
+  logServerError,
+  requireUuid,
+  sendError,
   updateSubscription,
-} from "./_server.js";
+} from "../server/supabase.js";
 
 function isAdmin(user, profile) {
   return profile?.role === "admin" || user?.app_metadata?.role === "admin";
@@ -133,9 +137,13 @@ export default async function handler(req, res) {
   try {
     const user = await getAuthenticatedUser(req);
     const { action, subscriptionId, plan } = req.body || {};
-    if (!subscriptionId) {
-      return res.status(400).json({ success: false, error: "subscriptionId obrigatorio" });
-    }
+    requireUuid(subscriptionId, "subscriptionId");
+    if (!await enforceRateLimit(req, res, {
+      scope: "subscription_action",
+      limit: 20,
+      windowSeconds: 300,
+      userId: user.id,
+    })) return;
 
     const [profile, subscription] = await Promise.all([
       getProfile(user.id),
@@ -155,10 +163,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ success: true, data: updated });
   } catch (error) {
-    console.error("Erro na assinatura:", error);
-    return res.status(error.status || 500).json({
-      success: false,
-      error: error.message || "Erro interno na assinatura",
-    });
+    logServerError("subscription_action", error, req);
+    return sendError(req, res, error, "Erro interno na assinatura");
   }
 }

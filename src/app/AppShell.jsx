@@ -1,27 +1,41 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AppShell as Shell } from "@/components/app-shell";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
-import { CommunityPage } from "./pages/CommunityPage";
-import { LibraryPage } from "./pages/LibraryPage";
-import { BookDetailPage } from "./pages/BookDetailPage";
-import { BookReaderPage } from "./pages/BookReaderPage";
-import { AuthorPage } from "./pages/AuthorPage";
-import { ExplorePage } from "./pages/ExplorePage";
-import { ReleasesPage } from "./pages/ReleasesPage";
-import { PublicProfilePage } from "./pages/PublicProfilePage";
-import { SettingsPage } from "./pages/SettingsPage";
-import { SuggestionsPage } from "./pages/SuggestionsPage";
-import { PostDetailPage } from "./pages/PostDetailPage";
-import { AdminPage } from "./pages/AdminPage";
-import { SubscribePage } from "./pages/SubscribePage";
 import { SubscriptionGuard } from "./components/SubscriptionGuard";
 import { AdminGuard } from "./components/AdminGuard";
+
+const lazyPage = (loader, exportName) =>
+  lazy(() => loader().then((module) => ({ default: module[exportName] })));
+
+const CommunityPage = lazyPage(() => import("./pages/CommunityPage"), "CommunityPage");
+const LibraryPage = lazyPage(() => import("./pages/LibraryPage"), "LibraryPage");
+const BookDetailPage = lazyPage(() => import("./pages/BookDetailPage"), "BookDetailPage");
+const BookReaderPage = lazyPage(() => import("./pages/BookReaderPage"), "BookReaderPage");
+const AuthorPage = lazyPage(() => import("./pages/AuthorPage"), "AuthorPage");
+const ExplorePage = lazyPage(() => import("./pages/ExplorePage"), "ExplorePage");
+const ReleasesPage = lazyPage(() => import("./pages/ReleasesPage"), "ReleasesPage");
+const PublicProfilePage = lazyPage(() => import("./pages/PublicProfilePage"), "PublicProfilePage");
+const SettingsPage = lazyPage(() => import("./pages/SettingsPage"), "SettingsPage");
+const SuggestionsPage = lazyPage(() => import("./pages/SuggestionsPage"), "SuggestionsPage");
+const PostDetailPage = lazyPage(() => import("./pages/PostDetailPage"), "PostDetailPage");
+const AdminPage = lazyPage(() => import("./pages/AdminPage"), "AdminPage");
+const SubscribePage = lazyPage(() => import("./pages/SubscribePage"), "SubscribePage");
+
+function PageLoading() {
+  return (
+    <div className="flex min-h-[50vh] items-center justify-center text-sm text-[var(--text-muted)]">
+      Carregando...
+    </div>
+  );
+}
 
 export function AppShell() {
   return (
     <Shell>
-      <Routes>
-        <Route path="/" element={<Navigate to="inicio" replace />} />
+      <Suspense fallback={<PageLoading />}>
+        <Routes>
+          <Route path="/" element={<Navigate to="inicio" replace />} />
         {/* Inicio == Comunidade: leitura aberta; postar/comentar exige plano/admin. */}
         <Route path="inicio" element={<CommunityPage />} />
         {/* Rota legada /comunidade redireciona para /inicio (mesma pagina). */}
@@ -40,8 +54,9 @@ export function AppShell() {
         <Route path="configuracoes" element={<SettingsPage />} />
         {/* Admin nao exige assinatura, so role=admin. Nao-admin -> inicio. */}
         <Route path="admin" element={<AdminGuard><AdminPage /></AdminGuard>} />
-        <Route path="*" element={<Navigate to="inicio" replace />} />
-      </Routes>
+          <Route path="*" element={<Navigate to="inicio" replace />} />
+        </Routes>
+      </Suspense>
       <MobileBottomNav />
     </Shell>
   );

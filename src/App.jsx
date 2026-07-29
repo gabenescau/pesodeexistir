@@ -1,12 +1,21 @@
+import { lazy, Suspense, useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { LandingPage } from '@/components/LandingPage'
-import { AuthPage } from '@/components/auth-page'
-import { AppShell } from '@/app/AppShell'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { DataProvider } from '@/app/data/DataContext'
-import { SubscribePage } from '@/app/pages/SubscribePage'
-import { ProcessingPage } from '@/app/pages/ProcessingPage'
-import { useEffect } from 'react'
+
+const LandingPage = lazy(() => import('@/components/LandingPage').then((module) => ({ default: module.LandingPage })))
+const AuthPage = lazy(() => import('@/components/auth-page').then((module) => ({ default: module.AuthPage })))
+const AppShell = lazy(() => import('@/app/AppShell').then((module) => ({ default: module.AppShell })))
+const SubscribePage = lazy(() => import('@/app/pages/SubscribePage').then((module) => ({ default: module.SubscribePage })))
+const ProcessingPage = lazy(() => import('@/app/pages/ProcessingPage').then((module) => ({ default: module.ProcessingPage })))
+
+function RouteLoading() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[var(--bg-canvas)] text-sm text-[var(--text-muted)]">
+      Carregando...
+    </div>
+  )
+}
 
 function SEOHead() {
   const location = useLocation()
@@ -43,14 +52,16 @@ export default function App() {
   return (
     <DataProvider>
       <SEOHead />
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/entrar" element={<AuthPage />} />
-        <Route path="/assinar" element={<ProtectedRoute><SubscribePage /></ProtectedRoute>} />
-        <Route path="/pagamento/processando" element={<ProtectedRoute><ProcessingPage /></ProtectedRoute>} />
-        <Route path="/app/*" element={<ProtectedRoute><AppShell /></ProtectedRoute>} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <Suspense fallback={<RouteLoading />}>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/entrar" element={<AuthPage />} />
+          <Route path="/assinar" element={<ProtectedRoute><SubscribePage /></ProtectedRoute>} />
+          <Route path="/pagamento/processando" element={<ProtectedRoute><ProcessingPage /></ProtectedRoute>} />
+          <Route path="/app/*" element={<ProtectedRoute><AppShell /></ProtectedRoute>} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
     </DataProvider>
   )
 }

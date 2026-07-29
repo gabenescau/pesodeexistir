@@ -90,116 +90,134 @@ export function DataProvider({ children }) {
         : { data: authProfile || null, error: null };
       const currentProfile = currentProfileRes.error ? null : currentProfileRes.data;
       const isCurrentAdmin = isAdmin || currentProfile?.role === "admin" || user?.app_metadata?.role === "admin";
+      const emptyResult = { data: [], error: null };
 
-      const booksRes = await runSupabaseQuery(
-        () => supabase.from("books").select("*, authors(name)").order("created_at", { ascending: false }),
-        "carregar livros"
-      );
-      const authorsRes = await runSupabaseQuery(
-        () => supabase.from("authors").select("*").order("name"),
-        "carregar autores"
-      );
-      const progressRes = currentUserId
-        ? await runSupabaseQuery(
-            () => supabase.from("reading_progress").select("*").eq("user_id", currentUserId),
-            "carregar progresso"
-          )
-        : { data: [], error: null };
-      const subsRes = isCurrentAdmin
-        ? await runSupabaseQuery(
-            () => supabase.from("subscriptions").select("*").order("created_at", { ascending: false }),
-            "carregar assinaturas"
-          )
-        : currentUserId
-          ? await runSupabaseQuery(
-              () => supabase.from("subscriptions").select("*").eq("user_id", currentUserId).order("created_at", { ascending: false }),
-              "carregar assinatura atual"
-            )
-          : { data: [], error: null };
       // Admin le a tabela inteira (role, gestao de assinaturas). O email agora
       // mora em user_emails (fora de profiles), so visivel para admin — e
       // buscado em separado e mesclado abaixo. Usuario comum le a view
       // public_profiles: id/nome/@/avatar/bio de quem nao e privado, o
       // suficiente para o feed sem vazar email de ninguem.
-      const profilesRes = isCurrentAdmin
-        ? await runSupabaseQuery(
-            () => supabase.from("profiles").select("*").order("created_at", { ascending: false }),
-            "carregar perfis"
-          )
-        : currentUserId
-          ? await runSupabaseQuery(
-              () => supabase.from("public_profiles").select("*"),
-              "carregar perfis publicos"
+      const [
+        booksRes,
+        authorsRes,
+        progressRes,
+        subsRes,
+        profilesRes,
+        emailsRes,
+        postsRes,
+        releasesRes,
+        followsRes,
+        savedRes,
+        categoriesRes,
+        bookFavRes,
+        authorFavRes,
+      ] = await Promise.all([
+        runSupabaseQuery(
+          () => supabase.from("books").select("*, authors(name)").order("created_at", { ascending: false }),
+          "carregar livros"
+        ),
+        runSupabaseQuery(
+          () => supabase.from("authors").select("*").order("name"),
+          "carregar autores"
+        ),
+        currentUserId
+          ? runSupabaseQuery(
+              () => supabase.from("reading_progress").select("*").eq("user_id", currentUserId),
+              "carregar progresso"
             )
-          : { data: currentProfile ? [currentProfile] : [], error: null };
-      const emailsRes = isCurrentAdmin
-        ? await runSupabaseQuery(
-            () => supabase.from("user_emails").select("user_id, email"),
-            "carregar emails"
-          )
-        : { data: [], error: null };
-      const postsRes = currentUserId
-        ? await runSupabaseQuery(
-            () => supabase.from("posts").select("*").order("created_at", { ascending: false }),
-            "carregar posts"
-          )
-        : { data: [], error: null };
+          : Promise.resolve(emptyResult),
+        isCurrentAdmin
+          ? runSupabaseQuery(
+              () => supabase.from("subscriptions").select("*").order("created_at", { ascending: false }),
+              "carregar assinaturas"
+            )
+          : currentUserId
+            ? runSupabaseQuery(
+                () => supabase.from("subscriptions").select("*").eq("user_id", currentUserId).order("created_at", { ascending: false }),
+                "carregar assinatura atual"
+              )
+            : Promise.resolve(emptyResult),
+        isCurrentAdmin
+          ? runSupabaseQuery(
+              () => supabase.from("profiles").select("*").order("created_at", { ascending: false }),
+              "carregar perfis"
+            )
+          : currentUserId
+            ? runSupabaseQuery(
+                () => supabase.from("public_profiles").select("*"),
+                "carregar perfis publicos"
+              )
+            : Promise.resolve({ data: currentProfile ? [currentProfile] : [], error: null }),
+        isCurrentAdmin
+          ? runSupabaseQuery(
+              () => supabase.from("user_emails").select("user_id, email"),
+              "carregar emails"
+            )
+          : Promise.resolve(emptyResult),
+        currentUserId
+          ? runSupabaseQuery(
+              () => supabase.from("posts").select("*").order("created_at", { ascending: false }).limit(100),
+              "carregar posts"
+            )
+          : Promise.resolve(emptyResult),
+        currentUserId
+          ? runSupabaseQuery(
+              () => supabase.from("weekly_releases").select("*, books(*, authors(name))").order("release_date", { ascending: true }),
+              "carregar lancamentos"
+            )
+          : Promise.resolve(emptyResult),
+        currentUserId
+          ? runSupabaseQuery(
+              () => supabase.from("follows").select("follower_id, following_id"),
+              "carregar seguidores"
+            )
+          : Promise.resolve(emptyResult),
+        currentUserId
+          ? runSupabaseQuery(
+              () => supabase.from("saved_posts").select("post_id"),
+              "carregar posts salvos"
+            )
+          : Promise.resolve(emptyResult),
+        currentUserId
+          ? runSupabaseQuery(
+              () => supabase.from("categories").select("*").order("sort_order").order("name"),
+              "carregar categorias"
+            )
+          : Promise.resolve(emptyResult),
+        currentUserId
+          ? runSupabaseQuery(
+              () => supabase.from("book_favorites").select("book_id"),
+              "carregar livros favoritos"
+            )
+          : Promise.resolve(emptyResult),
+        currentUserId
+          ? runSupabaseQuery(
+              () => supabase.from("author_favorites").select("author_id"),
+              "carregar autores favoritos"
+            )
+          : Promise.resolve(emptyResult),
+      ]);
+
       const postIds = postsRes.error ? [] : (postsRes.data || []).map((post) => post.id);
-      const postLikesRes = postIds.length > 0
-        ? await runSupabaseQuery(
-            () => supabase.from("post_likes").select("post_id,user_id").in("post_id", postIds),
-            "carregar curtidas dos posts"
-          )
-        : { data: [], error: null };
-      const pollRes = postIds.length > 0
-        ? await runSupabaseQuery(
-            () => supabase.from("post_polls").select("*, post_poll_options(*)").in("post_id", postIds),
-            "carregar enquetes"
-          )
-        : { data: [], error: null };
+      const [postLikesRes, pollRes] = postIds.length > 0
+        ? await Promise.all([
+            runSupabaseQuery(
+              () => supabase.from("post_likes").select("post_id,user_id").in("post_id", postIds),
+              "carregar curtidas dos posts"
+            ),
+            runSupabaseQuery(
+              () => supabase.from("post_polls").select("*, post_poll_options(*)").in("post_id", postIds),
+              "carregar enquetes"
+            ),
+          ])
+        : [emptyResult, emptyResult];
       const pollIds = pollRes.error ? [] : (pollRes.data || []).map((poll) => poll.id);
       const pollVotesRes = pollIds.length > 0
         ? await runSupabaseQuery(
             () => supabase.from("post_poll_votes").select("poll_id,option_id,user_id").in("poll_id", pollIds),
             "carregar votos das enquetes"
           )
-        : { data: [], error: null };
-      const releasesRes = currentUserId
-        ? await runSupabaseQuery(
-            () => supabase.from("weekly_releases").select("*, books(*, authors(name))").order("release_date", { ascending: true }),
-            "carregar lancamentos"
-          )
-        : { data: [], error: null };
-      const followsRes = currentUserId
-        ? await runSupabaseQuery(
-            () => supabase.from("follows").select("follower_id, following_id"),
-            "carregar seguidores"
-          )
-        : { data: [], error: null };
-      const savedRes = currentUserId
-        ? await runSupabaseQuery(
-            () => supabase.from("saved_posts").select("post_id"),
-            "carregar posts salvos"
-          )
-        : { data: [], error: null };
-      const categoriesRes = currentUserId
-        ? await runSupabaseQuery(
-            () => supabase.from("categories").select("*").order("sort_order").order("name"),
-            "carregar categorias"
-          )
-        : { data: [], error: null };
-      const bookFavRes = currentUserId
-        ? await runSupabaseQuery(
-            () => supabase.from("book_favorites").select("book_id"),
-            "carregar livros favoritos"
-          )
-        : { data: [], error: null };
-      const authorFavRes = currentUserId
-        ? await runSupabaseQuery(
-            () => supabase.from("author_favorites").select("author_id"),
-            "carregar autores favoritos"
-          )
-        : { data: [], error: null };
+        : emptyResult;
 
       const localBookById = new Map((content.books || []).map((book) => [book.id, book]));
       const localBookByTitle = new Map((content.books || []).map((book) => [book.title, book]));
@@ -369,7 +387,16 @@ export function DataProvider({ children }) {
     }
 
     load();
-  }, [isSupabase, authLoading, user?.id, authProfile?.id, authProfile?.role, isAdmin]);
+  }, [
+    isSupabase,
+    authLoading,
+    user?.id,
+    user?.app_metadata?.role,
+    authProfile,
+    isAdmin,
+    content.books,
+    content.authors,
+  ]);
 
   // AUTHORS CRUD
   const addAuthor = useCallback(async (data) => {

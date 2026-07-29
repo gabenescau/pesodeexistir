@@ -45,7 +45,7 @@ export function AuthPage() {
 
     if (!email.trim()) return;
     if (!isSupabaseReady()) {
-      setError("Supabase não está configurado. Confira SUPABASE_URL e SUPABASE_ANON_KEY no Vercel ou use VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.");
+      setError("Supabase não está configurado. Confira a integração Supabase no painel da Vercel.");
       return;
     }
     setLoading(true);
@@ -183,6 +183,8 @@ export function AuthPage() {
                   placeholder="Seu nome"
                   type="text"
                   value={name}
+                  maxLength={80}
+                  autoComplete="name"
                   onChange={e => setName(e.target.value)}
                 />
                 <InputGroupAddon align="inline-start">
@@ -196,6 +198,8 @@ export function AuthPage() {
                 placeholder="seu@email.com"
                 type="email"
                 value={email}
+                maxLength={254}
+                autoComplete="email"
                 onChange={e => setEmail(e.target.value)}
               />
               <InputGroupAddon align="inline-start">
@@ -208,6 +212,9 @@ export function AuthPage() {
                 placeholder="Sua senha"
                 type="password"
                 value={password}
+                minLength={6}
+                maxLength={128}
+                autoComplete={mode === "login" ? "current-password" : "new-password"}
                 onChange={e => setPassword(e.target.value)}
               />
               <InputGroupAddon align="inline-start">

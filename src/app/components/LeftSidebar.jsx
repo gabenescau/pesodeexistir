@@ -1,5 +1,5 @@
 import { useAuth } from "@/app/data/AuthContext";
-import { Home, MessageCircle, Library, Compass, Users, Calendar, Mail, Bell, User, Settings } from "lucide-react";
+import { Home, Library, Compass, Users, Calendar, Mail, Bell, User, Settings } from "lucide-react";
 
 const navItems = [
   { id: "home", label: "Início", icon: Home },

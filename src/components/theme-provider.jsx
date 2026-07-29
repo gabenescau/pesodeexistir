@@ -5,8 +5,12 @@ const ThemeContext = createContext();
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => {
     if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("ope-theme");
-      if (stored) return stored;
+      try {
+        const stored = localStorage.getItem("ope-theme:v1");
+        if (stored === "dark" || stored === "light") return stored;
+      } catch {
+        // Storage pode estar bloqueado no modo privado.
+      }
     }
     return "dark";
   });
@@ -18,7 +22,12 @@ export function ThemeProvider({ children }) {
     } else {
       root.classList.remove("dark");
     }
-    localStorage.setItem("ope-theme", theme);
+    try {
+      localStorage.setItem("ope-theme:v1", theme);
+      localStorage.removeItem("ope-theme");
+    } catch {
+      // A preferencia continua valida apenas nesta aba.
+    }
   }, [theme]);
 
   const toggle = () => setTheme((t) => (t === "dark" ? "light" : "dark"));

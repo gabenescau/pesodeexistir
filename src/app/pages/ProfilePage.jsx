@@ -7,13 +7,15 @@ import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
 import { supabase, isSupabaseReady } from "@/app/data/supabase";
 import { handleDoPerfil } from "@/lib/mentions";
+import {
+  PROFILE_LIMITS,
+  storagePathFromPublicUrl,
+  validateAvatarFile,
+  validateProfileInput,
+} from "@/lib/profile";
 import { AchievementsPanel } from "../components/AchievementsPanel";
 import { UserTitlePill } from "../components/UserTitlePill";
 import { VerifiedBadge } from "../components/VerifiedBadge";
-
-const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
-// Mesmo formato do CHECK profiles_username_format (migration 00011).
-const HANDLE_VALIDO = /^[a-z0-9_]{3,24}$/;
 
 function Card({ className, children, ...props }) {
   return (
@@ -60,8 +62,10 @@ export function ProfilePage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > MAX_AVATAR_BYTES) {
-      setSaveError("A imagem precisa ter no máximo 2 MB.");
+    try {
+      validateAvatarFile(file);
+    } catch (error) {
+      setSaveError(error.message);
       e.target.value = "";
       return;
     }
@@ -78,15 +82,20 @@ export function ProfilePage() {
   };
 
   const saveProfile = async () => {
-    const handleNormalizado = editHandle.trim().toLowerCase();
-
-    if (!HANDLE_VALIDO.test(handleNormalizado)) {
-      setSaveError("O @ precisa ter de 3 a 24 caracteres, só letras minúsculas, números e _.");
+    let validated;
+    try {
+      validated = validateProfileInput({
+        name: editName,
+        handle: editHandle,
+        bio: editBio,
+      });
+    } catch (error) {
+      setSaveError(error.message);
       return;
     }
 
     if (!isSupabaseReady() || !user?.id) {
-      setProfile({ ...profile, name: editName, handle: handleNormalizado, bio: editBio, avatar: avatarPreview || profile.avatar });
+      setProfile({ ...profile, ...validated, avatar: avatarPreview || profile.avatar });
       setEditing(false);
       return;
     }
@@ -94,28 +103,30 @@ export function ProfilePage() {
     setSaving(true);
     setSaveError("");
 
+    let uploadedPath = null;
     try {
       let avatarUrl = profile.avatar;
 
       if (avatarFile) {
-        const ext = (avatarFile.name.split(".").pop() || "png").toLowerCase();
-        const filePath = `${user.id}/${Date.now()}.${ext}`;
+        const ext = validateAvatarFile(avatarFile);
+        const filePath = `${user.id}/${globalThis.crypto.randomUUID()}.${ext}`;
 
         const { error: uploadError } = await supabase.storage
           .from("avatars")
           .upload(filePath, avatarFile, {
             cacheControl: "3600",
-            contentType: avatarFile.type || "image/png",
-            upsert: true,
+            contentType: avatarFile.type,
+            upsert: false,
           });
 
         if (uploadError) throw uploadError;
+        uploadedPath = filePath;
 
         const { data } = supabase.storage.from("avatars").getPublicUrl(filePath);
         avatarUrl = data.publicUrl;
       }
 
-      const nextProfile = { ...profile, name: editName, handle: handleNormalizado, bio: editBio, avatar: avatarUrl };
+      const nextProfile = { ...profile, ...validated, avatar: avatarUrl };
 
       // email nao entra mais aqui: mora em user_emails, preenchido pelo trigger
       // de cadastro. profiles ficou sem coluna sensivel.
@@ -125,6 +136,8 @@ export function ProfilePage() {
         username: nextProfile.handle,
         bio: nextProfile.bio,
         avatar: nextProfile.avatar,
+        avatar_url: nextProfile.avatar,
+        updated_at: new Date().toISOString(),
       });
 
       // 23505 = o @ escolhido ja pertence a outra pessoa.
@@ -140,13 +153,28 @@ export function ProfilePage() {
         data: { name: nextProfile.name },
       });
 
-      if (authError) throw authError;
+      if (authError) {
+        console.warn("Perfil salvo; nao foi possivel sincronizar o nome no Auth:", authError.message);
+      }
+
+      const previousAvatarPath = storagePathFromPublicUrl(profile.avatar, "avatars");
+      if (uploadedPath && previousAvatarPath && previousAvatarPath !== uploadedPath) {
+        const { error: removeError } = await supabase.storage
+          .from("avatars")
+          .remove([previousAvatarPath]);
+        if (removeError) {
+          console.warn("Avatar antigo nao removido:", removeError.message);
+        }
+      }
 
       setProfile(nextProfile);
       setAvatarFile(null);
       setAvatarPreview(null);
       setEditing(false);
     } catch (err) {
+      if (uploadedPath) {
+        await supabase.storage.from("avatars").remove([uploadedPath]).catch(() => {});
+      }
       setSaveError(err?.message || "Não foi possível salvar o perfil.");
     } finally {
       setSaving(false);
@@ -178,7 +206,7 @@ export function ProfilePage() {
             {editing && (
               <label className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity">
                 <Camera className="size-5 text-white" />
-                <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
+                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarChange} className="hidden" />
               </label>
             )}
           </div>
@@ -190,6 +218,7 @@ export function ProfilePage() {
                   type="text"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
+                  maxLength={PROFILE_LIMITS.name}
                   placeholder="Seu nome"
                   className="w-full bg-[var(--bg-canvas)] border border-[var(--border)] rounded-[6px] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-none focus:border-[var(--border-strong)] transition-colors"
                 />
@@ -207,6 +236,7 @@ export function ProfilePage() {
                 <textarea
                   value={editBio}
                   onChange={(e) => setEditBio(e.target.value)}
+                  maxLength={PROFILE_LIMITS.bio}
                   placeholder="Sua bio"
                   rows={3}
                   className="w-full bg-[var(--bg-canvas)] border border-[var(--border)] rounded-[6px] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-none focus:border-[var(--border-strong)] transition-colors resize-none"

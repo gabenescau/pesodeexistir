@@ -1,11 +1,15 @@
-import { cancelAbacateSubscription } from "./abacatepay.js";
+import { cancelAbacateSubscription } from "../server/abacatepay.js";
 import {
   allowPost,
+  enforceRateLimit,
   getAuthenticatedUser,
   getProfile,
   getSubscription,
+  logServerError,
+  requireUuid,
+  sendError,
   updateSubscription,
-} from "./_server.js";
+} from "../server/supabase.js";
 
 export default async function handler(req, res) {
   if (!allowPost(req, res)) return;
@@ -13,9 +17,13 @@ export default async function handler(req, res) {
   try {
     const user = await getAuthenticatedUser(req);
     const { subscriptionId } = req.body || {};
-    if (!subscriptionId) {
-      return res.status(400).json({ success: false, error: "subscriptionId obrigatorio" });
-    }
+    requireUuid(subscriptionId, "subscriptionId");
+    if (!await enforceRateLimit(req, res, {
+      scope: "cancel_subscription",
+      limit: 8,
+      windowSeconds: 300,
+      userId: user.id,
+    })) return;
 
     const [profile, subscription] = await Promise.all([
       getProfile(user.id),
@@ -62,10 +70,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ success: true, data: updated });
   } catch (error) {
-    console.error("Erro ao cancelar assinatura:", error);
-    return res.status(error.status || 500).json({
-      success: false,
-      error: error.message || "Erro interno ao cancelar assinatura",
-    });
+    logServerError("cancel_subscription", error, req);
+    return sendError(req, res, error, "Erro interno ao cancelar assinatura");
   }
 }

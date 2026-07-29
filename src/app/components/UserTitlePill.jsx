@@ -1,6 +1,6 @@
-import * as Icons from "lucide-react";
 import { useData } from "../data/DataContext";
 import { VARIANTS } from "@/components/ui/achievement-badge";
+import { ACHIEVEMENT_ICONS } from "@/lib/achievement-icons";
 import { summarizeAchievements } from "@/lib/achievements";
 
 // Versao leve do badge para o feed: uma pilula com a cor e o icone do titulo
@@ -14,7 +14,7 @@ export function UserTitlePill({ userId, className = "" }) {
   if (!currentTitle) return null;
 
   const [base, border] = VARIANTS[currentTitle.variant] || VARIANTS.gold;
-  const Icon = Icons[currentTitle.icon] || Icons.Sparkles;
+  const Icon = ACHIEVEMENT_ICONS[currentTitle.icon] || ACHIEVEMENT_ICONS.Sparkles;
 
   // Cor do texto = tom saturado da variante (le bem no tema escuro e claro);
   // fundo = mesmo tom em alfa baixo.

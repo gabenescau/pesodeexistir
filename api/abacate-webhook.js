@@ -1,11 +1,31 @@
-import crypto from "node:crypto";
-import { getPlanByCode, getPlanByExternalId } from "./_plans.js";
+import { getPlanByCode, getPlanByExternalId } from "../server/plans.js";
+import {
+  DEFAULT_ABACATEPAY_WEBHOOK_PUBLIC_KEY,
+  safeCompare,
+  verifyAbacateSignature,
+} from "../server/webhook-security.js";
+import {
+  logServerError,
+  prepareResponse,
+} from "../server/supabase.js";
 
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_URL =
+  process.env.SUPABASE_URL ||
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  process.env.VITE_SUPABASE_URL;
+const SUPABASE_SERVICE_KEY =
+  process.env.SUPABASE_SECRET_KEY ||
+  process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_SERVICE_HEADERS = {
+  "apikey": SUPABASE_SERVICE_KEY,
+  ...(!SUPABASE_SERVICE_KEY?.startsWith("sb_secret_")
+    ? { "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}` }
+    : {}),
+};
 const WEBHOOK_SECRET = process.env.ABACATEPAY_WEBHOOK_SECRET;
 const WEBHOOK_PUBLIC_KEY =
-  "t9dXRhHHo3yDEj5pVDYz0frf7q6bMKyMRmxxCPIPp3RCplBfXRxqlC6ZpiWmOqj4L63qEaeUOtrCI8P0VMUgo6iIga2ri9ogaHFs0WIIywSMg0q7RmBfybe1E5XJcfC4IW3alNqym0tXoAKkzvfEjZxV6bE0oG2zJrNNYmUCKZyV0KZ3JS8Votf9EAWWYdiDkMkpbMdPggfh1EqHlVkMiTady6jOR3hyzGEHrIz2Ret0xHKMbiqkr9HS1JhNHDX9";
+  process.env.ABACATEPAY_WEBHOOK_PUBLIC_KEY || DEFAULT_ABACATEPAY_WEBHOOK_PUBLIC_KEY;
+const MAX_WEBHOOK_BYTES = 1024 * 1024;
 
 export const config = {
   api: {
@@ -34,23 +54,18 @@ async function readRawBody(req) {
   if (req.body && typeof req.body === "object") return JSON.stringify(req.body);
 
   const chunks = [];
+  let totalBytes = 0;
   for await (const chunk of req) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    totalBytes += buffer.length;
+    if (totalBytes > MAX_WEBHOOK_BYTES) {
+      const error = new Error("Payload do webhook muito grande");
+      error.status = 413;
+      throw error;
+    }
+    chunks.push(buffer);
   }
   return Buffer.concat(chunks).toString("utf8");
-}
-
-function safeCompare(a, b) {
-  const left = Buffer.from(String(a));
-  const right = Buffer.from(String(b));
-  return left.length === right.length && crypto.timingSafeEqual(left, right);
-}
-
-function verifyHmac(rawBody, signature) {
-  if (!signature) return false;
-
-  const base64 = crypto.createHmac("sha256", WEBHOOK_PUBLIC_KEY).update(rawBody).digest("base64");
-  return safeCompare(signature, base64);
 }
 
 async function findSubscriptionByCheckout({ checkoutId, externalId, providerSubscriptionId }) {
@@ -67,8 +82,7 @@ async function findSubscriptionByCheckout({ checkoutId, externalId, providerSubs
     `${SUPABASE_URL}/rest/v1/subscriptions?or=(${filters.join(",")})&order=created_at.desc&limit=1`,
     {
       headers: {
-        "apikey": SUPABASE_SERVICE_KEY,
-        "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
+        ...SUPABASE_SERVICE_HEADERS,
       },
     }
   );
@@ -93,8 +107,7 @@ async function findSubscriptionByCheckout({ checkoutId, externalId, providerSubs
     `${SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(userId)}&status=eq.pending&order=updated_at.desc&limit=1`,
     {
       headers: {
-        "apikey": SUPABASE_SERVICE_KEY,
-        "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
+        ...SUPABASE_SERVICE_HEADERS,
       },
     }
   );
@@ -111,8 +124,7 @@ async function markWebhookProcessed({ eventType, checkoutId, payload }) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "apikey": SUPABASE_SERVICE_KEY,
-      "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
+      ...SUPABASE_SERVICE_HEADERS,
       "Prefer": "resolution=ignore-duplicates,return=representation",
     },
     body: JSON.stringify({
@@ -137,8 +149,7 @@ async function releaseWebhookEvent(eventId) {
     {
       method: "DELETE",
       headers: {
-        "apikey": SUPABASE_SERVICE_KEY,
-        "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
+        ...SUPABASE_SERVICE_HEADERS,
       },
     }
   );
@@ -149,8 +160,7 @@ async function updateSubscription(subscription, payload) {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
-      "apikey": SUPABASE_SERVICE_KEY,
-      "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
+      ...SUPABASE_SERVICE_HEADERS,
       "Prefer": "return=minimal",
     },
     body: JSON.stringify(payload),
@@ -230,6 +240,7 @@ async function deactivateSubscription(subscription, status, eventData) {
 }
 
 export default async function handler(req, res) {
+  prepareResponse(req, res);
   if (req.method !== "POST") {
     return res.status(405).json({ success: false, error: "Metodo nao permitido" });
   }
@@ -242,7 +253,7 @@ export default async function handler(req, res) {
     if (!safeCompare(req.query?.webhookSecret || "", WEBHOOK_SECRET)) {
       return res.status(401).json({ success: false, error: "Secret do webhook invalido" });
     }
-    if (!verifyHmac(rawBody, getSignature(req))) {
+    if (!verifyAbacateSignature(rawBody, getSignature(req), WEBHOOK_PUBLIC_KEY)) {
       return res.status(401).json({ success: false, error: "Assinatura invalida" });
     }
 
@@ -327,7 +338,12 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true });
   } catch (error) {
     await releaseWebhookEvent(processedEventId);
-    console.error("Erro no webhook:", error);
-    return res.status(500).json({ success: false, error: error.message });
+    logServerError("abacate_webhook", error, req);
+    const status = error?.status === 413 ? 413 : 500;
+    return res.status(status).json({
+      success: false,
+      error: status === 413 ? error.message : "Erro interno ao processar webhook",
+      requestId: req.requestId,
+    });
   }
 }

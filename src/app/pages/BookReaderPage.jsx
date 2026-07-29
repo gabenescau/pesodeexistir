@@ -180,7 +180,7 @@ export function BookReaderPage() {
       cancelled = true;
       renderTaskRef.current?.cancel?.();
     };
-  }, [pdfUrl]);
+  }, [pdfUrl, book?.currentPage]);
 
   // Renderiza a pagina no tamanho do container. Refaz ao girar o celular ou
   // redimensionar a janela — antes o canvas ficava com a largura da orientacao

@@ -16,6 +16,8 @@ import {
 import { SubscribeModal } from "./SubscribeModal";
 import { VerifiedBadge } from "./VerifiedBadge";
 
+const ALLOWED_POST_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+
 function Avatar({ src, fallback, className = "size-11" }) {
   const [broken, setBroken] = useState(false);
   const isImage = !broken && (src?.startsWith?.("data:") || src?.startsWith?.("http") || src?.startsWith?.("/"));
@@ -32,7 +34,9 @@ async function uploadPostImages(files, userId) {
 
   const uploaded = [];
   for (const file of files) {
-    if (!file.type.startsWith("image/")) throw new Error("Selecione apenas imagens.");
+    if (!ALLOWED_POST_IMAGE_TYPES.has(file.type)) {
+      throw new Error("Use imagens JPG, PNG, WebP ou GIF.");
+    }
     if (file.size > MAX_POST_IMAGE_BYTES) throw new Error("Cada imagem precisa ter no maximo 5 MB.");
     const id = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const path = `${userId}/${id}-${safeFileName(file.name)}`;
@@ -150,8 +154,12 @@ export function CreatePost() {
   function handleImageSelect(event) {
     const files = Array.from(event.target.files || []);
     event.target.value = "";
-    const valid = files.filter((file) => file.type.startsWith("image/") && file.size <= MAX_POST_IMAGE_BYTES);
-    if (valid.length !== files.length) setError("Algumas imagens foram ignoradas. Use imagens ate 5 MB.");
+    const valid = files.filter((file) =>
+      ALLOWED_POST_IMAGE_TYPES.has(file.type) && file.size <= MAX_POST_IMAGE_BYTES
+    );
+    if (valid.length !== files.length) {
+      setError("Algumas imagens foram ignoradas. Use JPG, PNG, WebP ou GIF de ate 5 MB.");
+    }
     setImageFiles((current) => {
       const room = MAX_POST_IMAGES - current.length;
       if (room <= 0) return current;

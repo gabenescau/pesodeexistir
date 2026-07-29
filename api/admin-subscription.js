@@ -1,12 +1,16 @@
-import { getPlanByKey } from "./_plans.js";
+import { getPlanByKey } from "../server/plans.js";
 import {
   allowPost,
+  enforceRateLimit,
   getAuthenticatedUser,
   insertSubscription,
   listUserSubscriptions,
+  logServerError,
+  requireUuid,
   requireAdmin,
+  sendError,
   updateSubscription,
-} from "./_server.js";
+} from "../server/supabase.js";
 
 const ALLOWED_DURATIONS = new Set([7, 30, 90, 180, 365]);
 
@@ -103,8 +107,14 @@ export default async function handler(req, res) {
   try {
     const user = await getAuthenticatedUser(req);
     await requireAdmin(user);
+    if (!await enforceRateLimit(req, res, {
+      scope: "admin_subscription",
+      limit: 60,
+      windowSeconds: 300,
+      userId: user.id,
+    })) return;
     const { action, userId, email, plan = "monthly", durationDays = 30 } = req.body || {};
-    if (!userId) return res.status(400).json({ success: false, error: "userId obrigatorio" });
+    requireUuid(userId, "userId");
 
     let updated;
     if (action === "grant") {
@@ -123,10 +133,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ success: true, data: updated });
   } catch (error) {
-    console.error("Erro na gestao manual de assinatura:", error);
-    return res.status(error.status || 500).json({
-      success: false,
-      error: error.message || "Erro interno na gestao de assinatura",
-    });
+    logServerError("admin_subscription", error, req);
+    return sendError(req, res, error, "Erro interno na gestao de assinatura");
   }
 }

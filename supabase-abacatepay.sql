@@ -9,12 +9,12 @@ returns boolean
 language sql
 stable
 security definer
-set search_path = public
+set search_path = ''
 as $$
   select exists (
     select 1
     from public.profiles p
-    where p.id = auth.uid()
+    where p.id = (select auth.uid())
       and p.role = 'admin'
   );
 $$;
@@ -99,7 +99,7 @@ create policy "subscriptions_select_own_or_admin"
 on public.subscriptions
 for select
 to authenticated
-using (user_id = auth.uid() or public.is_admin());
+using (user_id = (select auth.uid()) or public.is_admin());
 
 -- Assinaturas sao alteradas somente pelas APIs server-side usando service_role.
 -- Nem mesmo o frontend de um administrador decide status, prazo ou plano.
@@ -215,12 +215,12 @@ returns boolean
 language sql
 stable
 security definer
-set search_path = public
+set search_path = ''
 as $$
   select exists (
     select 1
     from public.subscriptions s
-    where s.user_id = auth.uid()
+    where s.user_id = (select auth.uid())
       and s.status = 'active'
       and (s.current_period_end is null or s.current_period_end > now())
   );
@@ -231,7 +231,7 @@ returns boolean
 language sql
 stable
 security definer
-set search_path = public
+set search_path = ''
 as $$
   select public.is_admin()
     or (
@@ -329,7 +329,7 @@ on storage.objects for insert to authenticated
 with check (
   bucket_id = 'covers'
   and public.is_admin()
-  and (storage.foldername(name))[1] = auth.uid()::text
+  and (storage.foldername(name))[1] = (select auth.uid())::text
 );
 
 drop policy if exists "covers_admin_update" on storage.objects;
@@ -355,7 +355,7 @@ on storage.objects for insert to authenticated
 with check (
   bucket_id = 'pdfs'
   and public.is_admin()
-  and (storage.foldername(name))[1] = auth.uid()::text
+  and (storage.foldername(name))[1] = (select auth.uid())::text
 );
 
 drop policy if exists "pdfs_admin_update" on storage.objects;
@@ -409,7 +409,7 @@ drop policy if exists "suggestions_owner_insert" on public.suggestions;
 create policy "suggestions_owner_insert"
 on public.suggestions for insert to authenticated
 with check (
-  user_id = auth.uid()
+  user_id = (select auth.uid())
   and status = 'ideas'
 );
 
@@ -492,7 +492,7 @@ returns boolean
 language sql
 stable
 security definer
-set search_path = public
+set search_path = ''
 as $$
   select exists (
     select 1
@@ -516,9 +516,59 @@ alter table public.profiles
   add column if not exists reading_activity boolean not null default true,
   add column if not exists show_online_status boolean not null default true;
 
+alter table public.profiles
+  drop constraint if exists profiles_name_length_check,
+  drop constraint if exists profiles_bio_length_check;
+
+alter table public.profiles
+  add constraint profiles_name_length_check
+    check (name is null or char_length(btrim(name)) between 1 and 80) not valid,
+  add constraint profiles_bio_length_check
+    check (bio is null or char_length(bio) <= 500) not valid;
+
+alter table public.profiles enable row level security;
+
+drop policy if exists "profiles_authenticated_select" on public.profiles;
+create policy "profiles_authenticated_select"
+on public.profiles for select to authenticated
+using (
+  id = (select auth.uid())
+  or public.is_admin()
+  or coalesce(private_profile, false) = false
+);
+
+drop policy if exists "profiles_owner_insert" on public.profiles;
+create policy "profiles_owner_insert"
+on public.profiles for insert to authenticated
+with check (id = (select auth.uid()));
+
+drop policy if exists "profiles_owner_update" on public.profiles;
+create policy "profiles_owner_update"
+on public.profiles for update to authenticated
+using (id = (select auth.uid()) or public.is_admin())
+with check (id = (select auth.uid()) or public.is_admin());
+
+-- RLS limita linhas; privilegios por coluna impedem que o proprio usuario
+-- envie role='admin' diretamente para o PostgREST.
+revoke insert, update on public.profiles from authenticated;
+grant insert (
+  id, name, username, avatar, avatar_url, bio, theme, created_at, updated_at,
+  private_profile, reading_activity, show_online_status
+) on public.profiles to authenticated;
+grant update (
+  name, username, avatar, avatar_url, bio, theme, updated_at,
+  private_profile, reading_activity, show_online_status
+) on public.profiles to authenticated;
+
+create unique index if not exists profiles_username_unique_idx
+  on public.profiles (username)
+  where username is not null;
+
 drop view if exists public.public_profiles;
 
-create view public.public_profiles as
+create view public.public_profiles
+with (security_invoker = true)
+as
 select
   p.id,
   p.name,
@@ -532,9 +582,51 @@ select
   public.profile_is_verified(p.id) as verified
 from public.profiles p
 where coalesce(p.private_profile, false) = false
-   or p.id = auth.uid();
+   or p.id = (select auth.uid());
 
 grant select on public.public_profiles to authenticated;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'avatars',
+  'avatars',
+  true,
+  2097152,
+  array['image/jpeg', 'image/png', 'image/webp']
+)
+on conflict (id) do update
+set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "avatars_owner_insert" on storage.objects;
+create policy "avatars_owner_insert"
+on storage.objects for insert to authenticated
+with check (
+  bucket_id = 'avatars'
+  and (storage.foldername(name))[1] = (select auth.uid())::text
+);
+
+drop policy if exists "avatars_owner_update" on storage.objects;
+create policy "avatars_owner_update"
+on storage.objects for update to authenticated
+using (
+  bucket_id = 'avatars'
+  and (storage.foldername(name))[1] = (select auth.uid())::text
+)
+with check (
+  bucket_id = 'avatars'
+  and (storage.foldername(name))[1] = (select auth.uid())::text
+);
+
+drop policy if exists "avatars_owner_delete" on storage.objects;
+create policy "avatars_owner_delete"
+on storage.objects for delete to authenticated
+using (
+  bucket_id = 'avatars'
+  and (storage.foldername(name))[1] = (select auth.uid())::text
+);
 
 alter table public.posts enable row level security;
 alter table public.post_replies enable row level security;
@@ -553,14 +645,14 @@ drop policy if exists "posts_owner_insert" on public.posts;
 create policy "posts_owner_insert"
 on public.posts for insert to authenticated
 with check (
-  user_id = auth.uid()
+  user_id = (select auth.uid())
   and (public.has_active_subscription() or public.is_admin())
 );
 
 drop policy if exists "posts_owner_or_admin_delete" on public.posts;
 create policy "posts_owner_or_admin_delete"
 on public.posts for delete to authenticated
-using (user_id = auth.uid() or public.is_admin());
+using (user_id = (select auth.uid()) or public.is_admin());
 
 drop policy if exists "post_replies_authenticated_select" on public.post_replies;
 create policy "post_replies_authenticated_select"
@@ -571,14 +663,14 @@ drop policy if exists "post_replies_owner_insert" on public.post_replies;
 create policy "post_replies_owner_insert"
 on public.post_replies for insert to authenticated
 with check (
-  user_id = auth.uid()
+  user_id = (select auth.uid())
   and (public.has_active_subscription() or public.is_admin())
 );
 
 drop policy if exists "post_replies_owner_or_admin_delete" on public.post_replies;
 create policy "post_replies_owner_or_admin_delete"
 on public.post_replies for delete to authenticated
-using (user_id = auth.uid() or public.is_admin());
+using (user_id = (select auth.uid()) or public.is_admin());
 
 drop policy if exists "post_likes_authenticated_select" on public.post_likes;
 create policy "post_likes_authenticated_select"
@@ -588,27 +680,27 @@ using (true);
 drop policy if exists "post_likes_owner_insert" on public.post_likes;
 create policy "post_likes_owner_insert"
 on public.post_likes for insert to authenticated
-with check (user_id = auth.uid());
+with check (user_id = (select auth.uid()));
 
 drop policy if exists "post_likes_owner_delete" on public.post_likes;
 create policy "post_likes_owner_delete"
 on public.post_likes for delete to authenticated
-using (user_id = auth.uid());
+using (user_id = (select auth.uid()));
 
 drop policy if exists "saved_posts_owner_select" on public.saved_posts;
 create policy "saved_posts_owner_select"
 on public.saved_posts for select to authenticated
-using (user_id = auth.uid());
+using (user_id = (select auth.uid()));
 
 drop policy if exists "saved_posts_owner_insert" on public.saved_posts;
 create policy "saved_posts_owner_insert"
 on public.saved_posts for insert to authenticated
-with check (user_id = auth.uid());
+with check (user_id = (select auth.uid()));
 
 drop policy if exists "saved_posts_owner_delete" on public.saved_posts;
 create policy "saved_posts_owner_delete"
 on public.saved_posts for delete to authenticated
-using (user_id = auth.uid());
+using (user_id = (select auth.uid()));
 
 drop policy if exists "post_polls_authenticated_select" on public.post_polls;
 create policy "post_polls_authenticated_select"
@@ -622,7 +714,7 @@ with check (
   exists (
     select 1 from public.posts p
     where p.id = post_id
-      and p.user_id = auth.uid()
+      and p.user_id = (select auth.uid())
   )
 );
 
@@ -640,7 +732,7 @@ with check (
     from public.post_polls poll
     join public.posts p on p.id = poll.post_id
     where poll.id = poll_id
-      and p.user_id = auth.uid()
+      and p.user_id = (select auth.uid())
   )
 );
 
@@ -653,7 +745,7 @@ drop policy if exists "post_poll_votes_owner_insert" on public.post_poll_votes;
 create policy "post_poll_votes_owner_insert"
 on public.post_poll_votes for insert to authenticated
 with check (
-  user_id = auth.uid()
+  user_id = (select auth.uid())
   and exists (
     select 1
     from public.post_poll_options option_row
@@ -668,7 +760,7 @@ on storage.objects for select to authenticated
 using (
   bucket_id = 'post-media'
   and (
-    (storage.foldername(name))[1] = auth.uid()::text
+    (storage.foldername(name))[1] = (select auth.uid())::text
     or exists (
       select 1
       from public.posts p
@@ -682,7 +774,7 @@ create policy "post_media_owner_insert"
 on storage.objects for insert to authenticated
 with check (
   bucket_id = 'post-media'
-  and (storage.foldername(name))[1] = auth.uid()::text
+  and (storage.foldername(name))[1] = (select auth.uid())::text
   and (public.has_active_subscription() or public.is_admin())
 );
 
@@ -691,5 +783,5 @@ create policy "post_media_owner_delete"
 on storage.objects for delete to authenticated
 using (
   bucket_id = 'post-media'
-  and ((storage.foldername(name))[1] = auth.uid()::text or public.is_admin())
+  and ((storage.foldername(name))[1] = (select auth.uid())::text or public.is_admin())
 );

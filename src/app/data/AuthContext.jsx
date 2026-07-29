@@ -137,7 +137,7 @@ export function AuthProvider({ children }) {
       throw new Error("Digite sua senha.");
     }
     if (!isSupabaseReady()) {
-      throw new Error("Supabase não está configurado. Verifique SUPABASE_URL e SUPABASE_ANON_KEY no Vercel ou use VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.");
+      throw new Error("Supabase não está configurado. Verifique a integração Supabase no painel da Vercel.");
     }
 
     const { error } = await supabase.auth.signInWithPassword({

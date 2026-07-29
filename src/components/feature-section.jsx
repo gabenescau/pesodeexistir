@@ -51,8 +51,8 @@ export function FeatureSection() {
 
       <div className="relative z-10 max-w-6xl mx-auto px-4 md:px-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {features.map((feature, index) => (
-            <Feature key={feature.title} {...feature} index={index} />
+          {features.map((feature) => (
+            <Feature key={feature.title} {...feature} />
           ))}
         </div>
       </div>
@@ -60,7 +60,7 @@ export function FeatureSection() {
   );
 }
 
-function Feature({ title, description, icon, index }) {
+function Feature({ title, description, icon }) {
   return (
     <div
       className={cn(

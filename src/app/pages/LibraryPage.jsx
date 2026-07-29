@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Search, Heart } from "lucide-react";
+import { Search } from "lucide-react";
 import { BookRow } from "../components/BookRow";
 import { useData } from "../data/DataContext";
 import { CATEGORIES, groupByCategory } from "@/lib/categories";

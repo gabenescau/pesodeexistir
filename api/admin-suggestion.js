@@ -1,4 +1,13 @@
-import { allowPost, getAuthenticatedUser, requireAdmin, supabaseRequest } from "./_server.js";
+import {
+  allowPost,
+  enforceRateLimit,
+  getAuthenticatedUser,
+  logServerError,
+  requireAdmin,
+  requireUuid,
+  sendError,
+  supabaseRequest,
+} from "../server/supabase.js";
 
 const VALID_STATUSES = new Set(["ideas", "reading", "building", "released"]);
 
@@ -8,12 +17,19 @@ export default async function handler(req, res) {
 
     const user = await getAuthenticatedUser(req);
     await requireAdmin(user);
+    if (!await enforceRateLimit(req, res, {
+      scope: "admin_suggestion",
+      limit: 60,
+      windowSeconds: 300,
+      userId: user.id,
+    })) return;
 
     const { action, suggestionId, status } = req.body || {};
     if (action !== "move") {
       return res.status(400).json({ success: false, error: "Acao invalida" });
     }
-    if (!suggestionId || !VALID_STATUSES.has(status)) {
+    requireUuid(suggestionId, "suggestionId");
+    if (!VALID_STATUSES.has(status)) {
       return res.status(400).json({ success: false, error: "Sugestao ou coluna invalida" });
     }
 
@@ -36,10 +52,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ success: true, data: updated });
   } catch (error) {
-    console.error("admin-suggestion error:", error);
-    return res.status(error.status || 500).json({
-      success: false,
-      error: error.message || "Erro ao atualizar sugestao",
-    });
+    logServerError("admin_suggestion", error, req);
+    return sendError(req, res, error, "Erro ao atualizar sugestao");
   }
 }

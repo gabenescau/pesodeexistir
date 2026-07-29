@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import * as Icons from "lucide-react";
+import { ACHIEVEMENT_ICONS } from "@/lib/achievement-icons";
 
 // Badge de conquista com o efeito holografico do award-badge do Product Hunt,
 // adaptado para JSX e parametrizado por variante (cor + icone). Mesmo brilho
@@ -62,7 +62,7 @@ export function AchievementBadge({ title, subtitle, icon = "Sparkles", variant =
   const [matrix, setMatrix] = useState(identityMatrix);
   const [glow, setGlow] = useState(0);
   const [base, border, text] = VARIANTS[variant] || VARIANTS.gold;
-  const Icon = Icons[icon] || Icons.Sparkles;
+  const Icon = ACHIEVEMENT_ICONS[icon] || ACHIEVEMENT_ICONS.Sparkles;
 
   function onMove(e) {
     if (locked) return;

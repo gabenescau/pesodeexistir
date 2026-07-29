@@ -7,6 +7,7 @@ export const LIBRARY_BUCKETS = {
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_PDF_BYTES = 50 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
 function safeFileName(name) {
   return String(name || "arquivo")
@@ -21,7 +22,9 @@ export function validateLibraryFile(file, kind) {
   if (!file) throw new Error("Selecione um arquivo.");
 
   if (kind === "image") {
-    if (!file.type.startsWith("image/")) throw new Error("Selecione uma imagem valida.");
+    if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+      throw new Error("Use uma imagem JPG, PNG, WebP ou GIF.");
+    }
     if (file.size > MAX_IMAGE_BYTES) throw new Error("A imagem deve ter no maximo 5 MB.");
     return;
   }

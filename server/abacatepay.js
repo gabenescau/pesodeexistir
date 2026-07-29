@@ -23,6 +23,7 @@ function errorMessage(body, fallback) {
 async function request(path, options = {}) {
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
+    signal: options.signal || AbortSignal.timeout(15000),
     headers: {
       "Authorization": `Bearer ${getApiKey()}`,
       "Content-Type": "application/json",

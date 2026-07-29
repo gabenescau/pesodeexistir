@@ -2,34 +2,53 @@
 
 ## 1. Supabase
 
-Execute todo o arquivo `supabase-abacatepay.sql` no SQL Editor. Ele:
+Execute `supabase-abacatepay.sql` e depois
+`supabase-production-hardening.sql` no SQL Editor. Eles:
 
 - corrige o indice `unique_active_subscription`;
 - permite historico de assinaturas canceladas e expiradas;
 - mantem apenas uma assinatura pendente ou ativa por usuario;
 - bloqueia escrita direta de assinaturas pelo frontend;
 - configura as politicas de acesso do catalogo e dos arquivos.
+- protege perfis/avatares com RLS e privilegios por coluna;
+- ativa rate limit distribuido para as APIs.
 
 ## 2. Variaveis da Vercel
 
-Cadastre em Production, Preview e Development:
+Se o projeto esta conectado pela integracao nativa Vercel/Supabase, estas
+variaveis ja sao sincronizadas:
 
 ```text
 SUPABASE_URL
-SUPABASE_ANON_KEY
-SUPABASE_SERVICE_ROLE_KEY
-VITE_SUPABASE_URL
-VITE_SUPABASE_ANON_KEY
+SUPABASE_PUBLISHABLE_KEY
+SUPABASE_SECRET_KEY
+SUPABASE_JWT_SECRET
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+```
+
+O app aceita diretamente esse formato. Nao e necessario duplicar as chaves
+como `VITE_SUPABASE_*`. As variaveis `NEXT_PUBLIC_*` sao publicas e entram no
+bundle; `SUPABASE_SECRET_KEY` e `SUPABASE_JWT_SECRET` sao privadas.
+
+Cadastre manualmente em Production e no ambiente de Preview usado para testes:
+
+```text
 ABACATEPAY_API_KEY
 ABACATEPAY_WEBHOOK_SECRET
+RATE_LIMIT_SECRET
+RATE_LIMIT_FAIL_CLOSED=true
 NEXT_PUBLIC_SITE_URL
 ```
 
-`SUPABASE_SERVICE_ROLE_KEY` e `ABACATEPAY_API_KEY` sao privadas e nunca podem
-usar o prefixo `VITE_`.
+`SUPABASE_SECRET_KEY`, `SUPABASE_JWT_SECRET`, `ABACATEPAY_API_KEY`,
+`ABACATEPAY_WEBHOOK_SECRET` e `RATE_LIMIT_SECRET` nunca podem usar os prefixos
+`VITE_` ou `NEXT_PUBLIC_`.
 
-O backend usa diretamente a chave publica HMAC oficial publicada pela
-AbacatePay. Nao cadastre uma chave HMAC propria na Vercel.
+O backend usa por padrao a chave publica HMAC oficial publicada pela
+AbacatePay. `ABACATEPAY_WEBHOOK_PUBLIC_KEY` e opcional e serve somente para uma
+eventual rotacao oficial dessa chave. Ela nao substitui
+`ABACATEPAY_WEBHOOK_SECRET`.
 
 As rotas da pasta `api/` sao publicadas automaticamente como Vercel Serverless
 Functions. Nao crie Edge Function, cron ou funcao manual no painel da Vercel.

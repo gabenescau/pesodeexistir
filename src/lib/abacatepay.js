@@ -2,7 +2,7 @@ import { supabase } from "@/app/data/supabase";
 
 const API_BASE = "/api";
 
-export async function createCheckout({ plan, name, paymentMethod }) {
+export async function createCheckout({ plan, paymentMethod }) {
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData?.session?.access_token;
 
@@ -16,7 +16,7 @@ export async function createCheckout({ plan, name, paymentMethod }) {
       "Authorization": `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ plan, name, paymentMethod }),
+    body: JSON.stringify({ plan, paymentMethod }),
   });
 
   const body = await res.json();
