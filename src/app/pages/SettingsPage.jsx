@@ -209,7 +209,9 @@ export function SettingsPage() {
                 OPE Club
               </span>
               <span className="mt-1 block text-[12px] font-[400] uppercase tracking-[0.6px] text-[var(--text-muted)]">
-                {active ? "R$ 27,00 / mês" : isAdmin ? "Acesso administrativo" : "Sem assinatura ativa"}
+                {active
+                  ? subscription?.plan === "ope_club_annual" ? "R$ 144,00 / ano" : "R$ 24,00 / mes"
+                  : isAdmin ? "Acesso administrativo" : "Sem assinatura ativa"}
               </span>
               {subscription?.current_period_end && (
                 <span className="mt-1 block text-xs text-[var(--text-muted)]">
@@ -251,13 +253,23 @@ export function SettingsPage() {
 
           <div className="flex flex-wrap gap-3">
             {active ? (
-              <button
-                onClick={handleCancel}
-                disabled={cancelling}
-                className="rounded-[100px] border border-[var(--border)] px-5 py-[10px] text-[14px] font-[500] leading-[20px] text-[var(--text-primary)] transition-all hover:border-[var(--border-strong)] disabled:opacity-50"
-              >
-                {cancelling ? "Cancelando..." : "Cancelar assinatura"}
-              </button>
+              <>
+                {subscription?.provider === "abacatepay" && (
+                  <button
+                    onClick={() => navigate("/app/planos")}
+                    className="rounded-[100px] bg-[var(--text-primary)] px-5 py-[10px] text-[14px] font-[500] leading-[20px] text-[var(--bg-card)] transition-all hover:opacity-90"
+                  >
+                    Alterar plano
+                  </button>
+                )}
+                <button
+                  onClick={handleCancel}
+                  disabled={cancelling}
+                  className="rounded-[100px] border border-[var(--border)] px-5 py-[10px] text-[14px] font-[500] leading-[20px] text-[var(--text-primary)] transition-all hover:border-[var(--border-strong)] disabled:opacity-50"
+                >
+                  {cancelling ? "Cancelando..." : "Cancelar assinatura"}
+                </button>
+              </>
             ) : isAdmin ? (
               <button
                 onClick={() => navigate("/app/admin")}
@@ -277,7 +289,12 @@ export function SettingsPage() {
           {cancelError && <p className="mt-3 text-xs text-red-400">{cancelError}</p>}
           {active && subscription?.provider === "abacatepay" && (
             <p className="mt-3 text-xs text-[var(--text-muted)]">
-              O cancelamento encerra o acesso no OPE Club. Pagamentos ja confirmados pela AbacatePay continuam registrados no historico do provedor.
+              O cancelamento na AbacatePay e imediato, irreversivel e impede novas cobrancas.
+            </p>
+          )}
+          {subscription?.metadata?.pending_plan && (
+            <p className="mt-3 text-xs text-[var(--accent-mint)]">
+              Mudanca para o plano {subscription.metadata.pending_plan === "ope_club_annual" ? "anual" : "mensal"} agendada para o proximo ciclo.
             </p>
           )}
         </div>

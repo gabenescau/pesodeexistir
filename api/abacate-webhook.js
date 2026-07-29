@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { getPlanByCode } from "./_plans.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -138,7 +139,7 @@ async function updateSubscription(subscription, payload) {
   }
 }
 
-function nextPeriodEnd(subscription, renewed = false) {
+function nextPeriodEnd(subscription, renewed = false, planCode = subscription.plan) {
   const now = new Date();
   const currentEnd = subscription.current_period_end
     ? new Date(subscription.current_period_end)
@@ -146,7 +147,8 @@ function nextPeriodEnd(subscription, renewed = false) {
   const start = renewed && currentEnd && currentEnd > now ? currentEnd : now;
   const end = new Date(start);
 
-  if (subscription.plan === "ope_club_annual") end.setFullYear(end.getFullYear() + 1);
+  const plan = getPlanByCode(planCode);
+  if (plan?.cycle === "ANNUALLY") end.setFullYear(end.getFullYear() + 1);
   else end.setMonth(end.getMonth() + 1);
 
   return { now, start, end };
@@ -154,8 +156,11 @@ function nextPeriodEnd(subscription, renewed = false) {
 
 async function activateSubscription(subscription, data, renewed = false) {
   const providerSubscription = data?.subscription || data || {};
-  const { now, start, end } = nextPeriodEnd(subscription, renewed);
+  const pendingPlan = renewed ? subscription.metadata?.pending_plan : null;
+  const effectivePlan = pendingPlan || subscription.plan;
+  const { now, start, end } = nextPeriodEnd(subscription, renewed, effectivePlan);
   await updateSubscription(subscription, {
+    plan: effectivePlan,
     status: "active",
     current_period_start: start.toISOString(),
     current_period_end: end.toISOString(),
@@ -167,6 +172,14 @@ async function activateSubscription(subscription, data, renewed = false) {
       payment_method: providerSubscription.method || data?.payerInformation?.method || null,
       abacatepay_status: providerSubscription.status || "ACTIVE",
       last_event: renewed ? "subscription.renewed" : "subscription.completed",
+      ...(pendingPlan ? {
+        previous_plan: subscription.plan,
+        plan_change_status: "APPLIED",
+        plan_changed_at: now.toISOString(),
+        pending_plan: null,
+        pending_plan_key: null,
+        pending_product_id: null,
+      } : {}),
     },
     updated_at: now.toISOString(),
   });
@@ -211,7 +224,11 @@ export default async function handler(req, res) {
     const checkout = data?.checkout || (eventType.startsWith("checkout.") ? data : null);
     const checkoutId = checkout?.id || payload?.checkoutId || payload?.checkout_id || null;
     const externalId = checkout?.externalId || checkout?.external_id || payload?.externalId || null;
-    const providerSubscriptionId = providerSubscription?.id || null;
+    const providerSubscriptionId =
+      providerSubscription?.id ||
+      data?.subscriptionId ||
+      data?.subscriptionChange?.subscriptionId ||
+      null;
 
     const subscription = await findSubscriptionByCheckout({
       checkoutId,
@@ -236,6 +253,22 @@ export default async function handler(req, res) {
 
     if (eventType === "subscription.renewed") {
       await activateSubscription(subscription, data, true);
+    }
+
+    if (eventType === "subscription.plan_changed") {
+      const change = data?.subscriptionChange || data?.change || data;
+      await updateSubscription(subscription, {
+        metadata: {
+          ...(subscription.metadata || {}),
+          plan_change_id: change?.id || subscription.metadata?.plan_change_id || null,
+          plan_change_status: change?.status || "PENDING",
+          pending_product_id: change?.productId || subscription.metadata?.pending_product_id || null,
+          plan_change_requested_at: change?.requestedAt || new Date().toISOString(),
+          plan_change_new_amount: change?.newAmount || subscription.metadata?.plan_change_new_amount || null,
+          last_event: "subscription.plan_changed",
+        },
+        updated_at: new Date().toISOString(),
+      });
     }
 
     if (eventType === "subscription.payment_failed") {

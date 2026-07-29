@@ -101,27 +101,11 @@ for select
 to authenticated
 using (user_id = auth.uid() or public.is_admin());
 
+-- Assinaturas sao alteradas somente pelas APIs server-side usando service_role.
+-- Nem mesmo o frontend de um administrador decide status, prazo ou plano.
 drop policy if exists "subscriptions_admin_insert" on public.subscriptions;
-create policy "subscriptions_admin_insert"
-on public.subscriptions
-for insert
-to authenticated
-with check (public.is_admin());
-
 drop policy if exists "subscriptions_admin_update" on public.subscriptions;
-create policy "subscriptions_admin_update"
-on public.subscriptions
-for update
-to authenticated
-using (public.is_admin())
-with check (public.is_admin());
-
 drop policy if exists "subscriptions_admin_delete" on public.subscriptions;
-create policy "subscriptions_admin_delete"
-on public.subscriptions
-for delete
-to authenticated
-using (public.is_admin());
 
 drop policy if exists "abacatepay_webhook_events_admin_select" on public.abacatepay_webhook_events;
 create policy "abacatepay_webhook_events_admin_select"

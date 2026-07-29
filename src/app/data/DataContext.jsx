@@ -10,6 +10,24 @@ import { useAuth } from "./AuthContext";
 
 const DataContext = createContext(null);
 
+async function authenticatedApiPost(path, payload) {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData?.session?.access_token;
+  if (!accessToken) throw new Error("Sua sessao expirou. Entre novamente.");
+
+  const response = await fetch(path, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const body = await response.json();
+  if (!body.success) throw new Error(body.error || "Nao foi possivel concluir a operacao.");
+  return body.data;
+}
+
 function firstFilled(...values) {
   return values.find((value) => typeof value === "string" && value.trim()) || "";
 }
@@ -578,33 +596,14 @@ export function DataProvider({ children }) {
 
   const upsertUserSubscription = useCallback(async ({ userId, email, plan = "ope_club_monthly", status = "active", durationDays = 30 }) => {
     if (!isSupabase || !userId) return null;
-
-    const now = new Date();
-    const end = new Date(now);
-    end.setDate(end.getDate() + Number(durationDays || 30));
-
-    const payload = {
-      user_id: userId,
-      customer_email: email || "",
-      plan,
-      status,
-      current_period_start: now.toISOString(),
-      current_period_end: end.toISOString(),
-      provider: "manual_admin",
-      metadata: { source: "admin_panel", duration_days: Number(durationDays || 30) },
-      updated_at: now.toISOString(),
-    };
-
-    const existing = pickCurrentSubscription(subscriptions, userId);
-    const query = existing
-      ? supabase.from("subscriptions").update(payload).eq("id", existing.id).select().single()
-      : supabase.from("subscriptions").insert(payload).select().single();
-
-    const { data, error } = await query;
-    if (error) {
-      console.error("Erro ao salvar assinatura:", error.message);
-      return null;
-    }
+    if (status !== "active") throw new Error("O painel manual somente concede acesso ativo.");
+    const data = await authenticatedApiPost("/api/admin-subscription", {
+      action: "grant",
+      userId,
+      email,
+      plan: plan === "ope_club_annual" ? "annual" : "monthly",
+      durationDays: Number(durationDays),
+    });
 
     const currentUserId = user?.id;
 
@@ -614,42 +613,43 @@ export function DataProvider({ children }) {
     });
     setSubscription((prev) => userId === currentUserId || prev?.user_id === userId ? data : prev);
     return data;
-  }, [isSupabase, subscriptions, user?.id]);
+  }, [isSupabase, user?.id]);
 
   const updateUserSubscriptionDuration = useCallback(async ({ userId, durationDays = 30 }) => {
     if (!isSupabase || !userId) return null;
-
-    const existing = pickCurrentSubscription(subscriptions, userId);
-    if (!existing) return null;
-
-    const now = new Date();
-    const end = new Date(now);
-    end.setDate(end.getDate() + Number(durationDays || 30));
-
-    const payload = {
-      current_period_start: existing.current_period_start || now.toISOString(),
-      current_period_end: end.toISOString(),
-      metadata: {
-        ...(existing.metadata || {}),
-        source: existing.provider || "manual_admin",
-        duration_days: Number(durationDays || 30),
-      },
-      updated_at: now.toISOString(),
-    };
-
-    const { data, error } = await supabase
-      .from("subscriptions")
-      .update(payload)
-      .eq("id", existing.id)
-      .select()
-      .single();
-
-    if (error) throw error;
+    const data = await authenticatedApiPost("/api/admin-subscription", {
+      action: "set_duration",
+      userId,
+      durationDays: Number(durationDays),
+    });
 
     setSubscriptions((prev) => prev.map((sub) => sub.id === data.id ? data : sub));
     setSubscription((prev) => prev?.id === data.id ? data : prev);
     return data;
-  }, [isSupabase, subscriptions]);
+  }, [isSupabase]);
+
+  const changeSubscriptionPlan = useCallback(async (id, plan) => {
+    if (!isSupabase || !id) return null;
+    const data = await authenticatedApiPost("/api/subscription-action", {
+      action: "change_plan",
+      subscriptionId: id,
+      plan,
+    });
+    setSubscriptions((prev) => prev.map((sub) => sub.id === data.id ? data : sub));
+    setSubscription((prev) => prev?.id === data.id ? data : prev);
+    return data;
+  }, [isSupabase]);
+
+  const syncSubscription = useCallback(async (id) => {
+    if (!isSupabase || !id) return null;
+    const data = await authenticatedApiPost("/api/subscription-action", {
+      action: "sync",
+      subscriptionId: id,
+    });
+    setSubscriptions((prev) => prev.map((sub) => sub.id === data.id ? data : sub));
+    setSubscription((prev) => prev?.id === data.id ? data : prev);
+    return data;
+  }, [isSupabase]);
 
   const addWeeklyRelease = useCallback(async ({ bookId, releaseDate, note, visible = true }) => {
     if (!isSupabase) return null;
@@ -783,25 +783,8 @@ export function DataProvider({ children }) {
     if (!isSupabase || !userId) return;
     const existing = pickCurrentSubscription(subscriptions, userId);
     if (!existing) return;
-
-    const { error } = await supabase
-      .from("subscriptions")
-      .update({
-        status: "canceled",
-        canceled_at: new Date().toISOString(),
-        cancel_at_period_end: false,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", existing.id);
-
-    if (error) {
-      console.error("Erro ao remover plano:", error.message);
-      return;
-    }
-
-    setSubscriptions((prev) => prev.map((sub) => sub.id === existing.id ? { ...sub, status: "canceled" } : sub));
-    setSubscription((prev) => prev?.id === existing.id ? { ...prev, status: "canceled" } : prev);
-  }, [isSupabase, subscriptions]);
+    return cancelSubscription(existing.id);
+  }, [cancelSubscription, isSupabase, subscriptions]);
 
   const updateProfilePreferences = useCallback(async (userId, preferences) => {
     if (!isSupabase || !userId) return null;
@@ -961,7 +944,7 @@ export function DataProvider({ children }) {
       addBook, updateBook, deleteBook, markBookCompleted, updateReadingProgress,
       addAuthor, updateAuthor, deleteAuthor,
       addPost, deletePost,
-      cancelSubscription,
+      cancelSubscription, changeSubscriptionPlan, syncSubscription,
       upsertUserSubscription, updateUserSubscriptionDuration, removeUserSubscription,
       addWeeklyRelease, deleteWeeklyRelease, toggleWeeklyReleaseVisibility,
       addCategory, updateCategory, deleteCategory,

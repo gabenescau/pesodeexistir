@@ -9,7 +9,7 @@ import { Check, Loader2 } from "lucide-react";
 
 export function SubscribePage() {
   const { user, isAdmin, profile } = useAuth();
-  const { subscription, cancelSubscription } = useData();
+  const { subscription, cancelSubscription, changeSubscriptionPlan } = useData();
   const navigate = useNavigate();
   const location = useLocation();
   const [loading, setLoading] = useState(true);
@@ -22,6 +22,7 @@ export function SubscribePage() {
   const isAppPlansRoute = location.pathname.startsWith("/app/planos");
   const visibleSubscription = currentSubscription || subscription;
   const hasActivePlan = isAdmin || isActiveSubscription(visibleSubscription);
+  const hasActiveSubscription = isActiveSubscription(visibleSubscription);
 
   useEffect(() => {
     if (!user) {
@@ -50,6 +51,16 @@ export function SubscribePage() {
     setCreating(plan);
 
     try {
+      if (isActiveSubscription(visibleSubscription)) {
+        if (visibleSubscription.provider !== "abacatepay") {
+          throw new Error("Planos concedidos manualmente devem ser alterados pelo administrador.");
+        }
+        const updated = await changeSubscriptionPlan(visibleSubscription.id, plan);
+        setCurrentSubscription(updated);
+        setCreating(null);
+        return;
+      }
+
       const data = await createCheckout({
         plan,
         name: profile?.name || user.email?.split("@")[0] || "",
@@ -156,6 +167,9 @@ export function SubscribePage() {
           {Object.values(PLANS).map((plan) => {
             const isSelected = selectedPlan === plan.id;
             const isAnnual = plan.id === "annual";
+            const isCurrent = visibleSubscription?.plan === (
+              plan.id === "annual" ? "ope_club_annual" : "ope_club_monthly"
+            );
 
             return (
               <div
@@ -228,7 +242,7 @@ export function SubscribePage() {
                     e.stopPropagation();
                     handleSubscribe(plan.id);
                   }}
-                  disabled={creating !== null}
+                  disabled={creating !== null || (hasActiveSubscription && isCurrent)}
                   className={`mt-6 w-full py-3 rounded-[100px] text-[14px] font-[500] leading-[20px] transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                     isSelected
                       ? "bg-[var(--text-primary)] text-[var(--bg-card)] hover:opacity-90"
@@ -238,8 +252,12 @@ export function SubscribePage() {
                   {creating === plan.id ? (
                     <span className="flex items-center justify-center gap-2">
                       <Loader2 className="size-4 animate-spin" />
-                      Redirecionando...
+                      {hasActiveSubscription ? "Agendando..." : "Redirecionando..."}
                     </span>
+                  ) : hasActiveSubscription && isCurrent ? (
+                    "Plano atual"
+                  ) : hasActiveSubscription ? (
+                    plan.id === "annual" ? "Fazer upgrade" : "Fazer downgrade"
                   ) : (
                     `Assinar ${plan.label}`
                   )}
@@ -251,6 +269,11 @@ export function SubscribePage() {
 
         {error && (
           <p className="text-sm text-red-400 text-center max-w-md mx-auto">{error}</p>
+        )}
+        {visibleSubscription?.metadata?.pending_plan && (
+          <p className="text-sm text-center text-[var(--accent-mint)]">
+            Alteracao para o plano {visibleSubscription.metadata.pending_plan === "ope_club_annual" ? "anual" : "mensal"} agendada para o proximo ciclo.
+          </p>
         )}
 
         <p className="text-xs text-center max-w-md mx-auto" style={{ color: "var(--text-muted)" }}>

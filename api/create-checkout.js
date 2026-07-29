@@ -2,32 +2,13 @@ import {
   findOrCreateCustomer,
   findOrCreateProduct,
   createSubscriptionCheckout,
+  listSubscriptionCheckouts,
 } from "./abacatepay.js";
+import { getPlanByKey } from "./_plans.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-const PLAN_CATALOG = {
-  monthly: {
-    plan: "ope_club_monthly",
-    externalId: "ope_club_monthly_subscription_v1",
-    name: "OPE Club Mensal",
-    price: 2400,
-    durationDays: 30,
-    description: "Assinatura mensal OPE Club",
-    cycle: "MONTHLY",
-  },
-  annual: {
-    plan: "ope_club_annual",
-    externalId: "ope_club_annual_subscription_v1",
-    name: "OPE Club Anual",
-    price: 14400,
-    durationDays: 365,
-    description: "Assinatura anual OPE Club com mais de 50% de desconto",
-    cycle: "ANNUALLY",
-  },
-};
 
 function getBearerToken(req) {
   const authorization = req.headers.authorization || "";
@@ -103,6 +84,39 @@ function isCurrentlyActive(subscription) {
   return new Date(subscription.current_period_end).getTime() > Date.now();
 }
 
+async function reusePendingCheckout(pending, planConfig) {
+  const checkoutId = pending?.metadata?.checkout_id;
+  if (!checkoutId) return null;
+
+  const checkout = (await listSubscriptionCheckouts({ id: checkoutId }))[0];
+  if (!checkout || ["EXPIRED", "CANCELLED", "REFUNDED"].includes(checkout.status)) {
+    return null;
+  }
+  if (checkout.status === "PAID") {
+    const error = new Error("Pagamento ja confirmado. Sincronize a assinatura ou aguarde o webhook.");
+    error.status = 409;
+    throw error;
+  }
+  if (checkout.status !== "PENDING") {
+    const error = new Error(`Checkout existente com status ${checkout.status}`);
+    error.status = 409;
+    throw error;
+  }
+  if (pending.plan !== planConfig.plan) {
+    const error = new Error("Existe um checkout pendente para outro plano.");
+    error.status = 409;
+    throw error;
+  }
+  if (!checkout.url) throw new Error("Checkout pendente sem URL na AbacatePay");
+
+  return {
+    url: checkout.url,
+    checkoutId: checkout.id,
+    subscriptionId: pending.id,
+    reused: true,
+  };
+}
+
 async function expireStaleSubscriptions(subscriptions) {
   const stale = subscriptions.filter((subscription) =>
     ["active", "past_due", "trialing"].includes(subscription.status) &&
@@ -131,16 +145,14 @@ async function expireStaleSubscriptions(subscriptions) {
 
 async function savePendingSubscription({ user, planKey, planConfig, checkout, product, customer, existingPending }) {
   const now = new Date();
-  const expiresAt = new Date(now);
-  expiresAt.setDate(expiresAt.getDate() + planConfig.durationDays);
 
   const payload = {
     user_id: user.id,
     customer_email: user.email || "",
     plan: planConfig.plan,
     status: "pending",
-    current_period_start: now.toISOString(),
-    current_period_end: expiresAt.toISOString(),
+    current_period_start: null,
+    current_period_end: null,
     provider: "abacatepay",
     provider_customer_id: customer.id || checkout.customerId || null,
     provider_subscription_id: null,
@@ -221,7 +233,7 @@ export default async function handler(req, res) {
   try {
     const user = await getAuthenticatedUser(req);
     const { plan: planKey, name } = req.body || {};
-    const planConfig = PLAN_CATALOG[planKey];
+    const planConfig = getPlanByKey(planKey);
 
     if (!planConfig) {
       return res.status(400).json({ success: false, error: "Plano invalido" });
@@ -237,6 +249,10 @@ export default async function handler(req, res) {
       });
     }
     const existingPending = currentSubscriptions.find((subscription) => subscription.status === "pending");
+    if (existingPending) {
+      const reused = await reusePendingCheckout(existingPending, planConfig);
+      if (reused) return res.status(200).json({ success: true, data: reused });
+    }
 
     const profileName = name || await fetchProfileName(user.id);
     const customer = await findOrCreateCustomer({
@@ -255,8 +271,7 @@ export default async function handler(req, res) {
     const baseUrl = getBaseUrl(req);
     const checkout = await createSubscriptionCheckout({
       customerId: customer.id,
-      items: [{ id: product.id, quantity: 1 }],
-      methods: ["PIX", "CARD"],
+      productId: product.id,
       returnUrl: `${baseUrl}/pagamento/processando`,
       completionUrl: `${baseUrl}/pagamento/processando`,
       externalId: `${user.id}:${planConfig.externalId}:${Date.now()}`,

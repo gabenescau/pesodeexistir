@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useAuth } from "../data/AuthContext";
 import { useData } from "../data/DataContext";
 import { isSupabaseReady } from "../data/supabase";
-import { Plus, Trash2, Edit3, Check, Crown, BookOpen, Users, MessageSquare, ShieldAlert, Sparkles, FolderOpen } from "lucide-react";
-import { isActiveSubscription } from "@/lib/subscription";
+import { Plus, Trash2, Edit3, Check, Crown, BookOpen, Users, MessageSquare, ShieldAlert, Sparkles, FolderOpen, RefreshCw, ArrowUpDown } from "lucide-react";
+import { isActiveSubscription, pickCurrentSubscription } from "@/lib/subscription";
 import {
   LIBRARY_BUCKETS,
   removeLibraryFile,
@@ -37,14 +37,30 @@ function FormField({ label, value, onChange, placeholder, type = "text", classNa
 }
 
 function SubscriptionsTab() {
-  const { subscriptions, cancelSubscription } = useData();
+  const { subscriptions, cancelSubscription, changeSubscriptionPlan, syncSubscription } = useData();
+  const [working, setWorking] = useState("");
+  const [message, setMessage] = useState("");
+
+  async function run(key, action) {
+    setWorking(key);
+    setMessage("");
+    try {
+      await action();
+    } catch (error) {
+      setMessage(error?.message || "Nao foi possivel concluir a operacao.");
+    } finally {
+      setWorking("");
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-[var(--text-secondary)]">{subscriptions.length} assinaturas no total</p>
       </div>
+      {message && <p className="text-sm text-red-400">{message}</p>}
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[940px] text-sm">
           <thead>
             <tr className="border-b border-[var(--border)] text-left text-xs text-[var(--text-muted)] uppercase tracking-wider">
               <th className="pb-3 pr-4 font-medium">Email</th>
@@ -52,6 +68,7 @@ function SubscriptionsTab() {
               <th className="pb-3 pr-4 font-medium">Origem</th>
               <th className="pb-3 pr-4 font-medium">Expira em</th>
               <th className="pb-3 pr-4 font-medium">Status</th>
+              <th className="pb-3 pr-4 font-medium">Alteracao</th>
               <th className="pb-3 font-medium"></th>
             </tr>
           </thead>
@@ -68,16 +85,52 @@ function SubscriptionsTab() {
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                     s.status === "active" ? "bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]" : "bg-red-500/10 text-red-400"
                   }`}>
-                    {s.status === "active" ? "Ativa" : "Cancelada"}
+                    {s.status}
                   </span>
                 </td>
+                <td className="py-3 pr-4 text-xs text-[var(--text-secondary)]">
+                  {s.metadata?.pending_plan
+                    ? `${s.metadata.pending_plan === "ope_club_annual" ? "Anual" : "Mensal"} no proximo ciclo`
+                    : "-"}
+                </td>
                 <td className="py-3">
-                  {s.status === "active" && (
-                    <button onClick={() => cancelSubscription(s.id)}
-                      className="text-xs text-red-400 hover:text-red-300 transition-colors">
-                      Cancelar
-                    </button>
-                  )}
+                  <div className="flex items-center justify-end gap-1">
+                    {s.provider === "abacatepay" && (
+                      <button
+                        type="button"
+                        title="Sincronizar com AbacatePay"
+                        disabled={working === `sync-${s.id}`}
+                        onClick={() => run(`sync-${s.id}`, () => syncSubscription(s.id))}
+                        className="flex size-8 items-center justify-center rounded-[6px] text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)] disabled:opacity-50"
+                      >
+                        <RefreshCw className={`size-4 ${working === `sync-${s.id}` ? "animate-spin" : ""}`} />
+                      </button>
+                    )}
+                    {s.provider === "abacatepay" && s.status === "active" && (
+                      <button
+                        type="button"
+                        title={s.plan === "ope_club_annual" ? "Downgrade para mensal" : "Upgrade para anual"}
+                        disabled={working === `plan-${s.id}`}
+                        onClick={() => run(
+                          `plan-${s.id}`,
+                          () => changeSubscriptionPlan(s.id, s.plan === "ope_club_annual" ? "monthly" : "annual")
+                        )}
+                        className="flex size-8 items-center justify-center rounded-[6px] text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)] disabled:opacity-50"
+                      >
+                        <ArrowUpDown className="size-4" />
+                      </button>
+                    )}
+                    {isActiveSubscription(s) && (
+                      <button
+                        type="button"
+                        onClick={() => run(`cancel-${s.id}`, () => cancelSubscription(s.id))}
+                        disabled={working === `cancel-${s.id}`}
+                        className="px-2 py-1 text-xs text-red-400 transition-colors hover:text-red-300 disabled:opacity-50"
+                      >
+                        Cancelar
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -91,35 +144,51 @@ function SubscriptionsTab() {
 function UsersTab() {
   const { profiles, subscriptions, upsertUserSubscription, updateUserSubscriptionDuration, removeUserSubscription } = useData();
   const [durationByUser, setDurationByUser] = useState({});
+  const [planByUser, setPlanByUser] = useState({});
   const [savingUser, setSavingUser] = useState(null);
+  const [error, setError] = useState("");
 
-  const getSub = (userId) => subscriptions.find((sub) => sub.user_id === userId);
+  const getSub = (userId) => pickCurrentSubscription(subscriptions, userId);
 
   async function activate(profile) {
     setSavingUser(profile.id);
-    await upsertUserSubscription({
-      userId: profile.id,
-      email: profile.email,
-      plan: "ope_club_monthly",
-      status: "active",
-      durationDays: durationByUser[profile.id] || 30,
-    });
-    setSavingUser(null);
+    setError("");
+    try {
+      await upsertUserSubscription({
+        userId: profile.id,
+        email: profile.email,
+        plan: planByUser[profile.id] || "ope_club_monthly",
+        status: "active",
+        durationDays: durationByUser[profile.id] || 30,
+      });
+    } catch (err) {
+      setError(err?.message || "Nao foi possivel adicionar o plano.");
+    } finally {
+      setSavingUser(null);
+    }
   }
 
   async function remove(profile) {
     setSavingUser(profile.id);
-    await removeUserSubscription(profile.id);
-    setSavingUser(null);
+    setError("");
+    try {
+      await removeUserSubscription(profile.id);
+    } catch (err) {
+      setError(err?.message || "Nao foi possivel remover o plano.");
+    } finally {
+      setSavingUser(null);
+    }
   }
 
   async function changeDuration(profile, days) {
-    setDurationByUser((prev) => ({ ...prev, [profile.id]: Number(days) }));
     const sub = getSub(profile.id);
     if (!sub) return;
     setSavingUser(profile.id);
+    setError("");
     try {
       await updateUserSubscriptionDuration({ userId: profile.id, durationDays: Number(days) });
+    } catch (err) {
+      setError(err?.message || "Nao foi possivel alterar os dias.");
     } finally {
       setSavingUser(null);
     }
@@ -130,9 +199,10 @@ function UsersTab() {
       <div className="flex items-center justify-between">
         <p className="text-sm text-[var(--text-secondary)]">{profiles.length} usuários cadastrados</p>
       </div>
+      {error && <p className="text-sm text-red-400">{error}</p>}
 
       <div className="overflow-x-auto rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)]">
-        <table className="w-full min-w-[760px] text-sm">
+        <table className="w-full min-w-[940px] text-sm">
           <thead>
             <tr className="border-b border-[var(--border)] text-left text-xs uppercase tracking-wider text-[var(--text-muted)]">
               <th className="px-4 py-3 font-medium">Usuário</th>
@@ -140,7 +210,8 @@ function UsersTab() {
               <th className="px-4 py-3 font-medium">Cargo</th>
               <th className="px-4 py-3 font-medium">Plano</th>
               <th className="px-4 py-3 font-medium">Expira em</th>
-              <th className="px-4 py-3 font-medium">Duração</th>
+              <th className="px-4 py-3 font-medium">Plano manual</th>
+              <th className="px-4 py-3 font-medium">Dias</th>
               <th className="px-4 py-3 font-medium"></th>
             </tr>
           </thead>
@@ -174,9 +245,22 @@ function UsersTab() {
                   </td>
                   <td className="px-4 py-3">
                     <select
+                      value={planByUser[profile.id] || "ope_club_monthly"}
+                      onChange={(e) => setPlanByUser((prev) => ({ ...prev, [profile.id]: e.target.value }))}
+                      disabled={sub?.provider === "abacatepay" && active}
+                      className="rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1 text-xs text-[var(--text-primary)] disabled:opacity-50"
+                    >
+                      <option value="ope_club_monthly">Mensal</option>
+                      <option value="ope_club_annual">Anual</option>
+                    </select>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1">
+                    <select
                       value={durationByUser[profile.id] || 30}
-                      onChange={(e) => changeDuration(profile, e.target.value)}
-                      className="rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1 text-xs text-[var(--text-primary)]"
+                      onChange={(e) => setDurationByUser((prev) => ({ ...prev, [profile.id]: Number(e.target.value) }))}
+                      disabled={sub?.provider === "abacatepay" && active}
+                      className="rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1 text-xs text-[var(--text-primary)] disabled:opacity-50"
                     >
                       <option value={7}>7 dias</option>
                       <option value={30}>30 dias</option>
@@ -184,17 +268,28 @@ function UsersTab() {
                       <option value={180}>180 dias</option>
                       <option value={365}>365 dias</option>
                     </select>
+                    {active && sub?.provider === "manual_admin" && (
+                      <button
+                        type="button"
+                        onClick={() => changeDuration(profile, durationByUser[profile.id] || 30)}
+                        disabled={savingUser === profile.id}
+                        className="rounded-[6px] border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-primary)] disabled:opacity-50"
+                      >
+                        Definir
+                      </button>
+                    )}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <button
+                      {!(sub?.provider === "abacatepay" && active) && <button
                         onClick={() => activate(profile)}
                         disabled={savingUser === profile.id}
                         className="rounded-full bg-[var(--text-primary)] px-3 py-1.5 text-xs font-medium text-[var(--bg-card)] disabled:opacity-50"
                       >
-                        {active ? "Renovar" : "Adicionar plano"}
-                      </button>
-                      {sub && (
+                        {active ? "Adicionar dias" : "Adicionar plano"}
+                      </button>}
+                      {active && (
                         <button
                           onClick={() => remove(profile)}
                           disabled={savingUser === profile.id}

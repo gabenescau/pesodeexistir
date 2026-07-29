@@ -1,6 +1,6 @@
 const API_BASE = "https://api.abacatepay.com/v2";
 
-class AbacatePayError extends Error {
+export class AbacatePayError extends Error {
   constructor(message, { status, body } = {}) {
     super(message);
     this.name = "AbacatePayError";
@@ -15,22 +15,13 @@ function getApiKey() {
   return key;
 }
 
-function asArray(value) {
-  if (Array.isArray(value)) return value;
-  if (Array.isArray(value?.data)) return value.data;
-  if (Array.isArray(value?.items)) return value.items;
-  if (Array.isArray(value?.products)) return value.products;
-  return [];
-}
-
-function getErrorMessage(body, fallback) {
+function errorMessage(body, fallback) {
   const value = body?.error || body?.message || fallback;
   return typeof value === "string" ? value : JSON.stringify(value);
 }
 
-async function abacateFetch(path, options = {}) {
-  const url = `${API_BASE}${path}`;
-  const res = await fetch(url, {
+async function request(path, options = {}) {
+  const response = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
       "Authorization": `Bearer ${getApiKey()}`,
@@ -39,150 +30,150 @@ async function abacateFetch(path, options = {}) {
     },
   });
 
-  let body;
+  let body = null;
   try {
-    body = await res.json();
+    body = await response.json();
   } catch {
-    body = null;
+    // The API contract is JSON. Keep a useful error if a proxy returns otherwise.
   }
 
-  if (!res.ok || body?.success === false) {
-    throw new AbacatePayError(getErrorMessage(body, `AbacatePay erro ${res.status}`), {
-      status: res.status,
-      body,
-    });
+  if (!response.ok || body?.success !== true) {
+    throw new AbacatePayError(
+      errorMessage(body, `AbacatePay respondeu HTTP ${response.status}`),
+      { status: response.status, body }
+    );
   }
 
-  if (body && typeof body === "object" && "data" in body) return body.data;
   return body;
 }
 
-async function findProductByExternalId(externalId) {
-  const query = new URLSearchParams({ externalId });
+function queryString(values) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(values || {})) {
+    if (value !== undefined && value !== null && value !== "") {
+      query.set(key, String(value));
+    }
+  }
+  const result = query.toString();
+  return result ? `?${result}` : "";
+}
+
+async function getData(path, options) {
+  return (await request(path, options)).data;
+}
+
+export async function getStore() {
+  return getData("/store/get");
+}
+
+export async function getProductByExternalId(externalId) {
   try {
-    return await abacateFetch(`/products/get?${query.toString()}`);
+    return await getData(`/products/get${queryString({ externalId })}`);
   } catch (error) {
     if (error.status === 404) return null;
     throw error;
   }
 }
 
-function isDuplicateExternalIdError(error) {
-  const message = String(error?.message || "").toLowerCase();
-  return (
-    message.includes("externalid already exists") ||
-    message.includes("externalid ja existe") ||
-    message.includes("externalid já existe") ||
-    message.includes("already exists")
-  );
+function validateCatalogProduct(product, expected) {
+  if (!product?.id || !String(product.id).startsWith("prod_")) {
+    throw new Error(`Produto ${expected.externalId} retornou sem um id valido`);
+  }
+  if (product.externalId !== expected.externalId) {
+    throw new Error(`Produto encontrado nao corresponde a ${expected.externalId}`);
+  }
+  if (product.status !== "ACTIVE") {
+    throw new Error(`Produto ${expected.externalId} nao esta ativo na AbacatePay`);
+  }
+  if (product.currency !== "BRL" || Number(product.price) !== expected.price) {
+    throw new Error(`Produto ${expected.externalId} esta com preco ou moeda diferente do catalogo`);
+  }
+  if (product.cycle !== expected.cycle) {
+    throw new Error(`Produto ${expected.externalId} esta com ciclo diferente de ${expected.cycle}`);
+  }
+  return product;
 }
 
-export async function findOrCreateCustomer({ email, name, taxId }) {
-  const customers = await abacateFetch("/customers/list?limit=100");
+export async function findOrCreateProduct(plan) {
+  const existing = await getProductByExternalId(plan.externalId);
+  if (existing) return validateCatalogProduct(existing, plan);
 
-  const existing = asArray(customers).find(
-    (customer) => customer.email?.toLowerCase() === email?.toLowerCase()
-  );
-  if (existing) return existing;
-
-  return abacateFetch("/customers/create", {
+  const created = await getData("/products/create", {
     method: "POST",
     body: JSON.stringify({
-      email,
-      name: name || "",
-      taxId: taxId || "",
+      externalId: plan.externalId,
+      name: plan.name,
+      price: plan.price,
+      currency: "BRL",
+      description: plan.description,
+      cycle: plan.cycle,
     }),
   });
+  return validateCatalogProduct(created, plan);
 }
 
-export async function findOrCreateProduct({ externalId, name, price, description, cycle }) {
-  const existing = await findProductByExternalId(externalId);
-  if (existing) {
-    if ((existing.cycle || null) !== (cycle || null)) {
-      throw new Error(`Produto ${externalId} existe com ciclo incorreto`);
-    }
-    return existing;
-  }
+export async function findOrCreateCustomer({ email, name }) {
+  const list = await request(`/customers/list${queryString({ email, limit: 100 })}`);
+  const existing = Array.isArray(list.data)
+    ? list.data.find((customer) => customer.email?.toLowerCase() === email.toLowerCase())
+    : null;
+  if (existing) return existing;
 
-  try {
-    return await abacateFetch("/products/create", {
-      method: "POST",
-      body: JSON.stringify({
-        externalId,
-        name,
-        price,
-        description: description || "",
-        currency: "BRL",
-        ...(cycle ? { cycle } : {}),
-      }),
-    });
-  } catch (error) {
-    if (!isDuplicateExternalIdError(error)) throw error;
-
-    const product = await findProductByExternalId(externalId);
-    if (product) {
-      if ((product.cycle || null) !== (cycle || null)) {
-        throw new Error(`Produto ${externalId} existe com ciclo incorreto`);
-      }
-      return product;
-    }
-
-    throw error;
-  }
-}
-
-export async function createCheckout({ customerId, items, returnUrl, completionUrl, methods, externalId, metadata }) {
-  const payload = {
-    items,
-    methods: methods || ["PIX"],
-  };
-
-  if (customerId) payload.customerId = customerId;
-  if (returnUrl) payload.returnUrl = returnUrl;
-  if (completionUrl) payload.completionUrl = completionUrl;
-  if (externalId) payload.externalId = externalId;
-  if (metadata && Object.keys(metadata).length > 0) payload.metadata = metadata;
-
-  return abacateFetch("/checkouts/create", {
+  return getData("/customers/create", {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ email, ...(name ? { name } : {}) }),
   });
 }
 
 export async function createSubscriptionCheckout({
   customerId,
-  items,
+  productId,
   returnUrl,
   completionUrl,
-  methods,
   externalId,
   metadata,
 }) {
-  const payload = {
-    items,
-    methods: methods || ["PIX", "CARD"],
-    retryPolicy: {
-      maxRetry: 3,
-      retryEvery: 2,
-    },
-  };
-
-  if (customerId) payload.customerId = customerId;
-  if (returnUrl) payload.returnUrl = returnUrl;
-  if (completionUrl) payload.completionUrl = completionUrl;
-  if (externalId) payload.externalId = externalId;
-  if (metadata && Object.keys(metadata).length > 0) payload.metadata = metadata;
-
-  return abacateFetch("/subscriptions/create", {
+  const checkout = await getData("/subscriptions/create", {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      items: [{ id: productId, quantity: 1 }],
+      customerId,
+      methods: ["PIX", "CARD"],
+      returnUrl,
+      completionUrl,
+      externalId,
+      metadata,
+      retryPolicy: { maxRetry: 3, retryEvery: 2 },
+    }),
   });
+
+  if (!checkout?.id || !checkout?.url) {
+    throw new Error("AbacatePay criou o checkout sem retornar id e url");
+  }
+  return checkout;
+}
+
+export async function listSubscriptionCheckouts(filters = {}) {
+  const body = await request(`/subscriptions/list${queryString({ limit: 100, ...filters })}`);
+  return Array.isArray(body.data) ? body.data : [];
 }
 
 export async function cancelAbacateSubscription(id) {
-  if (!id) throw new Error("ID da assinatura AbacatePay nao informado");
-  return abacateFetch("/subscriptions/cancel", {
+  if (!id?.startsWith("subs_")) {
+    throw new Error("ID da assinatura AbacatePay invalido para cancelamento");
+  }
+  return getData("/subscriptions/cancel", {
     method: "POST",
     body: JSON.stringify({ id }),
+  });
+}
+
+export async function changeAbacateSubscriptionPlan({ id, productId }) {
+  if (!id?.startsWith("subs_")) {
+    throw new Error("ID da assinatura AbacatePay invalido para alterar plano");
+  }
+  return getData("/subscriptions/change-plan", {
+    method: "POST",
+    body: JSON.stringify({ id, productId, quantity: 1 }),
   });
 }
