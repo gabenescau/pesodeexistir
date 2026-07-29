@@ -1,8 +1,0 @@
-.env
-.env.*
-!.env.example
-dist/
-*.log
-.vercel/
-.claude/
-node_modules/
