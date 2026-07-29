@@ -355,3 +355,59 @@ drop policy if exists "pdfs_admin_delete" on storage.objects;
 create policy "pdfs_admin_delete"
 on storage.objects for delete to authenticated
 using (bucket_id = 'pdfs' and public.is_admin());
+
+-- Sugestoes / roadmap da comunidade.
+create table if not exists public.suggestions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  title text not null,
+  description text not null default '',
+  category text not null default 'Geral',
+  status text not null default 'ideas',
+  author_name text,
+  comment_count integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint suggestions_status_check check (status in ('ideas', 'reading', 'building', 'released')),
+  constraint suggestions_title_length check (char_length(trim(title)) between 3 and 90),
+  constraint suggestions_description_length check (char_length(description) <= 500)
+);
+
+alter table public.suggestions
+  add column if not exists category text not null default 'Geral',
+  add column if not exists author_name text,
+  add column if not exists comment_count integer not null default 0,
+  add column if not exists updated_at timestamptz not null default now();
+
+create index if not exists suggestions_status_created_at_idx
+  on public.suggestions(status, created_at desc);
+
+create index if not exists suggestions_user_id_idx
+  on public.suggestions(user_id);
+
+alter table public.suggestions enable row level security;
+
+drop policy if exists "suggestions_authenticated_select" on public.suggestions;
+create policy "suggestions_authenticated_select"
+on public.suggestions for select to authenticated
+using (true);
+
+drop policy if exists "suggestions_owner_insert" on public.suggestions;
+create policy "suggestions_owner_insert"
+on public.suggestions for insert to authenticated
+with check (
+  user_id = auth.uid()
+  and status = 'ideas'
+);
+
+drop policy if exists "suggestions_owner_update_text" on public.suggestions;
+drop policy if exists "suggestions_admin_update" on public.suggestions;
+create policy "suggestions_admin_update"
+on public.suggestions for update to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
+drop policy if exists "suggestions_admin_delete" on public.suggestions;
+create policy "suggestions_admin_delete"
+on public.suggestions for delete to authenticated
+using (public.is_admin());

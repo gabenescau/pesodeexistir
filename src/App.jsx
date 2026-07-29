@@ -23,6 +23,7 @@ function SEOHead() {
       '/app/explorar': 'Explorar | OPE Club',
       '/app/perfil': 'Perfil | OPE Club',
       '/app/configuracoes': 'Configurações | OPE Club',
+      '/app/sugestoes': 'Sugestões | OPE Club',
       '/app/admin': 'Painel Admin | OPE Club',
       '/app/planos': 'Planos | OPE Club',
       '/app/lancamentos': 'Lançamentos Semanais | OPE Club',

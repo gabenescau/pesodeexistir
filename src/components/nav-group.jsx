@@ -21,6 +21,7 @@ export function NavGroup({
     items
 }) {
   const location = useLocation();
+  const currentPath = `${location.pathname}${location.search}`;
 
   return (
     <SidebarGroup>
@@ -34,7 +35,7 @@ export function NavGroup({
             return (
               <Collapsible
                 className="group/collapsible"
-                defaultOpen={isActive || item.subItems.some((i) => location.pathname === i.match)}
+                defaultOpen={isActive || item.subItems.some((i) => currentPath === i.match)}
                 key={item.title}
                 render={<SidebarMenuItem />}
               >
@@ -47,7 +48,7 @@ export function NavGroup({
                   <SidebarMenuSub>
                     {item.subItems.map((subItem) => (
                       <SidebarMenuSubItem key={subItem.title}>
-                        <SidebarMenuSubButton isActive={location.pathname === subItem.match} render={<Link to={subItem.path} />}>
+                        <SidebarMenuSubButton isActive={currentPath === subItem.match || (subItem.match === location.pathname && !location.search)} render={<Link to={subItem.path} />}>
                           {subItem.icon}
                           <span>{subItem.title}</span>
                         </SidebarMenuSubButton>

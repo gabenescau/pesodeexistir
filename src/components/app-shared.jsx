@@ -1,35 +1,38 @@
 import { useMemo } from "react";
-import { HomeIcon, BookOpenIcon, CompassIcon, Sparkles, UserIcon, SettingsIcon, ShieldIcon, CreditCardIcon } from "lucide-react";
+import {
+  BookOpenIcon,
+  CompassIcon,
+  CreditCardIcon,
+  HomeIcon,
+  LightbulbIcon,
+  SettingsIcon,
+  ShieldIcon,
+  Sparkles,
+  UserIcon,
+} from "lucide-react";
 import { useData } from "@/app/data/DataContext";
-
-// "Comunidade" foi removido: Início == Comunidade (mesma página,/feed). A rota
-// legada /app/comunidade redireciona para /app/inicio no AppShell.
-//
-// "Lançamentos Semanais" só aparece na navegação quando existem lançamentos
-// visíveis (visible=true) ainda não liberados (data futura). Quando a lista
-// está vazia ou todos já liberaram, a seção some do menu — nada de prateleira
-// vazia.
 
 function hasActiveReleases(weeklyReleases) {
   if (!weeklyReleases || weeklyReleases.length === 0) return false;
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
-  return weeklyReleases.some((r) => r.visible !== false && new Date(r.release_date) > hoje);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return weeklyReleases.some((release) => release.visible !== false && new Date(release.release_date) > today);
 }
 
 export const navGroups = [
   {
-    label: "Navegação",
+    label: "Navegacao",
     items: [
-      { title: "Início", path: "/app/inicio", icon: <HomeIcon />, match: "/app/inicio" },
+      { title: "Inicio", path: "/app/inicio", icon: <HomeIcon />, match: "/app/inicio" },
       { title: "Biblioteca", path: "/app/biblioteca", icon: <BookOpenIcon />, match: "/app/biblioteca" },
       { title: "Explorar", path: "/app/explorar", icon: <CompassIcon />, match: "/app/explorar" },
+      { title: "Sugestoes", path: "/app/sugestoes", icon: <LightbulbIcon />, match: "/app/sugestoes" },
     ],
   },
   {
     label: "Novidades",
     items: [
-      { title: "Lançamentos Semanais", path: "/app/lancamentos", icon: <Sparkles />, match: "/app/lancamentos" },
+      { title: "Lancamentos Semanais", path: "/app/lancamentos", icon: <Sparkles />, match: "/app/lancamentos" },
     ],
   },
   {
@@ -41,25 +44,30 @@ export const navGroups = [
   {
     label: "Conta",
     items: [
-      { title: "Perfil", path: "/app/perfil", icon: <UserIcon />, match: "/app/perfil" },
-      { title: "Configurações", path: "/app/configuracoes", icon: <SettingsIcon />, match: "/app/configuracoes" },
+      {
+        title: "Configuracoes",
+        path: "/app/configuracoes",
+        icon: <SettingsIcon />,
+        match: "/app/configuracoes",
+        subItems: [
+          { title: "Geral", path: "/app/configuracoes", icon: <SettingsIcon />, match: "/app/configuracoes" },
+          { title: "Perfil", path: "/app/configuracoes?aba=perfil", icon: <UserIcon />, match: "/app/configuracoes?aba=perfil" },
+        ],
+      },
     ],
   },
 ];
 
-// Hook usado pela sidebar real (app-sidebar) e pelo bottom nav. Devolve os
-// grupos com Lançamentos ocultos quando não há releases ativos.
 export function useNavGroups() {
   const { weeklyReleases } = useData();
   return useMemo(() => {
     if (hasActiveReleases(weeklyReleases)) return navGroups;
-    // Sem lançamentos ativos: remove o grupo "Novidades" inteiro.
-    return navGroups.filter((g) => g.label !== "Novidades");
+    return navGroups.filter((group) => group.label !== "Novidades");
   }, [weeklyReleases]);
 }
 
 export const adminGroup = {
-  label: "Administração",
+  label: "Administracao",
   items: [
     { title: "Painel Admin", path: "/app/admin", icon: <ShieldIcon />, match: "/app/admin" },
   ],
@@ -77,8 +85,8 @@ export const navLinks = [
 ];
 
 export const bottomNavItems = [
-  { label: "Início", path: "/app/inicio", icon: HomeIcon },
+  { label: "Inicio", path: "/app/inicio", icon: HomeIcon },
   { label: "Biblioteca", path: "/app/biblioteca", icon: BookOpenIcon },
-  { label: "Explorar", path: "/app/explorar", icon: CompassIcon },
-  { label: "Perfil", path: "/app/perfil", icon: UserIcon },
+  { label: "Sugestoes", path: "/app/sugestoes", icon: LightbulbIcon },
+  { label: "Conta", path: "/app/configuracoes", icon: SettingsIcon },
 ];
