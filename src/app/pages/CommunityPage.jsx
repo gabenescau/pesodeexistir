@@ -8,10 +8,11 @@ import { RightSidebar } from "../components/RightSidebar";
 import { useData } from "../data/DataContext";
 
 export function CommunityPage() {
-  const { posts, deletePost } = useData();
+  const { posts, deletePost, loading } = useData();
   const [filter, setFilter] = useState("Todos");
   const [busca, setBusca] = useState("");
   const [reacoes, setReacoes] = useState([]);
+  const [visibleCount, setVisibleCount] = useState(20);
 
   // Uma consulta para as reacoes do feed inteiro, em vez de uma por card.
   useEffect(() => {
@@ -31,6 +32,10 @@ export function CommunityPage() {
       ativo = false;
     };
   }, [posts.length]);
+
+  useEffect(() => {
+    setVisibleCount(20);
+  }, [filter, busca]);
 
   const reacoesPorPost = useMemo(() => {
     const mapa = {};
@@ -62,6 +67,7 @@ export function CommunityPage() {
 
     return result;
   })();
+  const visiblePosts = filteredPosts.slice(0, visibleCount);
 
   return (
     <div className="flex flex-col gap-8 2xl:flex-row 2xl:gap-10">
@@ -77,14 +83,40 @@ export function CommunityPage() {
           />
         </div>
 
-        <CreatePost />
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-semibold text-[var(--text-primary)]">Comunidade</h1>
+            <p className="text-sm text-[var(--text-muted)]">Seu feed de leituras, ideias e conversas.</p>
+          </div>
+          <CreatePost />
+        </div>
 
         <div className="overflow-x-auto -mx-5 sm:mx-0 px-5 sm:px-0">
           <FilterPills active={filter} onChange={setFilter} />
         </div>
 
         <div className="space-y-4 sm:space-y-5">
-          {filteredPosts.map((post) => (
+          {loading && (
+            <>
+              {[0, 1, 2].map((item) => (
+                <div key={item} className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-5">
+                  <div className="flex gap-3">
+                    <div className="size-11 rounded-full bg-[var(--hover-overlay)]" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-44 rounded bg-[var(--hover-overlay)]" />
+                      <div className="h-3 w-28 rounded bg-[var(--hover-overlay)]" />
+                    </div>
+                  </div>
+                  <div className="mt-5 space-y-2">
+                    <div className="h-4 rounded bg-[var(--hover-overlay)]" />
+                    <div className="h-4 w-5/6 rounded bg-[var(--hover-overlay)]" />
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+
+          {!loading && visiblePosts.map((post) => (
             <PostCard
               key={post.id}
               post={post}
@@ -93,7 +125,17 @@ export function CommunityPage() {
             />
           ))}
 
-          {filteredPosts.length === 0 && (
+          {!loading && filteredPosts.length > visiblePosts.length && (
+            <button
+              type="button"
+              onClick={() => setVisibleCount((count) => count + 20)}
+              className="min-h-11 w-full rounded-full border border-[var(--border)] text-sm text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]"
+            >
+              Carregar mais
+            </button>
+          )}
+
+          {!loading && filteredPosts.length === 0 && (
             <p className="rounded-xl border border-dashed border-[var(--border)] p-8 text-center text-sm text-[var(--text-muted)]">
               Nada encontrado por aqui.
             </p>

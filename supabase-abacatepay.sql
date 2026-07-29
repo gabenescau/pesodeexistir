@@ -411,3 +411,270 @@ drop policy if exists "suggestions_admin_delete" on public.suggestions;
 create policy "suggestions_admin_delete"
 on public.suggestions for delete to authenticated
 using (public.is_admin());
+
+-- Rede social / feed da comunidade.
+alter table public.posts
+  add column if not exists image_paths text[] not null default '{}'::text[];
+
+create table if not exists public.post_replies (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid not null references public.posts(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  parent_id uuid references public.post_replies(id) on delete cascade,
+  text text not null,
+  created_at timestamptz not null default now(),
+  constraint post_replies_text_length check (char_length(trim(text)) between 1 and 5000)
+);
+
+alter table public.post_replies
+  add column if not exists parent_id uuid references public.post_replies(id) on delete cascade;
+
+create table if not exists public.saved_posts (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  post_id uuid not null references public.posts(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, post_id)
+);
+
+create table if not exists public.post_likes (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  post_id uuid not null references public.posts(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, post_id)
+);
+
+create table if not exists public.post_polls (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid not null unique references public.posts(id) on delete cascade,
+  question text not null,
+  created_at timestamptz not null default now(),
+  constraint post_polls_question_length check (char_length(trim(question)) between 3 and 180)
+);
+
+create table if not exists public.post_poll_options (
+  id uuid primary key default gen_random_uuid(),
+  poll_id uuid not null references public.post_polls(id) on delete cascade,
+  label text not null,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  constraint post_poll_options_label_length check (char_length(trim(label)) between 1 and 120)
+);
+
+create table if not exists public.post_poll_votes (
+  poll_id uuid not null references public.post_polls(id) on delete cascade,
+  option_id uuid not null references public.post_poll_options(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (poll_id, user_id)
+);
+
+create index if not exists post_likes_post_id_idx on public.post_likes(post_id);
+create index if not exists post_replies_post_id_created_at_idx on public.post_replies(post_id, created_at);
+create index if not exists post_polls_post_id_idx on public.post_polls(post_id);
+create index if not exists post_poll_options_poll_id_idx on public.post_poll_options(poll_id, sort_order);
+create index if not exists post_poll_votes_poll_id_idx on public.post_poll_votes(poll_id);
+
+create or replace function public.profile_is_verified(profile_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.profiles p
+    where p.id = profile_id
+      and p.role = 'admin'
+  )
+  or exists (
+    select 1
+    from public.subscriptions s
+    where s.user_id = profile_id
+      and s.status in ('active', 'trialing', 'paid', 'approved', 'authorized', 'complete', 'completed', 'succeeded')
+      and (s.current_period_end is null or s.current_period_end > now())
+      and s.plan in ('ope_club_annual', 'ope_club_monthly')
+  );
+$$;
+
+create or replace view public.public_profiles as
+select
+  p.id,
+  p.name,
+  p.username,
+  p.avatar,
+  p.avatar_url,
+  p.bio,
+  p.private_profile,
+  p.reading_activity,
+  p.show_online_status,
+  public.profile_is_verified(p.id) as verified
+from public.profiles p
+where coalesce(p.private_profile, false) = false
+   or p.id = auth.uid();
+
+grant select on public.public_profiles to authenticated;
+
+alter table public.posts enable row level security;
+alter table public.post_replies enable row level security;
+alter table public.post_likes enable row level security;
+alter table public.saved_posts enable row level security;
+alter table public.post_polls enable row level security;
+alter table public.post_poll_options enable row level security;
+alter table public.post_poll_votes enable row level security;
+
+drop policy if exists "posts_authenticated_select" on public.posts;
+create policy "posts_authenticated_select"
+on public.posts for select to authenticated
+using (true);
+
+drop policy if exists "posts_owner_insert" on public.posts;
+create policy "posts_owner_insert"
+on public.posts for insert to authenticated
+with check (user_id = auth.uid());
+
+drop policy if exists "posts_owner_or_admin_delete" on public.posts;
+create policy "posts_owner_or_admin_delete"
+on public.posts for delete to authenticated
+using (user_id = auth.uid() or public.is_admin());
+
+drop policy if exists "post_replies_authenticated_select" on public.post_replies;
+create policy "post_replies_authenticated_select"
+on public.post_replies for select to authenticated
+using (true);
+
+drop policy if exists "post_replies_owner_insert" on public.post_replies;
+create policy "post_replies_owner_insert"
+on public.post_replies for insert to authenticated
+with check (user_id = auth.uid());
+
+drop policy if exists "post_replies_owner_or_admin_delete" on public.post_replies;
+create policy "post_replies_owner_or_admin_delete"
+on public.post_replies for delete to authenticated
+using (user_id = auth.uid() or public.is_admin());
+
+drop policy if exists "post_likes_authenticated_select" on public.post_likes;
+create policy "post_likes_authenticated_select"
+on public.post_likes for select to authenticated
+using (true);
+
+drop policy if exists "post_likes_owner_insert" on public.post_likes;
+create policy "post_likes_owner_insert"
+on public.post_likes for insert to authenticated
+with check (user_id = auth.uid());
+
+drop policy if exists "post_likes_owner_delete" on public.post_likes;
+create policy "post_likes_owner_delete"
+on public.post_likes for delete to authenticated
+using (user_id = auth.uid());
+
+drop policy if exists "saved_posts_owner_select" on public.saved_posts;
+create policy "saved_posts_owner_select"
+on public.saved_posts for select to authenticated
+using (user_id = auth.uid());
+
+drop policy if exists "saved_posts_owner_insert" on public.saved_posts;
+create policy "saved_posts_owner_insert"
+on public.saved_posts for insert to authenticated
+with check (user_id = auth.uid());
+
+drop policy if exists "saved_posts_owner_delete" on public.saved_posts;
+create policy "saved_posts_owner_delete"
+on public.saved_posts for delete to authenticated
+using (user_id = auth.uid());
+
+drop policy if exists "post_polls_authenticated_select" on public.post_polls;
+create policy "post_polls_authenticated_select"
+on public.post_polls for select to authenticated
+using (true);
+
+drop policy if exists "post_polls_owner_insert" on public.post_polls;
+create policy "post_polls_owner_insert"
+on public.post_polls for insert to authenticated
+with check (
+  exists (
+    select 1 from public.posts p
+    where p.id = post_id
+      and p.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "post_poll_options_authenticated_select" on public.post_poll_options;
+create policy "post_poll_options_authenticated_select"
+on public.post_poll_options for select to authenticated
+using (true);
+
+drop policy if exists "post_poll_options_owner_insert" on public.post_poll_options;
+create policy "post_poll_options_owner_insert"
+on public.post_poll_options for insert to authenticated
+with check (
+  exists (
+    select 1
+    from public.post_polls poll
+    join public.posts p on p.id = poll.post_id
+    where poll.id = poll_id
+      and p.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "post_poll_votes_authenticated_select" on public.post_poll_votes;
+create policy "post_poll_votes_authenticated_select"
+on public.post_poll_votes for select to authenticated
+using (true);
+
+drop policy if exists "post_poll_votes_owner_insert" on public.post_poll_votes;
+create policy "post_poll_votes_owner_insert"
+on public.post_poll_votes for insert to authenticated
+with check (
+  user_id = auth.uid()
+  and exists (
+    select 1
+    from public.post_poll_options option_row
+    where option_row.id = option_id
+      and option_row.poll_id = poll_id
+  )
+);
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'post-media',
+  'post-media',
+  false,
+  5242880,
+  array['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+)
+on conflict (id) do update
+set public = false,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "post_media_owner_read" on storage.objects;
+create policy "post_media_owner_read"
+on storage.objects for select to authenticated
+using (
+  bucket_id = 'post-media'
+  and (
+    (storage.foldername(name))[1] = auth.uid()::text
+    or exists (
+      select 1
+      from public.posts p
+      where name = any(p.image_paths)
+    )
+  )
+);
+
+drop policy if exists "post_media_owner_insert" on storage.objects;
+create policy "post_media_owner_insert"
+on storage.objects for insert to authenticated
+with check (
+  bucket_id = 'post-media'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+drop policy if exists "post_media_owner_delete" on storage.objects;
+create policy "post_media_owner_delete"
+on storage.objects for delete to authenticated
+using (
+  bucket_id = 'post-media'
+  and ((storage.foldername(name))[1] = auth.uid()::text or public.is_admin())
+);

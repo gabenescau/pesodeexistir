@@ -9,6 +9,7 @@ import { supabase, isSupabaseReady } from "@/app/data/supabase";
 import { handleDoPerfil } from "@/lib/mentions";
 import { AchievementsPanel } from "../components/AchievementsPanel";
 import { UserTitlePill } from "../components/UserTitlePill";
+import { VerifiedBadge } from "../components/VerifiedBadge";
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 // Mesmo formato do CHECK profiles_username_format (migration 00011).
@@ -226,6 +227,7 @@ export function ProfilePage() {
               <>
                 <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
                   <h1 className="text-xl sm:text-2xl font-[600] text-[var(--text-primary)]">{profile.name}</h1>
+                  {(authProfile?.verified || authProfile?.is_verified || authProfile?.role === "admin") && <VerifiedBadge className="size-5 text-[#3b82f6]" />}
                   <UserTitlePill userId={user?.id} />
                 </div>
                 <p className="text-sm" style={{ color: "var(--text-muted)" }}>@{profile.handle}</p>

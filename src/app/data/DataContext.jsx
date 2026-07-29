@@ -7,6 +7,7 @@ import { releaseStatus } from "@/lib/releases";
 import { handleDoPerfil } from "@/lib/mentions";
 import { createSignedUrlMap, LIBRARY_BUCKETS, removeLibraryFile } from "@/lib/library-media";
 import { useAuth } from "./AuthContext";
+import { POST_IMAGE_BUCKET } from "@/lib/social";
 
 const DataContext = createContext(null);
 
@@ -143,6 +144,26 @@ export function DataProvider({ children }) {
             "carregar posts"
           )
         : { data: [], error: null };
+      const postIds = postsRes.error ? [] : (postsRes.data || []).map((post) => post.id);
+      const postLikesRes = postIds.length > 0
+        ? await runSupabaseQuery(
+            () => supabase.from("post_likes").select("post_id,user_id").in("post_id", postIds),
+            "carregar curtidas dos posts"
+          )
+        : { data: [], error: null };
+      const pollRes = postIds.length > 0
+        ? await runSupabaseQuery(
+            () => supabase.from("post_polls").select("*, post_poll_options(*)").in("post_id", postIds),
+            "carregar enquetes"
+          )
+        : { data: [], error: null };
+      const pollIds = pollRes.error ? [] : (pollRes.data || []).map((poll) => poll.id);
+      const pollVotesRes = pollIds.length > 0
+        ? await runSupabaseQuery(
+            () => supabase.from("post_poll_votes").select("poll_id,option_id,user_id").in("poll_id", pollIds),
+            "carregar votos das enquetes"
+          )
+        : { data: [], error: null };
       const releasesRes = currentUserId
         ? await runSupabaseQuery(
             () => supabase.from("weekly_releases").select("*, books(*, authors(name))").order("release_date", { ascending: true }),
@@ -234,23 +255,60 @@ export function DataProvider({ children }) {
       if (!postsRes.error) {
         const profileList = profilesRes.error ? [] : profilesRes.data || [];
         const bookList = normalizedBooks.length > 0 ? normalizedBooks : [];
+        const likes = postLikesRes.error ? [] : postLikesRes.data || [];
+        const likesByPost = likes.reduce((acc, like) => {
+          (acc[like.post_id] ||= []).push(like);
+          return acc;
+        }, {});
+        const votes = pollVotesRes.error ? [] : pollVotesRes.data || [];
+        const votesByPoll = votes.reduce((acc, vote) => {
+          (acc[vote.poll_id] ||= []).push(vote);
+          return acc;
+        }, {});
+        const pollsByPost = new Map((pollRes.error ? [] : pollRes.data || []).map((poll) => {
+          const pollVotes = votesByPoll[poll.id] || [];
+          const options = (poll.post_poll_options || [])
+            .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+            .map((option) => ({
+              ...option,
+              votes: pollVotes.filter((vote) => vote.option_id === option.id).length,
+            }));
+          return [poll.post_id, {
+            ...poll,
+            options,
+            totalVotes: pollVotes.length,
+            myVote: pollVotes.find((vote) => vote.user_id === currentUserId)?.option_id || null,
+          }];
+        }));
+        const postImageUrlMap = await createSignedUrlMap(
+          POST_IMAGE_BUCKET,
+          (postsRes.data || []).flatMap((post) => post.image_paths || [])
+        );
         setPosts(postsRes.data.map(p => {
           const postProfile = profileList.find(profile => profile.id === p.user_id);
           const postBook = bookList.find(book => book.id === p.book_id);
+          const postLikes = likesByPost[p.id] || [];
           return {
             ...p,
-            images: p.images || (p.image ? [p.image] : []),
+            images: [
+              ...(p.image_paths || []).map((path) => postImageUrlMap.get(path)).filter(Boolean),
+              ...(p.images || (p.image ? [p.image] : [])),
+            ],
             author: postProfile?.name || p.author || "Leitor",
             // Handle vem de profiles.username. Antes vinha de email.split("@"),
             // o que publicava a parte local do email de todo mundo no feed.
             handle: handleDoPerfil(postProfile),
             avatar: firstFilled(postProfile?.avatar, postProfile?.avatar_url, p.avatar) || "L",
+            authorProfile: postProfile || null,
+            verified: Boolean(postProfile?.verified || postProfile?.is_verified || postProfile?.role === "admin"),
             book: postBook ? {
               ...postBook,
               author: postBook.authors?.name || "",
             } : null,
-            likes: p.likes || 0,
+            likedByMe: postLikes.some((like) => like.user_id === currentUserId),
+            likes: postLikes.length || p.likes || 0,
             replies: p.replies || 0,
+            poll: pollsByPost.get(p.id) || null,
           };
         }));
       }
@@ -537,22 +595,63 @@ export function DataProvider({ children }) {
         tag: post.tag,
         book_id: post.bookId,
         images: post.images || [],
+        image_paths: post.imagePaths || [],
       }).select("*").single();
       if (error) throw error;
+      let poll = null;
+      if (inserted && post.poll?.question && post.poll?.options?.length >= 2) {
+        const { data: insertedPoll, error: pollError } = await supabase
+          .from("post_polls")
+          .insert({ post_id: inserted.id, question: post.poll.question })
+          .select("*")
+          .single();
+        if (pollError) {
+          await supabase.from("posts").delete().eq("id", inserted.id);
+          throw pollError;
+        }
+
+        const { data: insertedOptions, error: optionsError } = await supabase
+          .from("post_poll_options")
+          .insert(post.poll.options.map((label, index) => ({
+            poll_id: insertedPoll.id,
+            label,
+            sort_order: index,
+          })))
+          .select("*");
+        if (optionsError) {
+          await supabase.from("posts").delete().eq("id", inserted.id);
+          throw optionsError;
+        }
+
+        poll = {
+          ...insertedPoll,
+          options: (insertedOptions || []).map((option) => ({ ...option, votes: 0 })),
+          totalVotes: 0,
+          myVote: null,
+        };
+      }
       if (inserted) {
+        const imageUrlMap = await createSignedUrlMap(POST_IMAGE_BUCKET, inserted.image_paths || []);
         setPosts(prev => [{
           ...inserted,
-          images: inserted.images || [],
+          images: [
+            ...(inserted.image_paths || []).map((path) => imageUrlMap.get(path)).filter(Boolean),
+            ...(inserted.images || []),
+          ],
           author: post.author || "Você",
           avatar: post.avatar || "V",
+          authorProfile: authProfile || null,
+          verified: Boolean(authProfile?.verified || authProfile?.is_verified || authProfile?.role === "admin"),
           replies: 0,
           likes: 0,
+          likedByMe: false,
+          poll,
         }, ...prev]);
       }
       return;
     }
     throw new Error("Supabase não configurado: post não foi salvo.");
-  }, [isSupabase]);
+  }, [isSupabase, authProfile]);
 
   const deletePost = useCallback(async (id) => {
     if (isSupabase) {

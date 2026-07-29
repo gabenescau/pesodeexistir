@@ -7,6 +7,7 @@ import { FollowButton } from "../components/FollowButton";
 import { PostCard } from "../components/PostCard";
 import { AchievementsPanel } from "../components/AchievementsPanel";
 import { UserTitlePill } from "../components/UserTitlePill";
+import { VerifiedBadge } from "../components/VerifiedBadge";
 import { handleDoPerfil } from "@/lib/mentions";
 
 function Avatar({ src, fallback }) {
@@ -33,7 +34,7 @@ export function PublicProfilePage() {
   const [aba, setAba] = useState("posts");
 
   // O proprio perfil tem edicao: manda para a tela completa.
-  if (id === user?.id) return <Navigate to="/app/perfil" replace />;
+  if (id === user?.id) return <Navigate to="/app/configuracoes?aba=perfil" replace />;
 
   const perfil = profiles.find((item) => item.id === id);
 
@@ -80,6 +81,7 @@ export function PublicProfilePage() {
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
               <h1 className="text-xl font-semibold text-[var(--text-primary)] sm:text-2xl">{nome}</h1>
+              {(perfil.verified || perfil.is_verified || perfil.role === "admin") && <VerifiedBadge className="size-5 text-[#3b82f6]" />}
               <UserTitlePill userId={perfil.id} />
             </div>
             <p className="text-sm text-[var(--text-muted)]">@{handleDoPerfil(perfil)}</p>
@@ -148,6 +150,7 @@ export function PublicProfilePage() {
                   </div>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-[var(--text-primary)]">{item.name || "Leitor"}</p>
+                    {(item.verified || item.is_verified || item.role === "admin") && <VerifiedBadge className="ml-1 inline size-3.5 text-[#3b82f6]" />}
                     <p className="truncate text-xs text-[var(--text-muted)]">@{handleDoPerfil(item)}</p>
                   </div>
                 </Link>

@@ -11,6 +11,7 @@ import { ReleasesPage } from "./pages/ReleasesPage";
 import { PublicProfilePage } from "./pages/PublicProfilePage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { SuggestionsPage } from "./pages/SuggestionsPage";
+import { PostDetailPage } from "./pages/PostDetailPage";
 import { AdminPage } from "./pages/AdminPage";
 import { SubscribePage } from "./pages/SubscribePage";
 import { SubscriptionGuard } from "./components/SubscriptionGuard";
@@ -32,6 +33,7 @@ export function AppShell() {
         <Route path="explorar" element={<SubscriptionGuard><ExplorePage /></SubscriptionGuard>} />
         <Route path="lancamentos" element={<SubscriptionGuard><ReleasesPage /></SubscriptionGuard>} />
         <Route path="sugestoes" element={<SubscriptionGuard><SuggestionsPage /></SubscriptionGuard>} />
+        <Route path="post/:id" element={<SubscriptionGuard><PostDetailPage /></SubscriptionGuard>} />
         <Route path="planos" element={<SubscribePage />} />
         <Route path="perfil" element={<Navigate to="/app/configuracoes?aba=perfil" replace />} />
         <Route path="perfil/:id" element={<SubscriptionGuard><PublicProfilePage /></SubscriptionGuard>} />

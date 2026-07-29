@@ -6,14 +6,14 @@ import { resolverMencao, tokenizarMencoes } from "@/lib/mentions";
 // inserido como texto React (nunca dangerouslySetInnerHTML), entao nao ha como
 // um post injetar markup na pagina de quem le.
 export function RichText({ text, className, onTagClick }) {
-  const { profiles, authors } = useData();
+  const { profiles, authors, books } = useData();
   const partes = tokenizarMencoes(text);
 
   return (
     <p className={className}>
       {partes.map((parte, index) => {
         if (parte.tipo === "mencao") {
-          const alvo = resolverMencao(parte.valor, { profiles, authors });
+          const alvo = resolverMencao(parte.valor, { profiles, authors, books });
           if (!alvo) {
             return <span key={index}>{parte.texto}</span>;
           }

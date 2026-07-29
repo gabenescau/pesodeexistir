@@ -24,7 +24,7 @@ export function tokenizarMencoes(texto) {
   });
 }
 
-export function resolverMencao(handle, { profiles = [], authors = [] } = {}) {
+export function resolverMencao(handle, { profiles = [], authors = [], books = [] } = {}) {
   const alvo = normalizar(handle);
   if (!alvo) return null;
 
@@ -38,6 +38,11 @@ export function resolverMencao(handle, { profiles = [], authors = [] } = {}) {
   const autor = authors.find((item) => normalizar(item.name) === alvo);
   if (autor) {
     return { tipo: "autor", id: autor.id, rotulo: autor.name, href: `/app/autor/${autor.id}` };
+  }
+
+  const livro = books.find((item) => normalizar(item.title) === alvo);
+  if (livro) {
+    return { tipo: "livro", id: livro.id, rotulo: livro.title, href: `/app/livro/${livro.id}` };
   }
 
   return null;
