@@ -22,15 +22,14 @@ VITE_SUPABASE_URL
 VITE_SUPABASE_ANON_KEY
 ABACATEPAY_API_KEY
 ABACATEPAY_WEBHOOK_SECRET
-ABACATEPAY_WEBHOOK_PUBLIC_KEY
 NEXT_PUBLIC_SITE_URL
 ```
 
 `SUPABASE_SERVICE_ROLE_KEY` e `ABACATEPAY_API_KEY` sao privadas e nunca podem
 usar o prefixo `VITE_`.
 
-Use em `ABACATEPAY_WEBHOOK_PUBLIC_KEY` a chave publica HMAC publicada na pagina
-"Webhooks > Verificacao e Seguranca" da documentacao oficial.
+O backend usa diretamente a chave publica HMAC oficial publicada pela
+AbacatePay. Nao cadastre uma chave HMAC propria na Vercel.
 
 As rotas da pasta `api/` sao publicadas automaticamente como Vercel Serverless
 Functions. Nao crie Edge Function, cron ou funcao manual no painel da Vercel.

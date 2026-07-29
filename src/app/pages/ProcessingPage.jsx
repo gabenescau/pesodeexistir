@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getCurrentSubscription, isActiveSubscription } from "@/lib/subscription";
+import {
+  getCurrentSubscription,
+  isActiveSubscription,
+  synchronizeSubscription,
+} from "@/lib/subscription";
 import { useAuth } from "@/app/data/AuthContext";
 
 export function ProcessingPage() {
@@ -27,9 +31,12 @@ export function ProcessingPage() {
           if (cancelled) return;
 
           if (sub) {
-            setStatus(sub.status);
+            const current = sub.status === "pending"
+              ? await synchronizeSubscription(sub.id).catch(() => sub)
+              : sub;
+            setStatus(current.status);
 
-            if (isActiveSubscription(sub)) {
+            if (isActiveSubscription(current)) {
               await new Promise((r) => setTimeout(r, 1500));
               if (!cancelled) {
                 navigate("/app/inicio");

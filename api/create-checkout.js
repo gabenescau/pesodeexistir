@@ -90,6 +90,7 @@ async function reusePendingCheckout(pending, planConfig, paymentMethod) {
   const checkoutId = pending?.metadata?.checkout_id;
   if (!checkoutId) return null;
   if (pending?.metadata?.payment_method !== paymentMethod) return null;
+  if (pending.plan !== planConfig.plan) return null;
 
   const listCheckouts = paymentMethod === "PIX"
     ? listHostedCheckouts
@@ -105,11 +106,6 @@ async function reusePendingCheckout(pending, planConfig, paymentMethod) {
   }
   if (checkout.status !== "PENDING") {
     const error = new Error(`Checkout existente com status ${checkout.status}`);
-    error.status = 409;
-    throw error;
-  }
-  if (pending.plan !== planConfig.plan) {
-    const error = new Error("Existe um checkout pendente para outro plano.");
     error.status = 409;
     throw error;
   }

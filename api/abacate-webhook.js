@@ -1,10 +1,11 @@
 import crypto from "node:crypto";
-import { getPlanByCode } from "./_plans.js";
+import { getPlanByCode, getPlanByExternalId } from "./_plans.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const WEBHOOK_SECRET = process.env.ABACATEPAY_WEBHOOK_SECRET;
-const WEBHOOK_PUBLIC_KEY = process.env.ABACATEPAY_WEBHOOK_PUBLIC_KEY;
+const WEBHOOK_PUBLIC_KEY =
+  "t9dXRhHHo3yDEj5pVDYz0frf7q6bMKyMRmxxCPIPp3RCplBfXRxqlC6ZpiWmOqj4L63qEaeUOtrCI8P0VMUgo6iIga2ri9ogaHFs0WIIywSMg0q7RmBfybe1E5XJcfC4IW3alNqym0tXoAKkzvfEjZxV6bE0oG2zJrNNYmUCKZyV0KZ3JS8Votf9EAWWYdiDkMkpbMdPggfh1EqHlVkMiTady6jOR3hyzGEHrIz2Ret0xHKMbiqkr9HS1JhNHDX9";
 
 export const config = {
   api: {
@@ -19,9 +20,6 @@ function requireServerConfig() {
   if (!WEBHOOK_SECRET) {
     throw new Error("ABACATEPAY_WEBHOOK_SECRET nao configurado");
   }
-  if (!WEBHOOK_PUBLIC_KEY) {
-    throw new Error("ABACATEPAY_WEBHOOK_PUBLIC_KEY nao configurada");
-  }
 }
 
 function getSignature(req) {
@@ -29,6 +27,8 @@ function getSignature(req) {
 }
 
 async function readRawBody(req) {
+  if (Buffer.isBuffer(req.rawBody)) return req.rawBody.toString("utf8");
+  if (typeof req.rawBody === "string") return req.rawBody;
   if (typeof req.body === "string") return req.body;
   if (Buffer.isBuffer(req.body)) return req.body.toString("utf8");
   if (req.body && typeof req.body === "object") return JSON.stringify(req.body);
@@ -79,7 +79,29 @@ async function findSubscriptionByCheckout({ checkoutId, externalId, providerSubs
   }
 
   const rows = await res.json();
-  return rows?.[0] || null;
+  if (rows?.[0]) return rows[0];
+
+  const parts = String(externalId || "").split(":");
+  if (parts.length < 3) return null;
+
+  const userId = parts[0];
+  const productExternalId = parts.slice(1, -1).join(":");
+  const eventPlan = getPlanByExternalId(productExternalId);
+  if (!eventPlan || !/^[0-9a-f-]{36}$/i.test(userId)) return null;
+
+  const fallbackRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(userId)}&status=eq.pending&order=updated_at.desc&limit=1`,
+    {
+      headers: {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
+      },
+    }
+  );
+  if (!fallbackRes.ok) return null;
+
+  const fallbackRows = await fallbackRes.json();
+  return fallbackRows?.[0] ? { ...fallbackRows[0], event_plan: eventPlan.plan } : null;
 }
 
 async function markWebhookProcessed({ eventType, checkoutId, payload }) {
@@ -159,7 +181,7 @@ async function activateSubscription(subscription, data, renewed = false, eventTy
   const remoteSubscriptionId = data?.subscription?.id || null;
   const checkout = data?.checkout || data || {};
   const pendingPlan = renewed ? subscription.metadata?.pending_plan : null;
-  const effectivePlan = pendingPlan || subscription.plan;
+  const effectivePlan = pendingPlan || subscription.event_plan || subscription.plan;
   const { now, start, end } = nextPeriodEnd(subscription, renewed, effectivePlan);
   await updateSubscription(subscription, {
     plan: effectivePlan,
