@@ -3,6 +3,7 @@ import { BarChart3, BookOpen, Image, Plus, Send, UserRound, X } from "lucide-rea
 import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
 import { isSupabaseReady, supabase } from "@/app/data/supabase";
+import { canUsePaidSocialFeatures } from "@/lib/entitlements";
 import { handleDoPerfil, normalizar, resolverMencao, tokenizarMencoes } from "@/lib/mentions";
 import {
   MAX_POST_IMAGES,
@@ -12,6 +13,7 @@ import {
   safeFileName,
   sanitizePollOptions,
 } from "@/lib/social";
+import { SubscribeModal } from "./SubscribeModal";
 import { VerifiedBadge } from "./VerifiedBadge";
 
 function Avatar({ src, fallback, className = "size-11" }) {
@@ -46,11 +48,12 @@ async function uploadPostImages(files, userId) {
 }
 
 export function CreatePost() {
-  const { user, profile } = useAuth();
-  const { addPost, books, authors, profiles } = useData();
+  const { user, profile, isAdmin } = useAuth();
+  const { addPost, books, authors, profiles, subscription } = useData();
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
   const [open, setOpen] = useState(false);
+  const [subscribeOpen, setSubscribeOpen] = useState(false);
   const [text, setText] = useState("");
   const [bookId, setBookId] = useState(null);
   const [imageFiles, setImageFiles] = useState([]);
@@ -67,6 +70,7 @@ export function CreatePost() {
   const avatar = profile?.avatar || user?.user_metadata?.avatar_url;
   const initial = name.charAt(0).toUpperCase();
   const selectedBook = books.find((book) => book.id === bookId);
+  const canPublish = canUsePaidSocialFeatures({ isAdmin, subscription });
 
   const mentionedChips = useMemo(() => {
     const seen = new Set();
@@ -164,6 +168,10 @@ export function CreatePost() {
   }
 
   async function handleSubmit() {
+    if (!canPublish) {
+      setSubscribeOpen(true);
+      return;
+    }
     const cleanText = text.trim();
     const cleanPollOptions = sanitizePollOptions(pollOptions);
     if ((!cleanText && imageFiles.length === 0 && !pollEnabled) || publishing) return;
@@ -203,12 +211,26 @@ export function CreatePost() {
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => canPublish ? setOpen(true) : setSubscribeOpen(true)}
         className="flex min-h-12 w-full items-center justify-center gap-2 rounded-[10px] border border-[var(--border)] bg-[var(--bg-card)] px-4 text-sm font-medium text-[var(--text-primary)] shadow-[var(--shadow-sm)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-card-hover)] sm:w-auto"
       >
         <Plus className="size-4" />
         Criar post
       </button>
+
+      <SubscribeModal
+        open={subscribeOpen}
+        onClose={() => setSubscribeOpen(false)}
+        title="Membros pagantes"
+        description="Postar, comentar e responder sao recursos exclusivos de quem assina o OPE Club. Voce pode continuar lendo e curtindo tudo de graca."
+        benefits={[
+          "Publicar posts na comunidade",
+          "Comentar e responder conversas",
+          "Participar dos clubes de leitura",
+          "Acessar a biblioteca completa",
+          "Receber lancamentos semanais",
+        ]}
+      />
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4">

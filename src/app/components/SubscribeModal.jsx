@@ -12,7 +12,14 @@ const BENEFITS = [
   "Sem anúncios",
 ];
 
-export function SubscribeModal({ open, onClose, dismissible = true }) {
+export function SubscribeModal({
+  open,
+  onClose,
+  dismissible = true,
+  title = "Conteudo exclusivo para assinantes",
+  description = "Assine o OPE Club para desbloquear a biblioteca e a comunidade.",
+  benefits = BENEFITS,
+}) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [selectedPlan, setSelectedPlan] = useState("monthly");
@@ -74,9 +81,9 @@ export function SubscribeModal({ open, onClose, dismissible = true }) {
           <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-[var(--text-primary)]/10">
             <Lock className="size-6 text-[var(--text-primary)]" />
           </div>
-          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Conteúdo exclusivo para assinantes</h2>
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">{title}</h2>
           <p className="mt-1 text-sm text-[var(--text-muted)]">
-            Assine o OPE Club para desbloquear a biblioteca e a comunidade.
+            {description}
           </p>
 
           <div className="mt-5 grid grid-cols-2 gap-3">
@@ -147,7 +154,7 @@ export function SubscribeModal({ open, onClose, dismissible = true }) {
           </p>
 
           <ul className="mt-5 space-y-2.5 text-left">
-            {BENEFITS.map((b) => (
+            {benefits.map((b) => (
               <li key={b} className="flex items-center gap-2.5 text-sm text-[var(--text-secondary)]">
                 <Check className="size-4 shrink-0 text-[var(--accent-mint)]" strokeWidth={2.5} />
                 {b}

@@ -22,8 +22,8 @@ export function AppShell() {
     <Shell>
       <Routes>
         <Route path="/" element={<Navigate to="inicio" replace />} />
-        {/* Início == Comunidade: a comunidade e o feed do app. Pago p/ assinantes. */}
-        <Route path="inicio" element={<SubscriptionGuard><CommunityPage /></SubscriptionGuard>} />
+        {/* Inicio == Comunidade: leitura aberta; postar/comentar exige plano/admin. */}
+        <Route path="inicio" element={<CommunityPage />} />
         {/* Rota legada /comunidade redireciona para /inicio (mesma pagina). */}
         <Route path="comunidade" element={<Navigate to="/app/inicio" replace />} />
         <Route path="biblioteca" element={<SubscriptionGuard><LibraryPage /></SubscriptionGuard>} />
@@ -33,10 +33,10 @@ export function AppShell() {
         <Route path="explorar" element={<SubscriptionGuard><ExplorePage /></SubscriptionGuard>} />
         <Route path="lancamentos" element={<SubscriptionGuard><ReleasesPage /></SubscriptionGuard>} />
         <Route path="sugestoes" element={<SubscriptionGuard><SuggestionsPage /></SubscriptionGuard>} />
-        <Route path="post/:id" element={<SubscriptionGuard><PostDetailPage /></SubscriptionGuard>} />
+        <Route path="post/:id" element={<PostDetailPage />} />
         <Route path="planos" element={<SubscribePage />} />
         <Route path="perfil" element={<Navigate to="/app/configuracoes?aba=perfil" replace />} />
-        <Route path="perfil/:id" element={<SubscriptionGuard><PublicProfilePage /></SubscriptionGuard>} />
+        <Route path="perfil/:id" element={<PublicProfilePage />} />
         <Route path="configuracoes" element={<SettingsPage />} />
         {/* Admin nao exige assinatura, so role=admin. Nao-admin -> inicio. */}
         <Route path="admin" element={<AdminGuard><AdminPage /></AdminGuard>} />

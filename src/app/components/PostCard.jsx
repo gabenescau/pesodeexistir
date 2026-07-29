@@ -4,11 +4,13 @@ import { Bookmark, Heart, MessageCircle, MoreHorizontal, Send, Share2, Trash2 } 
 import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
 import { isSupabaseReady, supabase } from "@/app/data/supabase";
+import { canUsePaidSocialFeatures } from "@/lib/entitlements";
 import { handleDoPerfil } from "@/lib/mentions";
 import { isVerifiedProfile, relativeTime } from "@/lib/social";
 import { EmojiReactions } from "./EmojiReactions";
 import { PostPoll } from "./PostPoll";
 import { RichText } from "./RichText";
+import { SubscribeModal } from "./SubscribeModal";
 import { UserTitlePill } from "./UserTitlePill";
 import { VerifiedBadge } from "./VerifiedBadge";
 
@@ -83,7 +85,7 @@ function CommentItem({ item, canDelete, onDelete, onReply }) {
 export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = false }) {
   const navigate = useNavigate();
   const { user, isAdmin } = useAuth();
-  const { profiles, savedPostIds, toggleSavedPost } = useData();
+  const { profiles, savedPostIds, toggleSavedPost, subscription } = useData();
   const [liked, setLiked] = useState(Boolean(post.likedByMe));
   const [likes, setLikes] = useState(post.likes || 0);
   const [showComment, setShowComment] = useState(expanded);
@@ -93,6 +95,7 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
   const [replyingTo, setReplyingTo] = useState(null);
   const [busy, setBusy] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [subscribeOpen, setSubscribeOpen] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
   const authorProfile = post.authorProfile || profiles.find((profile) => profile.id === post.user_id);
@@ -101,6 +104,7 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
   const saved = savedPostIds.includes(post.id);
   const replyCount = commentsLoaded ? comments.length : (post.replies || 0);
   const postUrl = `/app/post/${post.id}`;
+  const canComment = canUsePaidSocialFeatures({ isAdmin, subscription });
 
   useEffect(() => {
     setLiked(Boolean(post.likedByMe));
@@ -150,6 +154,10 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
   }
 
   async function submitComment() {
+    if (!canComment) {
+      setSubscribeOpen(true);
+      return;
+    }
     const text = comment.trim();
     if (!text || !user?.id || busy) return;
     setComment("");
@@ -274,7 +282,7 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
             <Heart className="size-[18px]" fill={liked ? "currentColor" : "none"} strokeWidth={1.5} />
             <span>{likes}</span>
           </button>
-          <button type="button" onClick={() => setShowComment((value) => !value)} className="flex min-h-10 items-center gap-1.5 rounded-full px-2 text-xs text-[var(--text-muted)] hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)] sm:px-3">
+          <button type="button" onClick={() => canComment ? setShowComment((value) => !value) : setSubscribeOpen(true)} className="flex min-h-10 items-center gap-1.5 rounded-full px-2 text-xs text-[var(--text-muted)] hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)] sm:px-3">
             <MessageCircle className="size-[18px]" strokeWidth={1.5} />
             <span>{replyCount}</span>
           </button>
@@ -314,6 +322,10 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
               canDelete={isAdmin || item.user_id === user?.id}
               onDelete={deleteComment}
               onReply={(reply, profile) => {
+                if (!canComment) {
+                  setSubscribeOpen(true);
+                  return;
+                }
                 setReplyingTo(reply);
                 setComment(`@${handleDoPerfil(profile)} `);
               }}
@@ -321,6 +333,19 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
           ))}
         </div>
       )}
+      <SubscribeModal
+        open={subscribeOpen}
+        onClose={() => setSubscribeOpen(false)}
+        title="Membros pagantes"
+        description="Postar, comentar e responder sao recursos exclusivos de quem assina o OPE Club. Voce pode continuar lendo e curtindo tudo de graca."
+        benefits={[
+          "Publicar posts na comunidade",
+          "Comentar e responder conversas",
+          "Participar dos clubes de leitura",
+          "Acessar a biblioteca completa",
+          "Receber lancamentos semanais",
+        ]}
+      />
       {deleteError && <p className="text-xs text-red-400">{deleteError}</p>}
     </article>
   );

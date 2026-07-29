@@ -552,7 +552,10 @@ using (true);
 drop policy if exists "posts_owner_insert" on public.posts;
 create policy "posts_owner_insert"
 on public.posts for insert to authenticated
-with check (user_id = auth.uid());
+with check (
+  user_id = auth.uid()
+  and (public.has_active_subscription() or public.is_admin())
+);
 
 drop policy if exists "posts_owner_or_admin_delete" on public.posts;
 create policy "posts_owner_or_admin_delete"
@@ -567,7 +570,10 @@ using (true);
 drop policy if exists "post_replies_owner_insert" on public.post_replies;
 create policy "post_replies_owner_insert"
 on public.post_replies for insert to authenticated
-with check (user_id = auth.uid());
+with check (
+  user_id = auth.uid()
+  and (public.has_active_subscription() or public.is_admin())
+);
 
 drop policy if exists "post_replies_owner_or_admin_delete" on public.post_replies;
 create policy "post_replies_owner_or_admin_delete"
@@ -677,6 +683,7 @@ on storage.objects for insert to authenticated
 with check (
   bucket_id = 'post-media'
   and (storage.foldername(name))[1] = auth.uid()::text
+  and (public.has_active_subscription() or public.is_admin())
 );
 
 drop policy if exists "post_media_owner_delete" on storage.objects;
