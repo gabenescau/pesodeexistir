@@ -15,11 +15,6 @@ function getApiKey() {
   return key;
 }
 
-function unwrapData(body) {
-  if (body && typeof body === "object" && "data" in body) return body.data;
-  return body;
-}
-
 function asArray(value) {
   if (Array.isArray(value)) return value;
   if (Array.isArray(value?.data)) return value.data;
@@ -58,27 +53,21 @@ async function abacateFetch(path, options = {}) {
     });
   }
 
-  return unwrapData(body);
-}
-
-async function listProductsByExternalId(externalId) {
-  const query = new URLSearchParams({
-    limit: "100",
-    externalId,
-  });
-
-  const products = await abacateFetch(`/products/list?${query.toString()}`);
-  return asArray(products).filter((product) => product.externalId === externalId);
+  if (body && typeof body === "object" && "data" in body) return body.data;
+  return body;
 }
 
 async function findProductByExternalId(externalId) {
-  const filtered = await listProductsByExternalId(externalId);
-  if (filtered[0]) return filtered[0];
+  const query = new URLSearchParams({ externalId });
 
-  // Fallback para contas/ambientes em que o filtro ainda nao refletiu o item
-  // recem-criado ou a API ignorou algum parametro.
-  const products = await abacateFetch("/products/list?limit=100");
-  return asArray(products).find((product) => product.externalId === externalId) || null;
+  try {
+    return await abacateFetch(`/products/get?${query.toString()}`);
+  } catch (error) {
+    if (error.status === 404 || String(error.message || "").toLowerCase().includes("produto nao encontrado")) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 function isDuplicateExternalIdError(error) {
@@ -130,7 +119,7 @@ export async function findOrCreateProduct({ externalId, name, price, description
     const product = await findProductByExternalId(externalId);
     if (product) return product;
 
-    throw new Error(`Produto com externalId ${externalId} ja existe na AbacatePay, mas nao foi encontrado em /products/list.`);
+    throw error;
   }
 }
 
