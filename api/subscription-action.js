@@ -1,6 +1,7 @@
 import {
   changeAbacateSubscriptionPlan,
   findOrCreateProduct,
+  listHostedCheckouts,
   listSubscriptionCheckouts,
 } from "./abacatepay.js";
 import { getPlanByCode, getPlanByKey } from "./_plans.js";
@@ -56,7 +57,10 @@ async function synchronize(subscription) {
     throw new Error("Assinatura local sem identificador de checkout da AbacatePay");
   }
 
-  const remote = (await listSubscriptionCheckouts(filters))[0];
+  const listCheckouts = subscription.metadata?.billing_mode === "one_time"
+    ? listHostedCheckouts
+    : listSubscriptionCheckouts;
+  const remote = (await listCheckouts(filters))[0];
   if (!remote) {
     throw new Error("Checkout de assinatura nao encontrado na AbacatePay");
   }
@@ -91,6 +95,9 @@ async function changePlan(subscription, planKey) {
   }
   if (subscription.status !== "active") {
     throw new Error("Somente assinaturas ativas podem alterar de plano");
+  }
+  if (subscription.metadata?.billing_mode === "one_time") {
+    throw new Error("Planos pagos por PIX nao possuem cobranca recorrente. A troca pode ser feita na proxima renovacao.");
   }
   if (!subscription.provider_subscription_id) {
     throw new Error("ID remoto da assinatura ausente. Sincronize o webhook antes de alterar o plano");

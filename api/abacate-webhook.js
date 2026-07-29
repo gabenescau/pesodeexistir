@@ -154,8 +154,10 @@ function nextPeriodEnd(subscription, renewed = false, planCode = subscription.pl
   return { now, start, end };
 }
 
-async function activateSubscription(subscription, data, renewed = false) {
+async function activateSubscription(subscription, data, renewed = false, eventType = "subscription.completed") {
   const providerSubscription = data?.subscription || data || {};
+  const remoteSubscriptionId = data?.subscription?.id || null;
+  const checkout = data?.checkout || data || {};
   const pendingPlan = renewed ? subscription.metadata?.pending_plan : null;
   const effectivePlan = pendingPlan || subscription.plan;
   const { now, start, end } = nextPeriodEnd(subscription, renewed, effectivePlan);
@@ -165,13 +167,18 @@ async function activateSubscription(subscription, data, renewed = false) {
     current_period_start: start.toISOString(),
     current_period_end: end.toISOString(),
     provider_customer_id: data?.customer?.id || providerSubscription.customerId || subscription.provider_customer_id || null,
-    provider_subscription_id: providerSubscription.id || subscription.provider_subscription_id || null,
+    provider_subscription_id: remoteSubscriptionId || subscription.provider_subscription_id || null,
     metadata: {
       ...(subscription.metadata || {}),
       paid_at: now.toISOString(),
-      payment_method: providerSubscription.method || data?.payerInformation?.method || null,
-      abacatepay_status: providerSubscription.status || "ACTIVE",
-      last_event: renewed ? "subscription.renewed" : "subscription.completed",
+      payment_method:
+        providerSubscription.method ||
+        data?.payerInformation?.method ||
+        checkout?.methods?.[0] ||
+        subscription.metadata?.payment_method ||
+        null,
+      abacatepay_status: providerSubscription.status || checkout?.status || "ACTIVE",
+      last_event: eventType,
       ...(pendingPlan ? {
         previous_plan: subscription.plan,
         plan_change_status: "APPLIED",
@@ -244,7 +251,7 @@ export default async function handler(req, res) {
     if (!processedEventId) return res.status(200).json({ success: true, duplicate: true });
 
     if (eventType === "checkout.completed") {
-      await activateSubscription(subscription, data);
+      await activateSubscription(subscription, data, false, eventType);
     }
 
     if (["subscription.completed", "subscription.trial_started"].includes(eventType)) {
@@ -252,7 +259,7 @@ export default async function handler(req, res) {
     }
 
     if (eventType === "subscription.renewed") {
-      await activateSubscription(subscription, data, true);
+      await activateSubscription(subscription, data, true, eventType);
     }
 
     if (eventType === "subscription.plan_changed") {

@@ -114,7 +114,7 @@ function validateCatalogProduct(product, expected) {
   if (product.currency !== "BRL" || Number(product.price) !== expected.price) {
     throw new Error(`Produto ${expected.externalId} esta com preco ou moeda diferente do catalogo`);
   }
-  if (product.cycle !== expected.cycle) {
+  if ((product.cycle || null) !== (expected.cycle || null)) {
     throw new Error(`Produto ${expected.externalId} esta com ciclo diferente de ${expected.cycle}`);
   }
   return product;
@@ -138,7 +138,7 @@ export async function findOrCreateProduct(plan) {
       price: plan.price,
       currency: "BRL",
       description: plan.description,
-      cycle: plan.cycle,
+      ...(plan.cycle ? { cycle: plan.cycle } : {}),
     }),
   });
   validateCatalogProduct(created, plan);
@@ -176,7 +176,7 @@ export async function createSubscriptionCheckout({
     body: JSON.stringify({
       items: [{ id: productId, quantity: 1 }],
       customerId,
-      methods: ["PIX", "CARD"],
+      methods: ["CARD"],
       returnUrl,
       completionUrl,
       externalId,
@@ -188,6 +188,38 @@ export async function createSubscriptionCheckout({
     throw new Error("AbacatePay criou o checkout sem retornar id e url");
   }
   return checkout;
+}
+
+export async function createHostedCheckout({
+  customerId,
+  productId,
+  returnUrl,
+  completionUrl,
+  externalId,
+  metadata,
+}) {
+  const checkout = await getData("/checkouts/create", {
+    method: "POST",
+    body: JSON.stringify({
+      items: [{ id: productId, quantity: 1 }],
+      customerId,
+      methods: ["PIX"],
+      returnUrl,
+      completionUrl,
+      externalId,
+      metadata,
+    }),
+  });
+
+  if (!checkout?.id || !checkout?.url) {
+    throw new Error("AbacatePay criou o checkout PIX sem retornar id e url");
+  }
+  return checkout;
+}
+
+export async function listHostedCheckouts(filters = {}) {
+  const body = await request(`/checkouts/list${queryString({ limit: 100, ...filters })}`);
+  return Array.isArray(body.data) ? body.data : [];
 }
 
 export async function listSubscriptionCheckouts(filters = {}) {

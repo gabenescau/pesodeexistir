@@ -35,13 +35,16 @@ export default async function handler(req, res) {
 
     let remote = null;
     if (subscription.provider === "abacatepay") {
-      if (!subscription.provider_subscription_id) {
+      const isOneTimeCheckout = subscription.metadata?.billing_mode === "one_time";
+      if (!subscription.provider_subscription_id && !isOneTimeCheckout) {
         return res.status(409).json({
           success: false,
           error: "ID remoto ausente. Sincronize a assinatura ou verifique o webhook antes de cancelar.",
         });
       }
-      remote = await cancelAbacateSubscription(subscription.provider_subscription_id);
+      if (subscription.provider_subscription_id) {
+        remote = await cancelAbacateSubscription(subscription.provider_subscription_id);
+      }
     }
 
     const now = new Date().toISOString();
@@ -52,7 +55,7 @@ export default async function handler(req, res) {
       metadata: {
         ...(subscription.metadata || {}),
         canceled_by: user.id,
-        cancellation_mode: remote ? "abacatepay_api" : "manual_admin",
+        cancellation_mode: remote ? "abacatepay_api" : "one_time_access",
         abacatepay_cancellation_status: remote?.status || null,
       },
     });

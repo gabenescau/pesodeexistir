@@ -5,7 +5,7 @@ import { useData } from "@/app/data/DataContext";
 import { getCurrentSubscription, isActiveSubscription } from "@/lib/subscription";
 import { createCheckout, PLANS } from "@/lib/abacatepay";
 import { useEffect } from "react";
-import { Check, Loader2 } from "lucide-react";
+import { Check, CreditCard, Loader2, QrCode } from "lucide-react";
 
 export function SubscribePage() {
   const { user, isAdmin, profile } = useAuth();
@@ -18,11 +18,13 @@ export function SubscribePage() {
   const [cancelError, setCancelError] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState("monthly");
+  const [paymentMethod, setPaymentMethod] = useState("PIX");
   const [currentSubscription, setCurrentSubscription] = useState(null);
   const isAppPlansRoute = location.pathname.startsWith("/app/planos");
   const visibleSubscription = currentSubscription || subscription;
   const hasActivePlan = isAdmin || isActiveSubscription(visibleSubscription);
   const hasActiveSubscription = isActiveSubscription(visibleSubscription);
+  const isOneTimePlan = visibleSubscription?.metadata?.billing_mode === "one_time";
 
   useEffect(() => {
     if (!user) {
@@ -64,6 +66,7 @@ export function SubscribePage() {
       const data = await createCheckout({
         plan,
         name: profile?.name || user.email?.split("@")[0] || "",
+        paymentMethod,
       });
 
       window.location.assign(data.url);
@@ -163,6 +166,45 @@ export function SubscribePage() {
           </div>
         )}
 
+        {!hasActiveSubscription && (
+          <div className="mx-auto grid w-full max-w-md grid-cols-2 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-1">
+            <button
+              type="button"
+              onClick={() => setPaymentMethod("PIX")}
+              aria-pressed={paymentMethod === "PIX"}
+              className={`flex h-11 items-center justify-center gap-2 rounded-md text-sm transition-colors ${
+                paymentMethod === "PIX"
+                  ? "bg-[var(--text-primary)] text-[var(--bg-card)]"
+                  : "text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"
+              }`}
+            >
+              <QrCode className="size-4" />
+              PIX
+            </button>
+            <button
+              type="button"
+              onClick={() => setPaymentMethod("CARD")}
+              aria-pressed={paymentMethod === "CARD"}
+              className={`flex h-11 items-center justify-center gap-2 rounded-md text-sm transition-colors ${
+                paymentMethod === "CARD"
+                  ? "bg-[var(--text-primary)] text-[var(--bg-card)]"
+                  : "text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"
+              }`}
+            >
+              <CreditCard className="size-4" />
+              Cartao
+            </button>
+          </div>
+        )}
+
+        {!hasActiveSubscription && (
+          <p className="-mt-5 text-center text-xs text-[var(--text-muted)]">
+            {paymentMethod === "PIX"
+              ? "Pagamento unico. Renove manualmente ao fim do periodo."
+              : "Assinatura recorrente com renovacao automatica."}
+          </p>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
           {Object.values(PLANS).map((plan) => {
             const isSelected = selectedPlan === plan.id;
@@ -242,7 +284,7 @@ export function SubscribePage() {
                     e.stopPropagation();
                     handleSubscribe(plan.id);
                   }}
-                  disabled={creating !== null || (hasActiveSubscription && isCurrent)}
+                  disabled={creating !== null || (hasActiveSubscription && (isCurrent || isOneTimePlan))}
                   className={`mt-6 w-full py-3 rounded-[100px] text-[14px] font-[500] leading-[20px] transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                     isSelected
                       ? "bg-[var(--text-primary)] text-[var(--bg-card)] hover:opacity-90"
@@ -256,6 +298,8 @@ export function SubscribePage() {
                     </span>
                   ) : hasActiveSubscription && isCurrent ? (
                     "Plano atual"
+                  ) : hasActiveSubscription && isOneTimePlan ? (
+                    "Disponivel na renovacao"
                   ) : hasActiveSubscription ? (
                     plan.id === "annual" ? "Fazer upgrade" : "Fazer downgrade"
                   ) : (

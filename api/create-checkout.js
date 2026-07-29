@@ -1,10 +1,12 @@
 import {
   findOrCreateCustomer,
   findOrCreateProduct,
+  createHostedCheckout,
   createSubscriptionCheckout,
+  listHostedCheckouts,
   listSubscriptionCheckouts,
 } from "./abacatepay.js";
-import { getPlanByKey } from "./_plans.js";
+import { getCheckoutProduct, getPlanByKey } from "./_plans.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
@@ -84,11 +86,15 @@ function isCurrentlyActive(subscription) {
   return new Date(subscription.current_period_end).getTime() > Date.now();
 }
 
-async function reusePendingCheckout(pending, planConfig) {
+async function reusePendingCheckout(pending, planConfig, paymentMethod) {
   const checkoutId = pending?.metadata?.checkout_id;
   if (!checkoutId) return null;
+  if (pending?.metadata?.payment_method !== paymentMethod) return null;
 
-  const checkout = (await listSubscriptionCheckouts({ id: checkoutId }))[0];
+  const listCheckouts = paymentMethod === "PIX"
+    ? listHostedCheckouts
+    : listSubscriptionCheckouts;
+  const checkout = (await listCheckouts({ id: checkoutId }))[0];
   if (!checkout || ["EXPIRED", "CANCELLED", "REFUNDED"].includes(checkout.status)) {
     return null;
   }
@@ -143,7 +149,16 @@ async function expireStaleSubscriptions(subscriptions) {
   }
 }
 
-async function savePendingSubscription({ user, planKey, planConfig, checkout, product, customer, existingPending }) {
+async function savePendingSubscription({
+  user,
+  planKey,
+  planConfig,
+  paymentMethod,
+  checkout,
+  product,
+  customer,
+  existingPending,
+}) {
   const now = new Date();
 
   const payload = {
@@ -157,17 +172,21 @@ async function savePendingSubscription({ user, planKey, planConfig, checkout, pr
     provider_customer_id: customer.id || checkout.customerId || null,
     provider_subscription_id: null,
     metadata: {
-      source: "abacatepay_subscription_checkout",
-      integration_version: "subscriptions_v2",
+      source: paymentMethod === "PIX"
+        ? "abacatepay_hosted_pix_checkout"
+        : "abacatepay_subscription_checkout",
+      integration_version: "hybrid_checkout_v2",
+      billing_mode: paymentMethod === "PIX" ? "one_time" : "subscription",
       plan_key: planKey,
       checkout_id: checkout.id,
       checkout_url: checkout.url,
       product_id: product.id,
-      product_external_id: planConfig.externalId,
+      product_external_id: product.externalId,
       checkout_external_id: checkout.externalId || null,
       amount_cents: planConfig.price,
-      cycle: planConfig.cycle,
-      methods: ["PIX", "CARD"],
+      cycle: paymentMethod === "PIX" ? null : planConfig.cycle,
+      payment_method: paymentMethod,
+      methods: [paymentMethod],
     },
     updated_at: now.toISOString(),
   };
@@ -232,11 +251,15 @@ export default async function handler(req, res) {
 
   try {
     const user = await getAuthenticatedUser(req);
-    const { plan: planKey, name } = req.body || {};
+    const { plan: planKey, name, paymentMethod: requestedMethod } = req.body || {};
     const planConfig = getPlanByKey(planKey);
+    const paymentMethod = String(requestedMethod || "").toUpperCase();
 
     if (!planConfig) {
       return res.status(400).json({ success: false, error: "Plano invalido" });
+    }
+    if (!["PIX", "CARD"].includes(paymentMethod)) {
+      return res.status(400).json({ success: false, error: "Metodo de pagamento invalido" });
     }
 
     const currentSubscriptions = await listUserSubscriptions(user.id);
@@ -250,7 +273,7 @@ export default async function handler(req, res) {
     }
     const existingPending = currentSubscriptions.find((subscription) => subscription.status === "pending");
     if (existingPending) {
-      const reused = await reusePendingCheckout(existingPending, planConfig);
+      const reused = await reusePendingCheckout(existingPending, planConfig, paymentMethod);
       if (reused) return res.status(200).json({ success: true, data: reused });
     }
 
@@ -260,33 +283,33 @@ export default async function handler(req, res) {
       name: profileName || user.email?.split("@")[0] || "",
     });
 
-    const product = await findOrCreateProduct({
-      externalId: planConfig.externalId,
-      name: planConfig.name,
-      price: planConfig.price,
-      description: planConfig.description,
-      cycle: planConfig.cycle,
-    });
+    const checkoutProduct = getCheckoutProduct(planConfig, paymentMethod);
+    const product = await findOrCreateProduct(checkoutProduct);
 
     const baseUrl = getBaseUrl(req);
-    const checkout = await createSubscriptionCheckout({
+    const checkoutParams = {
       customerId: customer.id,
       productId: product.id,
       returnUrl: `${baseUrl}/pagamento/processando`,
       completionUrl: `${baseUrl}/pagamento/processando`,
-      externalId: `${user.id}:${planConfig.externalId}:${Date.now()}`,
+      externalId: `${user.id}:${checkoutProduct.externalId}:${Date.now()}`,
       metadata: {
         user_id: user.id,
         plan: planConfig.plan,
         plan_key: planKey,
         amount_cents: planConfig.price,
+        payment_method: paymentMethod,
       },
-    });
+    };
+    const checkout = paymentMethod === "PIX"
+      ? await createHostedCheckout(checkoutParams)
+      : await createSubscriptionCheckout(checkoutParams);
 
     const subscription = await savePendingSubscription({
       user,
       planKey,
       planConfig,
+      paymentMethod,
       checkout,
       product,
       customer,

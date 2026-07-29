@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/app/data/AuthContext";
 import { createCheckout, PLANS } from "@/lib/abacatepay";
-import { Check, Loader2, Lock, X } from "lucide-react";
+import { Check, CreditCard, Loader2, Lock, QrCode, X } from "lucide-react";
 
 const BENEFITS = [
   "Acesso completo à biblioteca",
@@ -16,6 +16,7 @@ export function SubscribeModal({ open, onClose, dismissible = true }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [selectedPlan, setSelectedPlan] = useState("monthly");
+  const [paymentMethod, setPaymentMethod] = useState("PIX");
   const [creating, setCreating] = useState(null);
   const [error, setError] = useState(null);
 
@@ -34,6 +35,7 @@ export function SubscribeModal({ open, onClose, dismissible = true }) {
       const data = await createCheckout({
         plan,
         name: user.email?.split("@")[0] || "",
+        paymentMethod,
       });
       window.location.assign(data.url);
     } catch (e) {
@@ -55,7 +57,7 @@ export function SubscribeModal({ open, onClose, dismissible = true }) {
       <div
         role="dialog"
         aria-modal="true"
-        className="relative z-10 w-full max-w-lg overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-[0_30px_80px_rgba(0,0,0,.45)]"
+        className="relative z-10 max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-[0_30px_80px_rgba(0,0,0,.45)]"
       >
         {dismissible && (
           <button
@@ -109,6 +111,40 @@ export function SubscribeModal({ open, onClose, dismissible = true }) {
               </button>
             ))}
           </div>
+
+          <div className="mt-4 grid grid-cols-2 rounded-lg border border-[var(--border)] p-1">
+            <button
+              type="button"
+              onClick={() => setPaymentMethod("PIX")}
+              aria-pressed={paymentMethod === "PIX"}
+              className={`flex h-10 items-center justify-center gap-2 rounded-md text-sm transition-colors ${
+                paymentMethod === "PIX"
+                  ? "bg-[var(--text-primary)] text-[var(--bg-card)]"
+                  : "text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"
+              }`}
+            >
+              <QrCode className="size-4" />
+              PIX
+            </button>
+            <button
+              type="button"
+              onClick={() => setPaymentMethod("CARD")}
+              aria-pressed={paymentMethod === "CARD"}
+              className={`flex h-10 items-center justify-center gap-2 rounded-md text-sm transition-colors ${
+                paymentMethod === "CARD"
+                  ? "bg-[var(--text-primary)] text-[var(--bg-card)]"
+                  : "text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"
+              }`}
+            >
+              <CreditCard className="size-4" />
+              Cartao
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-[var(--text-muted)]">
+            {paymentMethod === "PIX"
+              ? "Pagamento unico com renovacao manual."
+              : "Assinatura com renovacao automatica."}
+          </p>
 
           <ul className="mt-5 space-y-2.5 text-left">
             {BENEFITS.map((b) => (
