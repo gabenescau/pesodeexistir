@@ -9,6 +9,19 @@ import { useAuth } from "./AuthContext";
 
 const DataContext = createContext(null);
 
+function firstFilled(...values) {
+  return values.find((value) => typeof value === "string" && value.trim()) || "";
+}
+
+function normalizeAssetUrl(value, folder) {
+  const raw = firstFilled(value);
+  if (!raw) return "";
+  if (/^(https?:|data:|blob:|\/)/i.test(raw)) return raw;
+  if (raw.startsWith(`${folder}/`)) return `/${raw}`;
+  if (/^[^/]+\.(png|jpe?g|webp|gif|svg)$/i.test(raw)) return `/${folder}/${raw}`;
+  return raw;
+}
+
 export function DataProvider({ children }) {
   const content = loadContent();
   const { user, profile: authProfile, isAdmin, loading: authLoading } = useAuth();
@@ -148,30 +161,53 @@ export function DataProvider({ children }) {
           )
         : { data: [], error: null };
 
+      const localBookById = new Map((content.books || []).map((book) => [book.id, book]));
+      const localBookByTitle = new Map((content.books || []).map((book) => [book.title, book]));
+      const localAuthorById = new Map((content.authors || []).map((author) => [author.id, author]));
+      const localAuthorByName = new Map((content.authors || []).map((author) => [author.name, author]));
+      let normalizedBooks = [];
+
       if (!booksRes.error) {
         const progressList = progressRes.error ? [] : progressRes.data || [];
-        setBooks(booksRes.data.map(b => {
+        normalizedBooks = booksRes.data.map(b => {
           const userProgress = progressList.find(item => item.book_id === b.id);
+          const localBook = localBookById.get(b.id) || localBookByTitle.get(b.title) || {};
           return {
             ...b,
             authorId: b.author_id,
             authorName: b.authors?.name || "",
             author: b.authors?.name || "",
+            image: normalizeAssetUrl(
+              firstFilled(b.image, b.image_url, b.cover_url, b.cover, b.thumbnail_url, localBook.image),
+              "livros"
+            ),
             pdfFile: b.pdf_url,
             progress: userProgress?.progress ?? 0,
             currentPage: userProgress?.current_page ?? 1,
             totalPages: userProgress?.total_pages ?? null,
           };
-        }));
+        });
+        setBooks(normalizedBooks);
       }
       else setBooks([]);
 
-      if (!authorsRes.error) setAuthors(authorsRes.data);
+      if (!authorsRes.error) {
+        setAuthors((authorsRes.data || []).map((author) => {
+          const localAuthor = localAuthorById.get(author.id) || localAuthorByName.get(author.name) || {};
+          return {
+            ...author,
+            image: normalizeAssetUrl(
+              firstFilled(author.image, author.image_url, author.avatar_url, author.photo_url, localAuthor.image),
+              "autores"
+            ),
+          };
+        }));
+      }
       else setAuthors([]);
 
       if (!postsRes.error) {
         const profileList = profilesRes.error ? [] : profilesRes.data || [];
-        const bookList = booksRes.error ? [] : booksRes.data || [];
+        const bookList = normalizedBooks.length > 0 ? normalizedBooks : [];
         setPosts(postsRes.data.map(p => {
           const postProfile = profileList.find(profile => profile.id === p.user_id);
           const postBook = bookList.find(book => book.id === p.book_id);
@@ -182,7 +218,7 @@ export function DataProvider({ children }) {
             // Handle vem de profiles.username. Antes vinha de email.split("@"),
             // o que publicava a parte local do email de todo mundo no feed.
             handle: handleDoPerfil(postProfile),
-            avatar: postProfile?.avatar || p.avatar || "L",
+            avatar: firstFilled(postProfile?.avatar, postProfile?.avatar_url, p.avatar) || "L",
             book: postBook ? {
               ...postBook,
               author: postBook.authors?.name || "",
@@ -426,8 +462,31 @@ export function DataProvider({ children }) {
   // SUBSCRIPTIONS
   const cancelSubscription = useCallback(async (id) => {
     if (isSupabase) {
-      const { error } = await supabase.from("subscriptions").update({ status: "canceled" }).eq("id", id);
-      if (error) { console.error("Erro ao cancelar assinatura:", error.message); return; }
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+
+      if (!accessToken) {
+        throw new Error("Sua sessao expirou. Entre novamente para cancelar.");
+      }
+
+      const res = await fetch("/api/cancel-subscription", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ subscriptionId: id }),
+      });
+      const body = await res.json();
+
+      if (!body.success) {
+        throw new Error(body.error || "Erro ao cancelar assinatura.");
+      }
+
+      const updated = body.data;
+      setSubscriptions((prev) => prev.map((sub) => sub.id === updated.id ? updated : sub));
+      setSubscription((prev) => prev?.id === updated.id ? updated : prev);
+      return updated;
     }
     setSubscription(prev => prev && prev.id === id ? { ...prev, status: "canceled" } : prev);
   }, [isSupabase]);

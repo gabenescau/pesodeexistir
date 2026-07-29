@@ -105,6 +105,7 @@ export function SettingsPage() {
   const [savingPreference, setSavingPreference] = useState("");
   const [preferenceError, setPreferenceError] = useState("");
   const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState("");
   const [accountPanel, setAccountPanel] = useState("");
   const [newEmail, setNewEmail] = useState(user?.email || "");
   const [newPassword, setNewPassword] = useState("");
@@ -127,8 +128,14 @@ export function SettingsPage() {
   async function handleCancel() {
     if (!subscription || cancelling) return;
     setCancelling(true);
-    await cancelSubscription(subscription.id);
-    setCancelling(false);
+    setCancelError("");
+    try {
+      await cancelSubscription(subscription.id);
+    } catch (err) {
+      setCancelError(err?.message || "Nao foi possivel cancelar a assinatura.");
+    } finally {
+      setCancelling(false);
+    }
   }
 
   async function handleLogout() {
@@ -260,13 +267,19 @@ export function SettingsPage() {
               </button>
             ) : (
               <button
-                onClick={() => navigate("/assinar")}
+                onClick={() => navigate("/app/planos")}
                 className="rounded-[100px] bg-[var(--text-primary)] px-5 py-[10px] text-[14px] font-[500] leading-[20px] text-[var(--bg-card)] transition-all hover:opacity-90"
               >
                 Assinar agora
               </button>
             )}
           </div>
+          {cancelError && <p className="mt-3 text-xs text-red-400">{cancelError}</p>}
+          {active && subscription?.provider === "abacatepay" && (
+            <p className="mt-3 text-xs text-[var(--text-muted)]">
+              O cancelamento encerra o acesso no OPE Club. Pagamentos ja confirmados pela AbacatePay continuam registrados no historico do provedor.
+            </p>
+          )}
         </div>
       </Section>
 
