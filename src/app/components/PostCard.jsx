@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Bookmark, MoreHorizontal, Send, Share2, Trash2 } from "@/lib/icons";
+import { Bookmark, MessageCircle, MoreHorizontal, Send, Share2, Trash2 } from "@/lib/icons";
 import { HeartIcon } from "@/components/heart-icon";
 import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
@@ -320,7 +320,7 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
             <span>{likes}</span>
           </button>
           <button type="button" onClick={() => canComment ? setShowComment((value) => !value) : setSubscribeOpen(true)} className="flex min-h-10 items-center gap-1.5 rounded-full px-2 text-xs text-[var(--text-muted)] hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)] sm:px-3">
-            <Heart className="size-[18px]" strokeWidth={1.5} />
+            <MessageCircle className="size-[18px]" strokeWidth={1.5} />
             <span>{replyCount}</span>
           </button>
         </div>
