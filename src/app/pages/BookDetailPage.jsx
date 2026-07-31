@@ -230,18 +230,18 @@ export function BookDetailPage() {
       </div>
 
       {/* Bottom bar fixo */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border)] bg-[var(--bg-page)] px-4 py-3">
-        <div className="flex items-center gap-3">
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border)] bg-[var(--bg-page)] px-4 py-2.5 sm:py-3">
+        <div className="mx-auto flex max-w-2xl items-center gap-2.5 sm:gap-3">
           <button
             onClick={handleStartReading}
             disabled={!hasPdf || !release.liberado}
-            className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full border border-[var(--border-strong)] bg-[var(--bg-card)] text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--hover-overlay)] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex h-10 flex-1 items-center justify-center gap-2 rounded-full border border-[var(--border-strong)] bg-[var(--bg-card)] text-[13px] font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--hover-overlay)] disabled:opacity-50 disabled:cursor-not-allowed sm:h-11 sm:text-sm"
           >
             {hasPdf && release.liberado ? "Comecar a ler" : "Indisponivel"}
           </button>
           <button
             onClick={() => toggleFavoriteBook(book.id)}
-            className={`flex size-12 items-center justify-center rounded-full border transition-colors ${
+            className={`flex size-10 items-center justify-center rounded-full border transition-colors sm:size-11 ${
               favoritado
                 ? "border-[var(--accent-mint)] bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]"
                 : "border-[var(--border-strong)] bg-[var(--bg-card)] text-[var(--text-primary)] hover:bg-[var(--hover-overlay)]"
@@ -249,9 +249,9 @@ export function BookDetailPage() {
             aria-label={favoritado ? "Remover dos favoritos" : "Adicionar aos favoritos"}
           >
             {favoritado ? (
-              <CheckCircle2 className="size-5" />
+              <CheckCircle2 className="size-4 sm:size-5" />
             ) : (
-              <span className="text-xl leading-none">+</span>
+              <span className="text-lg leading-none sm:text-xl">+</span>
             )}
           </button>
         </div>
