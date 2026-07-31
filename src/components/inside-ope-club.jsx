@@ -1,49 +1,10 @@
-function BookIcon({ className }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5A2.5 2.5 0 0 1 4 19.5Z" />
-      <path d="M8 7h6" />
-      <path d="M8 11h8" />
-      <path d="M8 15h5" />
-    </svg>
-  );
-}
-
-function MessageIcon({ className }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-    </svg>
-  );
-}
-
-function CompassIcon({ className }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <path d="m16.24 7.76-2.12 6.36-6.36 2.12 2.12-6.36 6.36-2.12Z" />
-    </svg>
-  );
-}
-
-function WifiOffIcon({ className }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="2" x2="22" y1="2" y2="22" />
-      <path d="M8.5 16.5a5 5 0 0 1 7 0" />
-      <path d="M2 8.82a15 15 0 0 1 4.17-2.65" />
-      <path d="M10.66 5c4.01-.36 8.14.56 11.34 3.03" />
-      <path d="M16.85 11.25a10 10 0 0 1 2.22 1.68" />
-      <path d="M5 13a10 10 0 0 1 5.24-2.76" />
-    </svg>
-  );
-}
+import { BookOpen, Compass, MessageSquare, WifiOff } from "@/lib/icons";
 
 const items = [
-  { icon: BookIcon, title: "Biblioteca", desc: "Leia grandes obras de filosofia, literatura e psicologia diretamente no aplicativo." },
-  { icon: MessageIcon, title: "Comunidade integrada", desc: "Publique reflexões, participe de discussões, comente publicações e interaja com outros leitores sem sair do aplicativo." },
-  { icon: CompassIcon, title: "Descobertas", desc: "Encontre novos autores, livros e recomendações feitas pela própria comunidade." },
-  { icon: WifiOffIcon, title: "Leitura Offline", desc: "Baixe suas obras favoritas e leia onde quiser." },
+  { icon: BookOpen, title: "Biblioteca", desc: "Leia grandes obras de filosofia, literatura e psicologia diretamente no aplicativo." },
+  { icon: MessageSquare, title: "Comunidade integrada", desc: "Publique reflexões, participe de discussões, comente publicações e interaja com outros leitores sem sair do aplicativo." },
+  { icon: Compass, title: "Descobertas", desc: "Encontre novos autores, livros e recomendações feitas pela própria comunidade." },
+  { icon: WifiOff, title: "Leitura Offline", desc: "Baixe suas obras favoritas e leia onde quiser." },
 ];
 
 export function InsideOpeClub() {

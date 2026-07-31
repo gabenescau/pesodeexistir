@@ -17,7 +17,7 @@ const ICONS = {
   BarChart3: Phosphor.ChartBar,
   Bell: Phosphor.Bell,
   BellIcon: Phosphor.Bell,
-  BookMarked: Phosphor.Bookmarks,
+  BookMarked: Phosphor.BookBookmark,
   Bookmark: Phosphor.Bookmark,
   BookOpen: Phosphor.BookOpen,
   BookOpenIcon: Phosphor.BookOpen,
@@ -63,6 +63,7 @@ const ICONS = {
   HomeIcon: Phosphor.House,
   Image: Phosphor.Image,
   Info: Phosphor.Info,
+  InstagramLogo: Phosphor.InstagramLogo,
   Keyboard: Phosphor.Keyboard,
   LayoutGrid: Phosphor.SquaresFour,
   Library: Phosphor.Books,
@@ -90,11 +91,13 @@ const ICONS = {
   NotebookPen: Phosphor.Notebook,
   PanelLeftIcon: Phosphor.Sidebar,
   PenLine: Phosphor.PencilLine,
+  PixLogo: Phosphor.PixLogo,
   Plus: Phosphor.Plus,
   QrCode: Phosphor.QrCode,
   QuoteIcon: Phosphor.Quotes,
   RefreshCw: Phosphor.ArrowsClockwise,
   Search: Phosphor.MagnifyingGlass,
+  SealCheck: Phosphor.SealCheck,
   Send: Phosphor.PaperPlaneTilt,
   Settings: Phosphor.Gear,
   SettingsIcon: Phosphor.Gear,
@@ -121,6 +124,7 @@ const ICONS = {
   Users: Phosphor.Users,
   Wallet: Phosphor.Wallet,
   Warning: Phosphor.Warning,
+  WhatsappLogo: Phosphor.WhatsappLogo,
   WifiOff: Phosphor.WifiSlash,
   X: Phosphor.X,
   XIcon: Phosphor.X,
@@ -142,7 +146,7 @@ export const AtSignIcon = Phosphor.At;
 export const BarChart3 = Phosphor.ChartBar;
 export const Bell = Phosphor.Bell;
 export const BellIcon = Phosphor.Bell;
-export const BookMarked = Phosphor.Bookmarks;
+export const BookMarked = Phosphor.BookBookmark;
 export const Bookmark = Phosphor.Bookmark;
 export const BookOpen = Phosphor.BookOpen;
 export const BookOpenIcon = Phosphor.BookOpen;
@@ -188,6 +192,7 @@ export const Home = Phosphor.House;
 export const HomeIcon = Phosphor.House;
 export const Image = Phosphor.Image;
 export const Info = Phosphor.Info;
+export const InstagramLogo = Phosphor.InstagramLogo;
 export const Keyboard = Phosphor.Keyboard;
 export const LayoutGrid = Phosphor.SquaresFour;
 export const Library = Phosphor.Books;
@@ -215,11 +220,13 @@ export const MousePointerClick = Phosphor.MouseSimple;
 export const NotebookPen = Phosphor.Notebook;
 export const PanelLeftIcon = Phosphor.Sidebar;
 export const PenLine = Phosphor.PencilLine;
+export const PixLogo = Phosphor.PixLogo;
 export const Plus = Phosphor.Plus;
 export const QrCode = Phosphor.QrCode;
 export const QuoteIcon = Phosphor.Quotes;
 export const RefreshCw = Phosphor.ArrowsClockwise;
 export const Search = Phosphor.MagnifyingGlass;
+export const SealCheck = Phosphor.SealCheck;
 export const Send = Phosphor.PaperPlaneTilt;
 export const Settings = Phosphor.Gear;
 export const SettingsIcon = Phosphor.Gear;
@@ -246,6 +253,7 @@ export const UserRound = Phosphor.UserCircle;
 export const Users = Phosphor.Users;
 export const Wallet = Phosphor.Wallet;
 export const Warning = Phosphor.Warning;
+export const WhatsappLogo = Phosphor.WhatsappLogo;
 export const WifiOff = Phosphor.WifiSlash;
 export const X = Phosphor.X;
 export const XIcon = Phosphor.X;

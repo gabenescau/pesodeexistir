@@ -6,6 +6,7 @@ import {
   synchronizeSubscription,
 } from "@/lib/subscription";
 import { useAuth } from "@/app/data/AuthContext";
+import { CheckCircle } from "@/lib/icons";
 
 export function ProcessingPage() {
   const { user } = useAuth();
@@ -87,9 +88,7 @@ export function ProcessingPage() {
       <div className="max-w-sm w-full text-center space-y-6">
         <div className="size-12 mx-auto">
           {isActiveSubscription({ status }) ? (
-            <svg className="size-12 text-[var(--accent-mint)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+            <CheckCircle className="size-12 text-[var(--accent-mint)]" />
           ) : (
             <div className="size-8 border-2 border-[var(--border)] border-t-[var(--text-primary)] rounded-full animate-spin mx-auto" />
           )}

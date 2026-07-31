@@ -15,19 +15,12 @@ function StarButton({ value, active, onRate }) {
       aria-label={`Avaliar com ${value} estrela${value > 1 ? "s" : ""}`}
       className="p-0.5"
     >
-      <svg
-        viewBox="0 0 24 24"
+      <StarIcon
+        weight={active ? "fill" : "regular"}
         className={`size-6 transition-colors ${
-          active ? "fill-amber-400 text-amber-400" : "fill-none text-[var(--border-strong)]"
+          active ? "text-amber-400" : "text-[var(--border-strong)]"
         }`}
-      >
-        <path
-          d="M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.7l-5.8 3-1.1-6.5L.4 9.3l6.5-.9L12 2.5z"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinejoin="round"
-        />
-      </svg>
+      />
     </button>
   );
 }
@@ -331,9 +324,7 @@ export function BookDetailPage() {
                       <p className="mt-1.5 truncate text-xs font-medium text-[var(--text-primary)]">{rb.title}</p>
                       {rb.ratingCount > 0 ? (
                         <p className="mt-0.5 flex items-center gap-0.5 text-[10px] text-[var(--text-secondary)]">
-                          <svg viewBox="0 0 24 24" className="size-3 fill-amber-400 text-amber-400">
-                            <path d="M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.7l-5.8 3-1.1-6.5L.4 9.3l6.5-.9L12 2.5z" />
-                          </svg>
+                          <StarIcon weight="fill" className="size-3 text-amber-400" />
                           {rb.nota.toFixed(1)}
                         </p>
                       ) : null}

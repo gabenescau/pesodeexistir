@@ -1,8 +1,9 @@
 import { cn } from "@/lib/utils";
 import { cva } from "class-variance-authority";
+import { Plus } from "@phosphor-icons/react";
 
 const DecorIconVariants = cva(
-    "pointer-events-none absolute z-1 size-5 shrink-0 stroke-1 stroke-muted-foreground",
+    "pointer-events-none absolute z-1 size-5 shrink-0 text-muted-foreground",
     {
 		variants: {
 			position: {
@@ -28,18 +29,10 @@ export function DecorIcon({
     ...props
 }) {
 	return (
-        <svg
+        <Plus
             aria-hidden="true"
             className={cn(DecorIconVariants({ position, className }))}
-            fill="none"
-            stroke="currentColor"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-            {...props}>
-            <path d="M5 12h14" />
-            <path d="M12 5v14" />
-        </svg>
+            {...props}
+        />
     );
 }

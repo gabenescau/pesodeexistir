@@ -1,35 +1,30 @@
 import { cn } from "@/lib/utils";
-import {
-  IconBooks,
-  IconMessages,
-  IconCompass,
-  IconWifiOff,
-} from "@tabler/icons-react";
+import { Library, MessageSquare, Compass, WifiOff } from "@/lib/icons";
 
 const features = [
   {
     title: "Biblioteca",
     description:
       "Leia grandes obras de filosofia, literatura e psicologia diretamente no aplicativo.",
-    icon: <IconBooks />,
+    icon: <Library />,
   },
   {
     title: "Comunidade integrada",
     description:
       "Publique reflexões, participe de discussões, comente publicações e interaja com outros leitores sem sair do aplicativo.",
-    icon: <IconMessages />,
+    icon: <MessageSquare />,
   },
   {
     title: "Descobertas",
     description:
       "Encontre novos autores, livros e recomendações feitas pela própria comunidade.",
-    icon: <IconCompass />,
+    icon: <Compass />,
   },
   {
     title: "Leitura Offline",
     description:
       "Baixe suas obras favoritas e leia onde quiser.",
-    icon: <IconWifiOff />,
+    icon: <WifiOff />,
   },
 ];
 
