@@ -242,6 +242,7 @@ O produto é um **clube de leitura com assinatura (OPE Club)** sobre uma base Vi
 - **Teste manual de role:** confirmar que `PATCH /rest/v1/profiles` com `role: "admin"` falha (REVOKE colunar + trigger M1) e que admins/editors ainda editam catálogo (M9).
 - **Deploy:** redeploy da Vercel com as novas envs (`.env.example` é o guia); `RATE_LIMIT_FAIL_OPEN` só se quiser reabrir manualmente (M7 agora é fail-closed por default).
 - **Supabase Database Linter + `supabase init`/`db push` como gate de CI** (item de Fase 4).
+- **Leaked password protection (HaveIBeenPwned):** ligar manualmente em *Authentication → Providers → Email → Prevent password leaks* (requer plano Pro; não há SQL — ver §11).
 
 ---
 
@@ -259,6 +260,7 @@ Todos os itens abaixo passam em `npm run check` (lint + 17 testes + build).
 | `20260731171000_admin_single_source_of_truth.sql` | **M3** | `current_role()` sem fallback para `raw_app_meta_data->>'role'` — única fonte de verdade é `profiles.role`. |
 | `20260731172000_sync_user_email_on_change.sql` | **M4** | Trigger `on_auth_user_email_changed` em `auth.users` espelha troca de email em `user_emails` (padrão do `handle_new_user`). |
 | `20260731173000_public_ratings_aggregate_view.sql` | **M8** | View `book_ratings_public(book_id, rating_count, rating_sum)` (sem `user_id`); policy de leitura de `book_ratings` vira owner-only; anon perde SELECT na tabela. |
+| `20260731180000_fix_supabase_linter_view_and_function_grants.sql` | **Linter** | View vira `SECURITY INVOKER` (agregado via `private.book_ratings_summary`); revoga `EXECUTE` de `sync_user_email_on_change` para anon/authenticated; policies de `weekly_releases`/`suggestions` trocam `current_role()` por `can_manage_content()` e `current_role()` perde EXECUTE. |
 
 ### Código
 
@@ -277,3 +279,21 @@ Todos os itens abaixo passam em `npm run check` (lint + 17 testes + build).
 
 - **M11** (PIX `one_time` sem renew — decisão de produto), **M12** (documentado, mantido), **M13** (`content/` fallback local), **M14** (alertas de observabilidade).
 - **Aplicação remota** das migrations e testes manuais (§9) e testes de integração das policies (Fase 4).
+
+---
+
+## 11. Supabase Database Linter — achados e remediação (31/07/2026)
+
+Achados do **Database Security Advisor** no projeto remoto e o status após a migration `20260731180000_fix_supabase_linter_view_and_function_grants.sql`.
+
+| # | Check | Objeto | Status |
+|---|---|---|---|
+| 1 | `0010_security_definer_view` (ERROR) | `public.book_ratings_public` (SECURITY DEFINER burlava RLS) | **Corrigido** — view virou `SECURITY INVOKER`; a agregação passou para `private.book_ratings_summary()` (SECURITY DEFINER fora do schema exposto na API), e a leitura direta de `book_ratings` segue owner-only. |
+| 2 | `0028_anon_security_definer_function_executable` (WARN) | `public.sync_user_email_on_change()` | **Corrigido** — revogado `EXECUTE` de `public`/`anon`/`authenticated` (trigger function não precisa de grant público; fica só `supabase_auth_admin`). |
+| 3 | `0029_authenticated_security_definer_function_executable` (WARN) | `public.sync_user_email_on_change()` | **Corrigido** — mesmo revoke acima. |
+| 4 | `0029_authenticated_security_definer_function_executable` (WARN) | `public.current_role()` | **Corrigido** — as 3 policies que a chamavam (0001_full: `weekly_releases_admin`, `suggestions_update_owner_admin`) agora usam `public.can_manage_content()` (SECURITY INVOKER); `current_role()` perdeu `EXECUTE` para anon/authenticated. |
+| 5 | `auth_leaked_password_protection` (WARN) | Setting de Auth (HaveIBeenPwned) | **Manual** — ligar em *Authentication → Providers → Email → Prevent password leaks* (plano Pro). Sem SQL; não entra em migration. |
+
+**Pendências pós-remoção:**
+- Re-rodar o Security Advisor após aplicar a migration e confirmar que os itens 1–4 sumiram; o item 5 só some após o toggle manual no dashboard.
+- Validação extra do fluxo de ratings no front: a view continua expondo apenas `{book_id, rating_sum, rating_count}` (shape usado em `DataContext.jsx:228`).
