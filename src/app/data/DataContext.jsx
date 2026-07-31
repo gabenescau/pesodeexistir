@@ -179,7 +179,6 @@ export function DataProvider({ children }) {
               () => supabase
                 .from("posts")
                 .select("*")
-                .not("tag", "like", "entity-thread:%")
                 .order("created_at", { ascending: false })
                 .limit(100),
               "carregar posts"

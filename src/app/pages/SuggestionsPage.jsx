@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Lightbulb, MessageSquare, Plus, Send, Trash2, X } from "@/lib/icons";
+import { ArrowLeft, ArrowRight, Heart, Lightbulb, MessageSquare, Plus, Send, Trash2, X } from "@/lib/icons";
 import { useAuth } from "@/app/data/AuthContext";
-import { supabase, isSupabaseReady } from "@/app/data/supabase";
+import { supabase, isSupabaseReady } from "../data/supabase";
 import { sanitizePlainText, sanitizeSingleLine } from "@/lib/sanitize";
 import { toast } from "@/lib/toast";
 
@@ -13,6 +13,26 @@ const columns = [
 ];
 
 const categoryOptions = ["Biblioteca", "Comunidade", "Leitura", "Planos", "Perfil"];
+
+// Likes por sessao (localStorage). Servidor-sync pede migration nova;
+// ate la, o contador reflete quantas pessoas *neste navegador* curtiram.
+const LIKES_STORAGE_KEY = "ope:suggestion-likes";
+function carregarLikes() {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(window.localStorage.getItem(LIKES_STORAGE_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+function salvarLikes(mapa) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(LIKES_STORAGE_KEY, JSON.stringify(mapa));
+  } catch {
+    // localStorage bloqueado: ignora.
+  }
+}
 
 async function authenticatedApiPost(path, payload) {
   const { data: sessionData } = await supabase.auth.getSession();
@@ -36,7 +56,7 @@ function statusIndex(status) {
   return Math.max(0, columns.findIndex((column) => column.id === status));
 }
 
-function SuggestionCard({ suggestion, canManage, onMove, onDelete, moving }) {
+function SuggestionCard({ suggestion, canManage, onMove, onDelete, onLike, liked, likeCount, moving }) {
   const index = statusIndex(suggestion.status);
   const author = suggestion.author_name || "Leitor";
 
@@ -57,10 +77,26 @@ function SuggestionCard({ suggestion, canManage, onMove, onDelete, moving }) {
       )}
 
       <div className="mt-4 flex items-center justify-between gap-3">
-        <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
-          <MessageSquare className="size-3.5" />
-          {suggestion.comment_count || 0}
-        </span>
+        <div className="flex items-center gap-3 text-xs text-[var(--text-muted)]">
+          <span className="inline-flex items-center gap-1.5">
+            <MessageSquare className="size-3.5" />
+            {suggestion.comment_count || 0}
+          </span>
+          <button
+            type="button"
+            onClick={() => onLike(suggestion)}
+            aria-pressed={liked}
+            aria-label={liked ? "Tirar curtida" : "Curtir"}
+            className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 transition-colors ${
+              liked
+                ? "bg-[#c78359]/10 text-[#c78359]"
+                : "text-[var(--text-muted)] hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]"
+            }`}
+          >
+            <Heart className="size-3.5" weight={liked ? "fill" : "regular"} />
+            <span className="text-xs font-medium">{likeCount || 0}</span>
+          </button>
+        </div>
 
         {canManage && (
           <div className="flex items-center gap-1">
@@ -210,6 +246,21 @@ export function SuggestionsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [movingId, setMovingId] = useState("");
   const [error, setError] = useState("");
+  const [likes, setLikes] = useState(() => carregarLikes());
+
+  function toggleLike(suggestion) {
+    setLikes((atual) => {
+      const prox = { ...atual };
+      const liked = !!prox[suggestion.id];
+      if (liked) {
+        delete prox[suggestion.id];
+      } else {
+        prox[suggestion.id] = true;
+      }
+      salvarLikes(prox);
+      return prox;
+    });
+  }
 
   useEffect(() => {
     let alive = true;
@@ -332,6 +383,9 @@ export function SuggestionsPage() {
                     moving={movingId === suggestion.id}
                     onMove={moveSuggestion}
                     onDelete={deleteSuggestion}
+                    onLike={toggleLike}
+                    liked={!!likes[suggestion.id]}
+                    likeCount={(suggestion.like_count || 0) + (likes[suggestion.id] ? 1 : 0)}
                   />
                 ))
               ) : (

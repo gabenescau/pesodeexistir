@@ -472,7 +472,7 @@ export function BookReaderPage() {
       <header className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 sm:px-5">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <button
-            onClick={() => navigate(`/app/livro/${book.id}`)}
+            onClick={() => navigate(-1)}
             className="flex size-9 shrink-0 items-center justify-center rounded-full border border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)] sm:size-10"
             aria-label="Fechar leitor"
           >

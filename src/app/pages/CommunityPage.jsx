@@ -45,12 +45,20 @@ export function CommunityPage() {
   }, [reacoes]);
 
   const filteredPosts = (() => {
-    let result = posts;
+    // Posts de thread (entity-thread:book:UUID / entity-thread:author:UUID)
+    // sao ancoras de comentario criadas pelo EntityComments. Nunca devem
+    // aparecer no feed publico: o texto comeca com [thread] e a tag tem o
+    // prefixo. Filtramos aqui para nao precisar de uma query NOT LIKE no
+    // PostgREST (que tem bugs conhecidos em algumas versoes do supabase-js).
+    const semThreads = posts.filter(
+      (p) => !(p.tag || "").startsWith("entity-thread:")
+    );
+    let result = semThreads;
     if (filter !== "Todos") {
       if (filter === "Em alta") {
-        result = [...posts].sort((a, b) => b.likes - a.likes);
+        result = [...semThreads].sort((a, b) => b.likes - a.likes);
       } else {
-        result = posts.filter(p => p.tag === filter);
+        result = semThreads.filter(p => p.tag === filter);
       }
     }
 

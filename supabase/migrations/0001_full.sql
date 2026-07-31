@@ -33,6 +33,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- Retorna a role do usuario corrente. SECURITY DEFINER para evitar recursao
 -- na policy de profiles (a policy checa profiles, e profiles nao pode se
 -- ler sem checar profiles).
+DROP FUNCTION IF EXISTS public.current_role();
 CREATE OR REPLACE FUNCTION public.current_role()
 RETURNS text
 LANGUAGE sql
@@ -50,6 +51,7 @@ $$;
 REVOKE ALL ON FUNCTION public.current_role() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.current_role() TO authenticated, anon;
 
+DROP FUNCTION IF EXISTS public.is_admin();
 CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS boolean
 LANGUAGE sql
@@ -64,6 +66,7 @@ REVOKE ALL ON FUNCTION public.is_admin() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
 
 -- updated_at automatico
+DROP FUNCTION IF EXISTS public.touch_updated_at();
 CREATE OR REPLACE FUNCTION public.touch_updated_at()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -75,6 +78,7 @@ END;
 $$;
 
 -- Trigger que cria profile + user_emails quando um usuario novo entra.
+DROP FUNCTION IF EXISTS public.handle_new_user();
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -111,6 +115,7 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- Rate limit compartilhado entre API serverless e Supabase.
+DROP FUNCTION IF EXISTS public.check_api_rate_limit(text, text, integer, integer);
 CREATE OR REPLACE FUNCTION public.check_api_rate_limit(
   p_key_hash text,
   p_scope text,
