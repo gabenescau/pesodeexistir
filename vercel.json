@@ -1,14 +1,18 @@
 {
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/app/(.*)", "destination": "/index.html" },
+    { "source": "/entrar", "destination": "/index.html" },
+    { "source": "/cadastro", "destination": "/index.html" },
+    { "source": "/esqueci-senha", "destination": "/index.html" },
+    { "source": "/recuperar-senha", "destination": "/index.html" },
+    { "source": "/checkout", "destination": "/index.html" }
   ],
   "headers": [
     {
       "source": "/api/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store" },
-        { "key": "CDN-Cache-Control", "value": "no-store" }
+        { "key": "Cache-Control", "value": "no-store" }
       ]
     },
     {
@@ -20,21 +24,10 @@
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "https://pesodeexistir.online" },
-        { "key": "Vary", "value": "Origin" },
         { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
-        { "key": "Cross-Origin-Resource-Policy", "value": "same-origin" },
-        { "key": "X-Permitted-Cross-Domain-Policies", "value": "none" },
-        { "key": "X-DNS-Prefetch-Control", "value": "off" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
         { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
-        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" },
-        {
-          "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://*.supabase.co https://upload.wikimedia.org; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self' blob:; frame-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests"
-        }
+        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" }
       ]
     }
   ]
