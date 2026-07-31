@@ -2,6 +2,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { BookOpen, CheckCircle2, ChevronLeft, Heart, Lock, Share2 } from "@/lib/icons";
 import { useData } from "../data/DataContext";
 import { contagemRegressiva, formatarData } from "@/lib/releases";
+import { EntityComments } from "../components/EntityComments";
 
 export function BookDetailPage() {
   const { id } = useParams();
@@ -132,7 +133,24 @@ export function BookDetailPage() {
               <p className="mt-1 text-xs text-[var(--text-muted)]">O administrador pode adicionar o PDF no painel admin.</p>
             </div>
           )}
+
+          {book.bio && (
+            <div className="mt-8">
+              <h2 className="text-sm font-semibold text-[var(--text-primary)]">Sobre o livro</h2>
+              <p className="mt-2 max-w-2xl whitespace-pre-line text-sm leading-relaxed text-[var(--text-secondary)]">
+                {book.bio}
+              </p>
+            </div>
+          )}
         </div>
+      </div>
+
+      <div className="mt-8 border-t border-[var(--border)] pt-8">
+        <EntityComments
+          targetType="book"
+          targetId={book.id}
+          emptyMessage="Seja o primeiro a comentar sobre este livro."
+        />
       </div>
     </div>
   );

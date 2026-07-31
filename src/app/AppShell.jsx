@@ -24,8 +24,8 @@ const SubscribePage = lazyPage(() => import("./pages/SubscribePage"), "Subscribe
 
 function PageLoading() {
   return (
-    <div className="flex min-h-[50vh] items-center justify-center text-sm text-[var(--text-muted)]">
-      Carregando...
+    <div className="fixed inset-x-0 top-14 z-[55] h-0.5 overflow-hidden">
+      <div className="h-full w-1/3 animate-[route-progress_1.1s_ease-in-out_infinite] rounded-full bg-[var(--accent-mint)]" />
     </div>
   );
 }

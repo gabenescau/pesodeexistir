@@ -105,6 +105,7 @@ const ICONS = {
   Trophy: Phosphor.Trophy,
   User: Phosphor.User,
   UserCheck: Phosphor.UserCheck,
+  UserCircle: Phosphor.UserCircle,
   UserIcon: Phosphor.User,
   UserPlus: Phosphor.UserPlus,
   UserRound: Phosphor.UserCircle,
@@ -219,6 +220,7 @@ export const Trash2 = Phosphor.Trash;
 export const Trophy = Phosphor.Trophy;
 export const User = Phosphor.User;
 export const UserCheck = Phosphor.UserCheck;
+export const UserCircle = Phosphor.UserCircle;
 export const UserIcon = Phosphor.User;
 export const UserPlus = Phosphor.UserPlus;
 export const UserRound = Phosphor.UserCircle;

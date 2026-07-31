@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ChevronLeft, BookOpen, Heart, MessageCircle } from "@/lib/icons";
 import { useData } from "../data/DataContext";
+import { EntityComments } from "../components/EntityComments";
 
 export function AuthorPage() {
   const { id } = useParams();
@@ -135,6 +136,14 @@ export function AuthorPage() {
             Ainda nao ha discussoes sobre obras deste autor. Seja o primeiro a publicar na comunidade.
           </p>
         )}
+      </div>
+
+      <div className="border-t border-[var(--border)] pt-8">
+        <EntityComments
+          targetType="author"
+          targetId={author.id}
+          emptyMessage="Seja o primeiro a comentar sobre este autor."
+        />
       </div>
     </div>
   );

@@ -15,6 +15,7 @@ import {
   Sun,
   Trash2,
   User,
+  UserCircle,
 } from "@/lib/icons";
 import { useTheme } from "@/components/theme-provider";
 import { useData } from "@/app/data/DataContext";
@@ -94,34 +95,6 @@ function AccountRow({ icon: Icon, label, onClick }) {
       </div>
       <ChevronRight className="size-4 text-[var(--border-strong)]" />
     </button>
-  );
-}
-
-function SettingsTabs({ activeTab, onChange }) {
-  const tabs = [
-    { id: "geral", label: "Configuracoes", icon: Shield },
-    { id: "perfil", label: "Perfil", icon: User },
-  ];
-
-  return (
-    <div className="flex gap-2 overflow-x-auto rounded-[10px] border border-[var(--border)] bg-[var(--bg-card)] p-1 md:flex-col md:self-start">
-      {tabs.map(({ id, label, icon: Icon }) => {
-        const active = activeTab === id;
-        return (
-          <button
-            key={id}
-            type="button"
-            onClick={() => onChange(id)}
-            className={`flex min-h-11 shrink-0 items-center gap-2 rounded-[8px] px-3 text-left text-sm transition-colors md:w-44 ${
-              active ? "bg-[var(--text-primary)] text-[var(--bg-card)]" : "text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"
-            }`}
-          >
-            <Icon className="size-4" />
-            <span>{label}</span>
-          </button>
-        );
-      })}
-    </div>
   );
 }
 
@@ -239,39 +212,32 @@ export function SettingsPage() {
 
   if (activeTab === "perfil") {
     return (
-      <div className="mx-auto w-full max-w-6xl space-y-6">
+      <div className="mx-auto w-full max-w-3xl space-y-6">
         <div>
           <h1 className="text-[24px] font-[600] leading-[32px] tracking-[-0.96px] text-[var(--text-primary)]">
-            Configuracoes
+            Perfil
           </h1>
           <p className="mt-1 text-sm text-[var(--text-muted)]">
-            Ajuste sua conta e seu perfil publico.
+            Edite como voce aparece para os outros leitores.
           </p>
         </div>
-        <div className="grid gap-5 md:grid-cols-[auto_minmax(0,1fr)]">
-          <SettingsTabs activeTab={activeTab} onChange={changeTab} />
-          <div className="min-w-0">
-            <ProfilePage />
-          </div>
-        </div>
+        <ProfilePage />
       </div>
     );
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-6">
       <div>
         <h1 className="text-[24px] font-[600] leading-[32px] tracking-[-0.96px] text-[var(--text-primary)]">
-          Configurações
+          Configuracoes
         </h1>
         <p className="mt-1 text-sm text-[var(--text-muted)]">
-          Gerencie sua conta, plano e preferências no OPE Club.
+          Gerencie sua conta, plano e preferencias no OPE Club.
         </p>
       </div>
 
-      <div className="grid gap-5 md:grid-cols-[auto_minmax(0,42rem)]">
-        <SettingsTabs activeTab={activeTab} onChange={changeTab} />
-        <div className="min-w-0 space-y-8 md:space-y-10">
+      <div className="min-w-0 space-y-8 md:space-y-10">
 
       <Section icon={CreditCard} label="Plano atual">
         <div className="px-5 pb-6 md:px-6">
@@ -478,7 +444,6 @@ export function SettingsPage() {
           </div>
         </div>
       </div>
-        </div>
       </div>
     </div>
   );

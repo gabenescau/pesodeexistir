@@ -221,12 +221,11 @@ export function BookReaderPage() {
       const larguraDisponivel = Math.max(240, containerSize.width - 24);
       const alturaDisponivel = Math.max(320, containerSize.height - 24);
 
-      // Celular: ocupa a largura (texto legivel, rolagem vertical).
+      // Celular: cabe a pagina inteira na tela (sem espaco vazio embaixo).
       // Desktop: cabe a pagina inteira na tela, sem rolagem.
       const escalaLargura = larguraDisponivel / baseViewport.width;
       const escalaAltura = alturaDisponivel / baseViewport.height;
-      const telaLarga = containerSize.width >= 1024;
-      const fitScale = telaLarga ? Math.min(escalaLargura, escalaAltura) : escalaLargura;
+      const fitScale = Math.min(escalaLargura, escalaAltura);
       const scale = Math.max(0.3, fitScale) * (zoom / 100);
       const viewport = currentPage.getViewport({ scale });
 
@@ -521,12 +520,12 @@ export function BookReaderPage() {
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
           onPointerUp={handlePointerUp}
-          className="relative min-h-0 flex-1 touch-pan-y select-none overflow-auto bg-[var(--bg-canvas)] p-3 sm:p-6"
+          className="relative flex min-h-0 flex-1 touch-pan-y select-none items-center justify-center overflow-auto bg-[var(--bg-canvas)] p-3 sm:p-6"
         >
           {notesOpen && (
             <aside
               onPointerUp={(event) => event.stopPropagation()}
-              className="mx-auto mb-3 max-w-3xl overflow-hidden rounded-xl border border-[#e4d8bf] shadow-[0_18px_50px_rgba(0,0,0,.28)]"
+              className="absolute inset-x-3 top-3 z-20 max-h-[60vh] overflow-y-auto rounded-xl border border-[#e4d8bf] shadow-[0_18px_50px_rgba(0,0,0,.28)] sm:inset-x-6 sm:top-6"
               style={{
                 // Caderno: papel creme, pauta horizontal e uma margem vermelha
                 // à esquerda. Fica igual nos dois temas — é papel, não UI.
@@ -598,10 +597,10 @@ export function BookReaderPage() {
           )}
 
           {!loading && !error && pdf && (
-            <div className="mx-auto flex w-full flex-col items-center gap-3">
+            <div className="flex h-full w-full items-center justify-center">
               <canvas
                 ref={canvasRef}
-                className="max-w-full rounded-[6px] bg-white shadow-[0_18px_60px_rgba(0,0,0,.25)]"
+                className="max-h-full max-w-full rounded-[6px] bg-white shadow-[0_18px_60px_rgba(0,0,0,.25)]"
               />
             </div>
           )}

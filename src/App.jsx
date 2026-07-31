@@ -12,10 +12,10 @@ const ProcessingPage = lazy(() => import('@/app/pages/ProcessingPage').then((mod
 
 function RouteLoading() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[var(--bg-canvas)] text-sm text-[var(--text-muted)]">
-      Carregando...
+    <div className="fixed inset-x-0 top-0 z-[60] h-0.5 overflow-hidden">
+      <div className="h-full w-1/3 animate-[route-progress_1.1s_ease-in-out_infinite] rounded-full bg-[var(--accent-mint)]" />
     </div>
-  )
+  );
 }
 
 function SEOHead() {

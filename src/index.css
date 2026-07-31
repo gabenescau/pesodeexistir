@@ -1231,3 +1231,9 @@ html:not(.dark) .sales-page .book-marquee > div:nth-child(2) {
   opacity: 0;
   animation: fadeInUp 0.8s ease-out forwards;
 }
+
+@keyframes routeProgress {
+  0%   { transform: translateX(-100%); }
+  50%  { transform: translateX(150%); }
+  100% { transform: translateX(400%); }
+}

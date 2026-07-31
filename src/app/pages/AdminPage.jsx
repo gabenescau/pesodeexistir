@@ -675,7 +675,7 @@ function BooksTab() {
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({
-    title: "", authorId: "", image: "", imagePath: "", pdfFile: "", pdfPath: "", category: "",
+    title: "", authorId: "", image: "", imagePath: "", pdfFile: "", pdfPath: "", category: "", bio: "",
   });
   const [imageFile, setImageFile] = useState(null);
   const [pdfFile, setPdfFile] = useState(null);
@@ -690,7 +690,7 @@ function BooksTab() {
   function openNew() {
     setEditId(null);
     setForm({
-      title: "", authorId: authors[0]?.id || "", image: "", imagePath: "", pdfFile: "", pdfPath: "", category: "",
+      title: "", authorId: authors[0]?.id || "", image: "", imagePath: "", pdfFile: "", pdfPath: "", category: "", bio: "",
     });
     setImageFile(null);
     setPdfFile(null);
@@ -708,6 +708,7 @@ function BooksTab() {
       pdfFile: book.pdf_path ? "" : book.pdf_url || "",
       pdfPath: book.pdf_path || "",
       category: book.category || "",
+      bio: book.bio || "",
     });
     setImageFile(null);
     setPdfFile(null);
@@ -784,7 +785,7 @@ function BooksTab() {
       setShowForm(false);
       setEditId(null);
       setForm({
-        title: "", authorId: "", image: "", imagePath: "", pdfFile: "", pdfPath: "", category: "",
+        title: "", authorId: "", image: "", imagePath: "", pdfFile: "", pdfPath: "", category: "", bio: "",
       });
       setImageFile(null);
       setPdfFile(null);
@@ -882,6 +883,13 @@ function BooksTab() {
               <p className="text-[10px] text-[var(--text-muted)] mt-1">O PDF será enviado ao Supabase Storage e aberto dentro do app.</p>
             </div>
           </div>
+          <FormField
+            label="Biografia / sinopse do livro"
+            type="textarea"
+            value={form.bio}
+            onChange={(value) => setForm((prev) => ({ ...prev, bio: value }))}
+            placeholder="Resumo, contexto ou por que este livro importa."
+          />
           <div className="flex items-center gap-2 pt-2">
             <button onClick={handleSave} disabled={saving}
               className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-[var(--text-primary)] text-[var(--bg-card)] text-sm font-medium hover:opacity-90 transition-all disabled:opacity-50">
