@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { LogOut, Settings, User } from "@/lib/icons";
+import { LogOut, Settings, User, CreditCard } from "@/lib/icons";
 import {
   Avatar,
   AvatarImage,
@@ -62,6 +62,13 @@ export function NavUser() {
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]"
             >
               <User className="size-4" /> Meu perfil
+            </button>
+            <button
+              type="button"
+              onClick={() => go("/app/planos")}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]"
+            >
+              <CreditCard className="size-4" /> Planos
             </button>
             <button
               type="button"

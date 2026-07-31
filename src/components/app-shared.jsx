@@ -2,10 +2,8 @@ import { useMemo } from "react";
 import {
   BookOpenIcon,
   CompassIcon,
-  CreditCardIcon,
   HomeIcon,
   LightbulbIcon,
-  SettingsIcon,
   ShieldIcon,
   Sparkles,
   UserIcon,
@@ -23,8 +21,17 @@ export const navGroups = [
   {
     label: "Navegacao",
     items: [
-      { title: "Inicio", path: "/app/inicio", icon: <HomeIcon />, match: "/app/inicio" },
-      { title: "Biblioteca", path: "/app/biblioteca", icon: <BookOpenIcon />, match: "/app/biblioteca" },
+      { title: "Comunidade", path: "/app/inicio", icon: <HomeIcon />, match: "/app/inicio" },
+      {
+        title: "Biblioteca",
+        path: "/app/biblioteca",
+        icon: <BookOpenIcon />,
+        match: "/app/biblioteca",
+        subItems: [
+          { title: "Livros", path: "/app/biblioteca", icon: <BookOpenIcon />, match: "/app/biblioteca" },
+          { title: "Autores", path: "/app/autores", icon: <UserIcon />, match: "/app/autores" },
+        ],
+      },
       { title: "Explorar", path: "/app/explorar", icon: <CompassIcon />, match: "/app/explorar" },
       { title: "Sugestoes", path: "/app/sugestoes", icon: <LightbulbIcon />, match: "/app/sugestoes" },
     ],
@@ -33,27 +40,6 @@ export const navGroups = [
     label: "Novidades",
     items: [
       { title: "Lancamentos Semanais", path: "/app/lancamentos", icon: <Sparkles />, match: "/app/lancamentos" },
-    ],
-  },
-  {
-    label: "Assinatura",
-    items: [
-      { title: "Planos", path: "/app/planos", icon: <CreditCardIcon />, match: "/app/planos" },
-    ],
-  },
-  {
-    label: "Conta",
-    items: [
-      {
-        title: "Configuracoes",
-        path: "/app/configuracoes",
-        icon: <SettingsIcon />,
-        match: "/app/configuracoes",
-        subItems: [
-          { title: "Geral", path: "/app/configuracoes", icon: <SettingsIcon />, match: "/app/configuracoes" },
-          { title: "Perfil", path: "/app/configuracoes?aba=perfil", icon: <UserIcon />, match: "/app/configuracoes?aba=perfil" },
-        ],
-      },
     ],
   },
 ];

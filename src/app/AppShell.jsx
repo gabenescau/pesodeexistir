@@ -10,6 +10,7 @@ const lazyPage = (loader, exportName) =>
 
 const CommunityPage = lazyPage(() => import("./pages/CommunityPage"), "CommunityPage");
 const LibraryPage = lazyPage(() => import("./pages/LibraryPage"), "LibraryPage");
+const AuthorsPage = lazyPage(() => import("./pages/AuthorsPage"), "AuthorsPage");
 const BookDetailPage = lazyPage(() => import("./pages/BookDetailPage"), "BookDetailPage");
 const BookReaderPage = lazyPage(() => import("./pages/BookReaderPage"), "BookReaderPage");
 const AuthorPage = lazyPage(() => import("./pages/AuthorPage"), "AuthorPage");
@@ -42,6 +43,7 @@ export function AppShell() {
         {/* Rota legada /comunidade redireciona para /inicio (mesma pagina). */}
         <Route path="comunidade" element={<Navigate to="/app/inicio" replace />} />
         <Route path="biblioteca" element={<SubscriptionGuard><LibraryPage /></SubscriptionGuard>} />
+        <Route path="autores" element={<SubscriptionGuard><AuthorsPage /></SubscriptionGuard>} />
         <Route path="livro/:id" element={<SubscriptionGuard><BookDetailPage /></SubscriptionGuard>} />
         <Route path="ler/:id" element={<SubscriptionGuard><BookReaderPage /></SubscriptionGuard>} />
         <Route path="autor/:id" element={<SubscriptionGuard><AuthorPage /></SubscriptionGuard>} />

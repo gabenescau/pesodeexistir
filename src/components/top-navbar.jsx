@@ -10,7 +10,7 @@ import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
 import { useNavGroups, adminGroup } from "@/components/app-shared";
 
-function NavDropdown({ label, to, active, subItems }) {
+function NavDropdown({ label, to, active, subItems, verTudo = true }) {
   const navigate = useNavigate();
   const ref = useRef(null);
   const [open, setOpen] = useState(false);
@@ -55,14 +55,18 @@ function NavDropdown({ label, to, active, subItems }) {
 
       {open && (
         <div className="absolute left-0 top-full z-50 mt-1 max-h-[70vh] min-w-52 overflow-y-auto rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-1.5 shadow-[0_18px_45px_rgba(0,0,0,.24)]">
-          <button
-            type="button"
-            onClick={() => go(to)}
-            className="flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-left text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--hover-overlay)]"
-          >
-            Ver tudo
-          </button>
-          <div className="my-1 h-px bg-[var(--border)]" />
+          {verTudo && (
+            <>
+              <button
+                type="button"
+                onClick={() => go(to)}
+                className="flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-left text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--hover-overlay)]"
+              >
+                Ver tudo
+              </button>
+              <div className="my-1 h-px bg-[var(--border)]" />
+            </>
+          )}
           {subItems.map((sub) => (
             <button
               key={`${sub.to}-${sub.title}`}
@@ -100,7 +104,7 @@ export function TopNavbar() {
   }
 
   function renderItem(item) {
-    if (item.title === "Biblioteca" || item.title === "Explorar") {
+    if (item.title === "Explorar") {
       const subItems = categorias.map((cat) => ({
         title: cat,
         to: `${item.path}?categoria=${encodeURIComponent(cat)}`,
@@ -125,6 +129,7 @@ export function TopNavbar() {
           to={item.path}
           active={isActive(item)}
           subItems={subItems}
+          verTudo={false}
         />
       );
     }
