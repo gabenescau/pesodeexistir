@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { SlidersHorizontal, X, Check } from "@/lib/icons";
 import { BookRow } from "../components/BookRow";
 import { useData } from "../data/DataContext";
@@ -31,11 +32,19 @@ function LibrarySkeleton() {
 
 export function LibraryPage() {
   const { books, authors, categories, bookFavorites, loading } = useData();
+  const [searchParams] = useSearchParams();
+  const urlCategoria = searchParams.get("categoria");
   const [query, setQuery] = useState("");
-  const [categoriaAtiva, setCategoriaAtiva] = useState("Todas");
+  const [categoriaAtiva, setCategoriaAtiva] = useState(urlCategoria || "Todas");
   const [autorAtivo, setAutorAtivo] = useState(null);
   const [abaAtiva, setAbaAtiva] = useState("todos"); // todos | favoritos | lendo
   const [filtroAberto, setFiltroAberto] = useState(false);
+
+  // Categoria vinda do menu superior (?categoria=...): mantem a filtragem
+  // sincronizada quando o usuario troca de categoria sem sair da pagina.
+  useEffect(() => {
+    setCategoriaAtiva(urlCategoria || "Todas");
+  }, [urlCategoria]);
 
   const searchItems = useMemo(
     () => buildSearchItems({ books, authors, categories }),

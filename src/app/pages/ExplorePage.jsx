@@ -1,13 +1,21 @@
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { Search, SlidersHorizontal, X, Check } from "@/lib/icons";
 import { useData } from "../data/DataContext";
 
 export function ExplorePage() {
   const { books, authors, categories } = useData();
+  const [searchParams] = useSearchParams();
+  const urlCategoria = searchParams.get("categoria");
   const [query, setQuery] = useState("");
   const [filtroAberto, setFiltroAberto] = useState(false);
-  const [categoriaAtiva, setCategoriaAtiva] = useState(null);
+  const [categoriaAtiva, setCategoriaAtiva] = useState(urlCategoria || null);
+
+  // Categoria vinda do menu superior (?categoria=...): mantem a filtragem
+  // sincronizada quando o usuario troca de categoria sem sair da pagina.
+  useEffect(() => {
+    setCategoriaAtiva(urlCategoria || null);
+  }, [urlCategoria]);
 
   // Categorias vindas do banco (admin) + categorias em uso nos livros que ainda
   // não viraram tabela (texto legado). Evita deixar uma categoria fora do filtro.
