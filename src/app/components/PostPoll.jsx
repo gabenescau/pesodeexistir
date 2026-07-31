@@ -58,13 +58,13 @@ export function PostPoll({ poll }) {
               onClick={() => vote(option.id)}
               className={`relative min-h-11 w-full overflow-hidden rounded-[8px] border px-3 text-left text-sm transition-colors ${
                 selected
-                  ? "border-[#c78359]/50 text-[var(--text-primary)]"
+                  ? "border-[var(--accent-mint)]/50 text-[var(--text-primary)]"
                   : "border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-strong)]"
               }`}
             >
               {voted && (
                 <span
-                  className={`absolute inset-y-0 left-0 ${selected ? "bg-[#c78359]/35" : "bg-[var(--border)]/35"}`}
+                  className={`absolute inset-y-0 left-0 ${selected ? "bg-[var(--accent-mint)]/35" : "bg-[var(--border)]/35"}`}
                   style={{ width: `${percent}%` }}
                 />
               )}

@@ -104,7 +104,7 @@ export function EmojiReactions({ targetType, targetId, reacoesIniciais = null })
           onClick={() => alternar(grupo.emoji)}
           className={`flex items-center gap-1 rounded-full border px-2 py-1 text-xs transition-colors ${
             grupo.minha
-              ? "border-[#c78359]/50 bg-[#c78359]/12 text-[#c78359]"
+              ? "border-[var(--accent-mint)]/50 bg-[var(--accent-mint)]/12 text-[var(--accent-mint)]"
               : "border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--hover-overlay)]"
           }`}
           aria-label={`Reagir com ${grupo.emoji}`}

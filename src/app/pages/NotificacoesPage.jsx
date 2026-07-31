@@ -59,7 +59,7 @@ export function NotificacoesPage() {
       items.push({
         id: `reacao-${reacao.id}`,
         icon: Heart,
-        accent: "#c78359",
+        accent: "var(--accent-mint)",
         quem: autor.name || "Leitor",
         acao: "curtiu seu post",
         alvo: (post.text || "").slice(0, 60) || "post",

@@ -1,43 +1,96 @@
 @import "@fontsource-variable/geist";
 @import "tailwindcss";
 
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: var(--border);
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-xs: var(--radius-xs);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-2xl: var(--radius-2xl);
+  --radius-3xl: var(--radius-3xl);
+}
+
 @layer base {
   :root {
-    --background: 0 0% 98%;
-    --foreground: 0 0% 9%;
+    --background: 240 11% 97%;
+    --foreground: 240 3% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 9%;
+    --card-foreground: 240 3% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96%;
-    --muted-foreground: 0 0% 45%;
-    --accent: 0 0% 96%;
-    --accent-foreground: 0 0% 9%;
+    --popover-foreground: 240 3% 12%;
+    --primary: 210 100% 40%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 25% 98%;
+    --secondary-foreground: 0 0% 20%;
+    --muted: 240 11% 97%;
+    --muted-foreground: 0 0% 48%;
+    --accent: 240 11% 97%;
+    --accent-foreground: 240 3% 12%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 95%;
     --input: 0 0% 88%;
-    --ring: 0 0% 9%;
-    --radius: 0.5rem;
+    --ring: 210 100% 45%;
+    --radius: 8px;
+    --radius-xs: 5px;
+    --radius-sm: 8px;
+    --radius-md: 11px;
+    --radius-lg: 18px;
+    --radius-xl: 18px;
+    --radius-2xl: 18px;
+    --radius-3xl: 18px;
 
-    --bg-canvas: #fafafa;
+    --bg-canvas: #f5f5f7;
     --bg-card: #ffffff;
-    --bg-card-hover: #f5f5f5;
+    --bg-card-hover: #fafafc;
     --bg-surface: #ffffff;
-    --border: #f2f2f2;
-    --border-strong: #e0e0e0;
-    --text-primary: #171717;
-    --text-secondary: #4d4d4d;
-    --text-muted: #888888;
-    --text-placeholder: #a1a1a1;
+    --bg-page: #f5f5f7;
+    --border: #e0e0e0;
+    --border-strong: #d2d2d7;
+    --text-primary: #1d1d1f;
+    --text-secondary: #333333;
+    --text-muted: #7a7a7a;
+    --text-placeholder: #7a7a7a;
     --hover-overlay: rgba(0,0,0,0.04);
-    --shadow-sm: 0px 1px 1px rgba(0,0,0,0.03), 0px 2px 2px rgba(0,0,0,0.04);
-    --shadow-md: 0px 1px 1px rgba(0,0,0,0.03), 0px 2px 2px rgba(0,0,0,0.04), 0px 8px 8px -8px rgba(0,0,0,0.06);
-    --shadow-lg: 0px 2px 2px rgba(0,0,0,0.04), 0px 8px 16px -4px rgba(0,0,0,0.06);
+    --accent-mint: #0066cc;
+    --sidebar: #ffffff;
+    --sidebar-foreground: #1d1d1f;
+    --sidebar-primary: #0066cc;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #f5f5f7;
+    --sidebar-accent-foreground: #1d1d1f;
+    --sidebar-border: #e0e0e0;
+    --sidebar-ring: #0071e3;
+    --shadow-sm: 0 0 0 1px rgba(0,0,0,0.04);
+    --shadow-md: 0 0 0 1px rgba(0,0,0,0.06), 0 2px 6px rgba(0,0,0,0.03);
+    --shadow-lg: 0 0 0 1px rgba(0,0,0,0.08), 0 8px 20px rgba(0,0,0,0.04);
     --shadow-inset: inset 0 0 0 1px rgba(0,0,0,0.06);
   }
 
@@ -48,8 +101,8 @@
     --card-foreground: 0 0% 98%;
     --popover: 0 0% 4%;
     --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
+    --primary: 210 100% 60%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 0 0% 12%;
     --secondary-foreground: 0 0% 98%;
     --muted: 0 0% 12%;
@@ -58,14 +111,14 @@
     --accent-foreground: 0 0% 98%;
     --destructive: 0 63% 31%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 8%;
     --input: 0 0% 12%;
-    --ring: 0 0% 83%;
+    --ring: 210 100% 60%;
 
     --bg-canvas: #050505;
     --bg-card: #0a0a0a;
     --bg-card-hover: #111;
     --bg-surface: #0a0a0a;
+    --bg-page: #050505;
     --border: #141414;
     --border-strong: #222;
     --text-primary: #ffffff;
@@ -73,6 +126,15 @@
     --text-muted: #555;
     --text-placeholder: #444;
     --hover-overlay: rgba(255,255,255,0.04);
+    --accent-mint: #c78359;
+    --sidebar: #0a0a0a;
+    --sidebar-foreground: #f5f5f7;
+    --sidebar-primary: #2997ff;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #1a1a1a;
+    --sidebar-accent-foreground: #f5f5f7;
+    --sidebar-border: #1f1f1f;
+    --sidebar-ring: #2997ff;
     --shadow-sm: 0px 1px 1px rgba(0,0,0,0.2), 0px 2px 2px rgba(0,0,0,0.3);
     --shadow-md: 0px 1px 1px rgba(0,0,0,0.2), 0px 2px 2px rgba(0,0,0,0.3), 0px 8px 8px -8px rgba(0,0,0,0.4);
     --shadow-lg: 0px 2px 2px rgba(0,0,0,0.3), 0px 8px 16px -4px rgba(0,0,0,0.4);
@@ -93,7 +155,7 @@
 
   body {
     margin: 0;
-    font-family: 'Geist Variable', Geist, Inter, system-ui, -apple-system, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, system-ui, "SF Pro Display", "SF Pro Text", Inter, "Geist Variable", sans-serif;
     background: hsl(var(--background));
     color: hsl(var(--foreground));
     -webkit-font-smoothing: antialiased;
@@ -101,6 +163,11 @@
     overflow-x: hidden;
     min-width: 320px;
     font-feature-settings: "ss01", "ss02";
+  }
+
+  h1, h2, h3, h4 {
+    font-weight: 600;
+    letter-spacing: -0.01em;
   }
 
   img, video, svg {
@@ -112,13 +179,13 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--text-primary);
+    outline: 2px solid #0071e3;
     outline-offset: 3px;
   }
 
   ::selection {
-    background: #171717;
-    color: #f2f2f2;
+    background: #1d1d1f;
+    color: #f5f5f7;
   }
 }
 

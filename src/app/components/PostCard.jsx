@@ -325,7 +325,7 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
           </button>
         </div>
         <div className="flex items-center gap-1 sm:gap-2">
-          <button type="button" onClick={() => toggleSavedPost(post.id).catch((err) => toast.error(err?.message || "Nao foi possivel salvar o post."))} className={`flex min-h-10 items-center gap-1.5 rounded-full px-2 text-xs transition-all sm:px-3 ${saved ? "bg-[#c78359]/10 text-[#c78359]" : "text-[var(--text-muted)] hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]"}`} aria-label={saved ? "Remover dos salvos" : "Salvar post"}>
+          <button type="button" onClick={() => toggleSavedPost(post.id).catch((err) => toast.error(err?.message || "Nao foi possivel salvar o post."))} className={`flex min-h-10 items-center gap-1.5 rounded-full px-2 text-xs transition-all sm:px-3 ${saved ? "bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]" : "text-[var(--text-muted)] hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]"}`} aria-label={saved ? "Remover dos salvos" : "Salvar post"}>
             <Bookmark className="size-[18px]" fill={saved ? "currentColor" : "none"} strokeWidth={1.5} />
             <span className="hidden sm:inline">{saved ? "Salvo" : "Salvar"}</span>
           </button>

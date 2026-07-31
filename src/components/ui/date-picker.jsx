@@ -94,7 +94,7 @@ export function Calendar({ selected, onSelect, month, onMonthChange, className }
               className={cn(
                 "flex size-8 items-center justify-center rounded-[8px] text-xs transition-colors",
                 isSelected
-                  ? "bg-[var(--accent-mint)] text-[#111] font-semibold"
+                  ? "bg-[var(--accent-mint)] text-white font-semibold"
                   : isToday
                     ? "border border-[var(--accent-mint)] text-[var(--text-primary)]"
                     : "text-[var(--text-primary)] hover:bg-[var(--hover-overlay)]"
