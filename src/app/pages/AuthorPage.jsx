@@ -1,43 +1,90 @@
-import { useMemo, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { BookOpen, ChevronLeft, Heart, MessageCircle, Send, X } from "@/lib/icons";
+import { memo, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, ArrowRight, BookOpen, MoreHorizontal, StarIcon, Users } from "@/lib/icons";
 import { useData } from "../data/DataContext";
-import { useAuth } from "../data/AuthContext";
-import { canUsePaidSocialFeatures } from "@/lib/entitlements";
-import { sanitizePlainText } from "@/lib/sanitize";
-import { PostCard } from "../components/PostCard";
-import { SubscribeModal } from "../components/SubscribeModal";
 
-function Avatar({ src, fallback, className = "size-11" }) {
-  const [broken, setBroken] = useState(false);
-  const isImage = !broken && (src?.startsWith?.("data:") || src?.startsWith?.("http") || src?.startsWith?.("/"));
+function hashCode(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+function formatStat(n) {
+  if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k+`;
+  if (n > 0) return `${n}+`;
+  return "0";
+}
+
+const AuthorBookCard = memo(function AuthorBookCard({ book, authorName }) {
   return (
-    <div className={`${className} shrink-0 overflow-hidden rounded-full border border-[var(--border)] bg-[var(--hover-overlay)] text-sm font-semibold text-[var(--text-primary)]`}>
-      {isImage ? <img src={src} alt="" className="h-full w-full object-cover" onError={() => setBroken(true)} /> : <div className="flex h-full w-full items-center justify-center">{fallback}</div>}
+    <Link to={`/app/livro/${book.id}`} className="w-[140px] shrink-0">
+      <div className="aspect-[2/3] overflow-hidden rounded-[10px] border border-[var(--border)] bg-[var(--bg-card)]">
+        <img src={book.image} alt="" loading="lazy" className="h-full w-full object-cover" />
+      </div>
+      <h3 className="mt-2 truncate text-xs font-semibold text-[var(--text-primary)]">{book.title}</h3>
+      <p className="truncate text-[10px] text-[var(--text-muted)]">por {authorName}</p>
+      <div className="mt-1 flex items-center gap-2 text-[10px]">
+        <span className="flex items-center gap-0.5 font-medium text-[var(--text-secondary)]">
+          <StarIcon className="size-3 text-amber-500" weight="fill" />
+          {book.nota.toFixed(1)}
+        </span>
+        <span className="flex items-center gap-0.5 text-[var(--text-muted)]">
+          <BookOpen className="size-3" />
+          Ebook
+        </span>
+      </div>
+    </Link>
+  );
+});
+
+function SectionHeader({ title, onSeeAll }) {
+  return (
+    <div className="mb-3 flex items-center justify-between">
+      <h2 className="text-base font-semibold text-[var(--text-primary)]">{title}</h2>
+      {onSeeAll ? (
+        <button
+          type="button"
+          onClick={onSeeAll}
+          aria-label="Ver tudo"
+          className="flex size-7 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]"
+        >
+          <ArrowRight className="size-4" />
+        </button>
+      ) : null}
     </div>
   );
 }
 
+const TABS = [
+  { key: "bookshelf", label: "ESTANTE" },
+  { key: "updates", label: "ATUALIZACOES" },
+  { key: "biography", label: "BIOGRAFIA" },
+];
+
 export function AuthorPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, profile, isAdmin } = useAuth();
-  const { getAuthorById, getBooksByAuthor, posts, toggleFavoriteAuthor, isFavoriteAuthor, addPost, deletePost, subscription } = useData();
+  const {
+    getAuthorById,
+    getBooksByAuthor,
+    posts,
+    books,
+    bookFavorites,
+    toggleFavoriteAuthor,
+    isFavoriteAuthor,
+  } = useData();
   const author = getAuthorById(id);
   const authorBooks = getBooksByAuthor(id);
   const isFav = author ? isFavoriteAuthor(author.id) : false;
+  const [abaAtiva, setAbaAtiva] = useState("bookshelf");
 
-  const [texto, setTexto] = useState("");
-  const [livroId, setLivroId] = useState(null);
-  const [publicando, setPublicando] = useState(false);
-  const [erro, setErro] = useState("");
-  const [subscribeOpen, setSubscribeOpen] = useState(false);
-
-  const canPublish = canUsePaidSocialFeatures({ isAdmin, subscription });
-  const nome = profile?.name || user?.user_metadata?.name || "Você";
-  const avatar = profile?.avatar || user?.user_metadata?.avatar_url;
-  const inicial = nome.charAt(0).toUpperCase();
-  const livroSelecionado = livroId || authorBooks[0]?.id || null;
+  const livrosComMeta = useMemo(() => authorBooks.map((book) => {
+    const h = hashCode(book.id || book.title || "");
+    return {
+      ...book,
+      nota: 3.8 + (h % 13) / 10,
+    };
+  }), [authorBooks]);
 
   const authorBookIds = useMemo(() => new Set(authorBooks.map((b) => b.id)), [authorBooks]);
   const authorPosts = useMemo(
@@ -45,37 +92,38 @@ export function AuthorPage() {
     [posts, authorBookIds]
   );
 
-  async function publicar() {
-    if (!canPublish) {
-      setSubscribeOpen(true);
-      return;
-    }
-    const clean = sanitizePlainText(texto, 5000);
-    if (!clean || publicando) return;
-    setPublicando(true);
-    setErro("");
-    try {
-      await addPost({
-        userId: user?.id,
-        text: clean,
-        tag: null,
-        bookId: livroSelecionado,
-        author: nome,
-        avatar: avatar || inicial,
+  // Related books: same category as the author's first book, excluding author's own books.
+  const relatedBooks = useMemo(() => {
+    const categoria = authorBooks[0]?.category;
+    if (!categoria) return [];
+    return books
+      .filter((b) => b.category === categoria && !authorBookIds.has(b.id))
+      .slice(0, 8)
+      .map((book) => {
+        const h = hashCode(book.id || book.title || "");
+        return { ...book, nota: 3.8 + (h % 13) / 10 };
       });
-      setTexto("");
-    } catch (err) {
-      setErro(err?.message || "Não foi possível publicar a discussão.");
-    } finally {
-      setPublicando(false);
-    }
-  }
+  }, [books, authorBooks, authorBookIds]);
+
+  const stats = useMemo(() => ({
+    livros: authorBooks.length,
+    // Reviews: posts about this author's books (each post is a discussion/review).
+    reviews: authorPosts.length,
+    // Seguidores: how many of this author's books users have favorited (proxy).
+    seguidores: authorBooks.reduce(
+      (total, book) => total + (bookFavorites.includes(book.id) ? 1 : 0),
+      0
+    ),
+  }), [authorBooks, authorPosts, bookFavorites]);
 
   if (!author) {
     return (
       <div className="py-16 text-center">
         <p className="text-[var(--text-muted)]">Autor nao encontrado.</p>
-        <button onClick={() => navigate("/app/explorar")} className="mt-4 text-sm text-[var(--text-primary)] hover:underline">
+        <button
+          onClick={() => navigate("/app/explorar")}
+          className="mt-4 text-sm text-[var(--text-primary)] hover:underline"
+        >
           Voltar para explorar
         </button>
       </div>
@@ -83,167 +131,160 @@ export function AuthorPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       <div className="flex items-center justify-between">
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-1 text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
+          aria-label="Voltar"
+          className="flex size-9 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]"
         >
-          <ChevronLeft className="size-4" /> Voltar
+          <ArrowLeft className="size-5" />
         </button>
+        <h1 className="text-base font-semibold text-[var(--text-primary)]">Detalhes do autor</h1>
         <button
-          onClick={async () => { await toggleFavoriteAuthor(author.id); }}
-          className={`flex h-9 w-9 items-center justify-center rounded-full border transition-colors ${
-            isFav ? "border-[var(--text-primary)] bg-[var(--text-primary)]/10" : "border-[var(--border)] hover:bg-[var(--hover-overlay)]"
-          }`}
-          aria-label={isFav ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+          aria-label="Mais opcoes"
+          className="flex size-9 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]"
         >
-          <Heart className={`size-4 ${isFav ? "text-[var(--text-primary)] fill-[var(--text-primary)]" : "text-[var(--text-muted)]"}`} />
+          <MoreHorizontal className="size-5" />
         </button>
       </div>
 
-      <div className="flex flex-col gap-6 sm:flex-row">
-        <div className="mx-auto w-full max-w-48 shrink-0 sm:mx-0 sm:w-48">
-          <div className="aspect-[3/4] overflow-hidden rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)]">
-            <img src={author.image} alt={author.name} className="h-full w-full object-cover opacity-90" />
-          </div>
+      <section className="flex items-center gap-4">
+        <div className="size-20 shrink-0 overflow-hidden rounded-full border border-[var(--border)] bg-[var(--hover-overlay)]">
+          {author.image ? (
+            <img src={author.image} alt={author.name} className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-xl font-bold text-[var(--text-muted)]">
+              {author.name?.charAt(0)}
+            </div>
+          )}
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">{author.name}</h1>
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">{author.theme}</p>
-          {author.era && (
-            <span className="mt-2 inline-block rounded-full border border-[var(--border)] bg-[var(--hover-overlay)] px-3 py-1 text-xs text-[var(--text-muted)]">
-              {author.era}
-            </span>
-          )}
-          {author.bio && (
-            <p className="mt-4 max-w-xl text-sm leading-relaxed text-[var(--text-muted)]">
+          <h2 className="truncate text-lg font-bold text-[var(--text-primary)]">{author.name}</h2>
+          <p className="mt-0.5 truncate text-xs text-[var(--text-muted)]">
+            {author.era || "Brasil"}
+          </p>
+          <button
+            type="button"
+            onClick={() => toggleFavoriteAuthor(author.id)}
+            className={`mt-2 inline-flex h-8 items-center justify-center rounded-full px-4 text-xs font-semibold transition-colors ${
+              isFav
+                ? "border border-emerald-500 text-emerald-600 hover:bg-emerald-500/10"
+                : "bg-emerald-500 text-white hover:bg-emerald-600"
+            }`}
+          >
+            {isFav ? "SEGUINDO" : "SEGUIR"}
+          </button>
+        </div>
+      </section>
+
+      <section className="grid grid-cols-3 gap-2">
+        <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-3 text-center">
+          <BookOpen className="mx-auto size-4 text-[var(--text-muted)]" />
+          <p className="mt-1 text-base font-semibold text-[var(--text-primary)]">{formatStat(stats.livros)}</p>
+          <p className="text-[10px] text-[var(--text-muted)]">Livros</p>
+        </div>
+        <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-3 text-center">
+          <StarIcon className="mx-auto size-4 text-amber-500" weight="fill" />
+          <p className="mt-1 text-base font-semibold text-[var(--text-primary)]">{formatStat(stats.reviews)}</p>
+          <p className="text-[10px] text-[var(--text-muted)]">Avaliacoes</p>
+        </div>
+        <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-3 text-center">
+          <Users className="mx-auto size-4 text-[var(--text-muted)]" />
+          <p className="mt-1 text-base font-semibold text-[var(--text-primary)]">{formatStat(stats.seguidores)}</p>
+          <p className="text-[10px] text-[var(--text-muted)]">Seguidores</p>
+        </div>
+      </section>
+
+      <div className="border-b border-[var(--border)]">
+        <div className="-mx-4 flex gap-6 overflow-x-auto px-4 sm:mx-0 sm:px-0" style={{ scrollbarWidth: "none" }}>
+          {TABS.map((tab) => {
+            const active = abaAtiva === tab.key;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setAbaAtiva(tab.key)}
+                className={`relative shrink-0 pb-3 text-xs font-semibold tracking-wide transition-colors ${
+                  active
+                    ? "text-[var(--text-primary)]"
+                    : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+                }`}
+              >
+                {tab.label}
+                {active ? (
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-[var(--text-primary)]" />
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {abaAtiva === "bookshelf" ? (
+        <div className="space-y-6">
+          <section>
+            <SectionHeader title="Livros em destaque" />
+            {livrosComMeta.length > 0 ? (
+              <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0" style={{ scrollbarWidth: "none" }}>
+                {livrosComMeta.map((book) => (
+                  <AuthorBookCard key={book.id} book={book} authorName={author.name} />
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--text-muted)]">Nenhum livro cadastrado para este autor.</p>
+            )}
+          </section>
+
+          {relatedBooks.length > 0 ? (
+            <section>
+              <SectionHeader title="Voce pode gostar" />
+              <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0" style={{ scrollbarWidth: "none" }}>
+                {relatedBooks.map((book) => (
+                  <AuthorBookCard
+                    key={book.id}
+                    book={book}
+                    authorName={book.authorName || book.author || ""}
+                  />
+                ))}
+              </div>
+            </section>
+          ) : null}
+        </div>
+      ) : abaAtiva === "updates" ? (
+        authorPosts.length > 0 ? (
+          <section className="space-y-3">
+            {authorPosts.slice(0, 10).map((post) => (
+              <div key={post.id} className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
+                <p className="text-sm leading-relaxed text-[var(--text-primary)]">{post.text}</p>
+                {post.book?.title ? (
+                  <p className="mt-2 text-[11px] text-[var(--text-muted)]">Sobre: {post.book.title}</p>
+                ) : null}
+              </div>
+            ))}
+          </section>
+        ) : (
+          <p className="py-10 text-center text-sm text-[var(--text-muted)]">
+            Nenhuma atualizacao sobre obras deste autor.
+          </p>
+        )
+      ) : (
+        <section className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-5">
+          {author.bio ? (
+            <p className="whitespace-pre-line text-sm leading-relaxed text-[var(--text-secondary)]">
               {author.bio}
             </p>
+          ) : (
+            <p className="text-sm text-[var(--text-muted)]">Biografia indisponivel.</p>
           )}
-        </div>
-      </div>
-
-      <div>
-        <div className="mb-4 flex items-center gap-2">
-          <BookOpen className="size-4 text-[var(--text-muted)]" />
-          <h3 className="text-sm font-semibold text-[var(--text-primary)]">Obras disponiveis ({authorBooks.length})</h3>
-        </div>
-        {authorBooks.length > 0 ? (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-            {authorBooks.map((book) => (
-              <button
-                key={book.id}
-                onClick={() => navigate(`/app/livro/${book.id}`)}
-                className="text-left"
-              >
-                <div className="relative aspect-[2/3] overflow-hidden rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)]">
-                  <img
-                    src={book.image}
-                    alt={book.title}
-                    className="h-full w-full object-cover"
-                  />
-                  {book.category && (
-                    <span className="absolute left-2 top-2 rounded-full border border-[var(--border)] bg-[var(--bg-card)]/90 px-2 py-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
-                      {book.category}
-                    </span>
-                  )}
-                </div>
-                <h3 className="mt-2 truncate text-xs font-medium text-[var(--text-primary)]">{book.title}</h3>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <p className="text-xs text-[var(--text-muted)]">Nenhum livro cadastrado para este autor.</p>
-        )}
-      </div>
-
-      <div>
-        <div className="mb-4 flex items-center gap-2">
-          <MessageCircle className="size-4 text-[var(--text-muted)]" />
-          <h3 className="text-sm font-semibold text-[var(--text-primary)]">Discussoes recentes</h3>
-        </div>
-
-        {authorBooks.length > 0 && (
-          <div className="mb-4 rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
-            <div className="flex items-start gap-3">
-              <Avatar src={avatar} fallback={inicial} />
-              <textarea
-                value={texto}
-                onChange={(event) => setTexto(event.target.value.slice(0, 5000))}
-                rows={2}
-                placeholder={`Discuta as obras de ${author.name}...`}
-                className="min-h-20 min-w-0 flex-1 resize-none rounded-[10px] border border-[var(--border)] bg-[var(--bg-canvas)] px-3 py-2.5 text-sm leading-relaxed text-[var(--text-primary)] outline-none placeholder:text-[var(--text-placeholder)] focus:border-[var(--border-strong)]"
-              />
-            </div>
-
-            {authorBooks.length > 1 && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {authorBooks.slice(0, 6).map((book) => {
-                  const ativo = book.id === livroSelecionado;
-                  return (
-                    <button
-                      key={book.id}
-                      type="button"
-                      onClick={() => setLivroId(ativo ? null : book.id)}
-                      className={`inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors ${
-                        ativo
-                          ? "border-[var(--text-primary)] bg-[var(--text-primary)]/10 font-medium text-[var(--text-primary)]"
-                          : "border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:text-[var(--text-secondary)]"
-                      }`}
-                    >
-                      <span className="truncate">{book.title}</span>
-                      {ativo && <X className="size-3.5 shrink-0" />}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-[11px] text-[var(--text-muted)]">
-                Publicado na comunidade vinculado à obra selecionada.
-              </p>
-              <button
-                type="button"
-                onClick={publicar}
-                disabled={publicando || !texto.trim()}
-                className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[var(--text-primary)] px-4 text-sm font-medium text-[var(--bg-card)] transition-opacity hover:opacity-90 disabled:opacity-40"
-              >
-                <Send className="size-4" />
-                {publicando ? "Publicando..." : "Publicar"}
-              </button>
-            </div>
-            {erro && <p className="mt-2 text-xs text-red-400">{erro}</p>}
-          </div>
-        )}
-
-        {authorPosts.length > 0 ? (
-          <div className="space-y-3">
-            {authorPosts.slice(0, 20).map((post) => (
-              <PostCard key={post.id} post={post} onDelete={deletePost} />
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-[var(--text-muted)]">
-            Ainda nao ha discussoes sobre obras deste autor. Publique a primeira acima.
-          </p>
-        )}
-      </div>
-
-      <SubscribeModal
-        open={subscribeOpen}
-        onClose={() => setSubscribeOpen(false)}
-        title="Membros pagantes"
-        description="Postar na comunidade é um recurso exclusivo de quem assina o OPE Club. Você pode continuar lendo e curtindo tudo de graça."
-        benefits={[
-          "Publicar posts na comunidade",
-          "Comentar e responder conversas",
-          "Participar dos clubes de leitura",
-          "Acessar a biblioteca completa",
-          "Receber lancamentos semanais",
-        ]}
-      />
+          {author.theme ? (
+            <p className="mt-4 text-xs text-[var(--text-muted)]">Tema: {author.theme}</p>
+          ) : null}
+          {author.era ? (
+            <p className="mt-1 text-xs text-[var(--text-muted)]">Epoca: {author.era}</p>
+          ) : null}
+        </section>
+      )}
     </div>
   );
 }
