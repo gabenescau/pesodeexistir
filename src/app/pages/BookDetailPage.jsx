@@ -206,7 +206,7 @@ export function BookDetailPage() {
           <p className="text-sm font-semibold text-[var(--text-primary)]">
             {notaMedia > 0 ? notaMedia.toFixed(1) : "—"}
           </p>
-          <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">Rating</p>
+          <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">Avaliacao</p>
         </div>
         <div className="flex flex-col items-center gap-1 rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] py-3">
           <GlobeIcon className="size-4 text-[var(--text-muted)]" />
@@ -276,7 +276,7 @@ export function BookDetailPage() {
         <div className="space-y-6">
           {/* Overview */}
           <section>
-            <h2 className="text-base font-semibold text-[var(--text-primary)]">Overview</h2>
+            <h2 className="text-base font-semibold text-[var(--text-primary)]">Visao geral</h2>
             {book.bio ? (
               <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-[var(--text-secondary)]">
                 {book.bio}

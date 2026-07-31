@@ -146,7 +146,7 @@ function FeaturedBook({ book }) {
             {book.bio || "Descubra uma nova leitura selecionada pela nossa equipe."}
           </p>
           <span className="mt-3 inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600 sm:text-xs">
-            Read More <ArrowRight className="size-3" weight="bold" />
+            Ler mais <ArrowRight className="size-3" weight="bold" />
           </span>
         </div>
       </div>
@@ -209,7 +209,7 @@ export function LibraryPage() {
         <section>
           <div className="mb-3 flex items-center gap-2">
             <Sparkles className="size-4 text-amber-500" weight="fill" />
-            <h2 className="text-sm font-semibold text-[var(--text-primary)] sm:text-base">Popular</h2>
+            <h2 className="text-sm font-semibold text-[var(--text-primary)] sm:text-base">Populares</h2>
           </div>
           <div className="flex flex-col gap-3 md:flex-row md:items-stretch md:gap-4">
             <FeaturedBook book={destaque} />
@@ -250,7 +250,7 @@ export function LibraryPage() {
 
       {continueReading.length > 0 ? (
         <section>
-          <h2 className="mb-3 text-base font-semibold text-[var(--text-primary)] sm:text-lg">Continue Reading</h2>
+          <h2 className="mb-3 text-base font-semibold text-[var(--text-primary)] sm:text-lg">Continuar lendo</h2>
           <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0" style={{ scrollbarWidth: "none" }}>
             {continueReading.map((book) => (
               <ContinueCard key={book.id} book={book} />

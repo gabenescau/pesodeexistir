@@ -7,12 +7,12 @@ import { XIcon } from "@/lib/icons";
 
 const latestChange = {
     badge: "CHANGELOG",
-    title: "Product update",
+    title: "Atualizacao do produto",
 
     // TIP: Use a single line of text for the description. (max 5 words)
-    description: "Performance boosts and UI polish.",
+    description: "Melhorias de desempenho e interface.",
 
-    readMore: { href: "#", label: "Learn more" }
+    readMore: { href: "#", label: "Saiba mais" }
 };
 
 export function LatestChange() {
