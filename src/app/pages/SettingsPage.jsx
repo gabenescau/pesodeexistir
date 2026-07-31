@@ -23,7 +23,7 @@ import { supabase, isSupabaseReady } from "@/app/data/supabase";
 import { validateStrongPassword } from "@/lib/sanitize";
 import { isActiveSubscription } from "@/lib/subscription";
 import { PLANS } from "@/lib/abacatepay";
-import { PlanBenefitItem } from "@/components/plan-benefit";
+import { PlanBenefitList } from "@/components/plan-benefit";
 import { ProfilePage } from "./ProfilePage";
 
 function currentPlanBenefits(subscription) {
@@ -155,9 +155,7 @@ export function SettingsPage() {
   }, [profile]);
 
   const active = isActiveSubscription(subscription);
-  const statusInfo = isAdmin && !subscription
-    ? { text: "Admin", color: "#c78359" }
-    : statusLabels[subscription?.status] || { text: "Desconhecido", color: "var(--text-muted)" };
+  const statusInfo = statusLabels[subscription?.status] || { text: "Desconhecido", color: "var(--text-muted)" };
   const activeTab = searchParams.get("aba") === "perfil" ? "perfil" : "geral";
 
   function changeTab(tab) {
@@ -285,7 +283,7 @@ export function SettingsPage() {
               <span className="mt-1 block text-[12px] font-[400] uppercase tracking-[0.6px] text-[var(--text-muted)]">
                 {active
                   ? currentPlanPriceLabel(subscription)
-                  : isAdmin ? "Acesso administrativo" : "Sem assinatura ativa"}
+                  : "Sem assinatura ativa"}
               </span>
               {subscription?.current_period_end && (
                 <span className="mt-1 block text-xs text-[var(--text-muted)]">
@@ -294,7 +292,7 @@ export function SettingsPage() {
               )}
             </div>
 
-            {(subscription || isAdmin) && (
+            {subscription && (
               <span
                 className="rounded-[6px] px-3 py-1 text-[12px] font-[400] uppercase tracking-[0.6px]"
                 style={{ color: statusInfo.color, background: `${statusInfo.color}15` }}
@@ -316,15 +314,12 @@ export function SettingsPage() {
 
           {(active || isAdmin) && (
             <ul className="mb-5 space-y-2.5">
-              {currentPlanBenefits(subscription).map((benefit) => (
-                <PlanBenefitItem
-                  key={benefit.text}
-                  benefit={benefit}
-                  iconClassName="size-4 shrink-0 text-[var(--accent-mint)]"
-                  className="flex items-center gap-3 text-sm text-[var(--text-secondary)]"
-                  showCheck
-                />
-              ))}
+              <PlanBenefitList
+                benefits={currentPlanBenefits(subscription)}
+                separator={subscription?.plan === "ope_club_annual"}
+                itemClassName="flex items-center gap-3 text-sm text-[var(--text-secondary)]"
+                iconClassName="size-4 shrink-0 text-[var(--accent-mint)]"
+              />
             </ul>
           )}
 

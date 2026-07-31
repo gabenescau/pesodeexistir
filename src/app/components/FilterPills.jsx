@@ -1,5 +1,5 @@
 const filters = [
-  "Todos", "Discussões", "Livros", "Autores",
+  "Discussões", "Livros", "Autores",
   "Filosofia", "Literatura", "Psicologia",
   "Existencialismo", "Estoicismo", "Perguntas", "Recomendações",
 ];

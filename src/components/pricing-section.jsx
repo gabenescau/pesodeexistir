@@ -1,9 +1,8 @@
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { CheckCircleIcon } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { PLANS } from "@/lib/abacatepay";
-import { PlanBenefitItem } from "@/components/plan-benefit";
+import { PlanBenefitList } from "@/components/plan-benefit";
 
 export function PricingSection() {
   return (
@@ -63,29 +62,34 @@ function PricingCard({ plan: p, featured, className, ...props }) {
         <h3 className="mt-6 mb-1 flex w-max items-end gap-1">
           <span className="text-[24px] font-[600] leading-[32px] tracking-[-0.96px] text-foreground">R$</span>
           <span className="font-[600] text-[48px] leading-[48px] tracking-[-2.4px] text-foreground">
-            {p.price === 2400 ? "24" : "168"}
+            {isAnnual ? p.monthlyEquivalent : (p.price / 100)}
           </span>
+          <span className="text-[16px] font-[500] text-muted-foreground mb-1.5 ml-1">/mês</span>
         </h3>
         <p className="mb-2 font-[400] text-muted-foreground text-[12px] leading-[16px]">
-          {p.period} &middot; Cancele quando quiser
+          {isAnnual ? (
+            <>
+              <span className="line-through">R$ {(p.monthlyEquivalent * 2).toFixed(2).replace(".", ",")}/mês</span>
+              <span className="ml-1.5">cobrados uma vez por ano ({p.priceFormatted})</span>
+            </>
+          ) : (
+            `${p.period} · Cancele quando quiser`
+          )}
         </p>
         {isAnnual && (
           <p className="text-[13px] font-[500] text-primary">
-            Apenas R$ {p.monthlyEquivalent}/mês — economize 40%!
+            Economize 40% no plano anual!
           </p>
         )}
       </div>
 
       <div className="space-y-3 px-8 pt-6 pb-8 text-muted-foreground text-[14px] font-[400] leading-[20px] tracking-[-0.28px]">
-        {p.benefits.map((benefit) => (
-          <PlanBenefitItem
-            key={benefit.text}
-            benefit={benefit}
-            iconClassName="size-4 text-primary shrink-0"
-            className="flex items-center gap-2"
-            showCheck
-          />
-        ))}
+        <PlanBenefitList
+          benefits={p.benefits}
+          separator={isAnnual}
+          itemClassName="flex items-center gap-2"
+          iconClassName="size-4 text-primary shrink-0"
+        />
       </div>
 
       <div className="mt-auto w-full border-t border-border p-4">

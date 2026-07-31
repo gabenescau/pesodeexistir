@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Bookmark, Heart, MessageCircle, MoreHorizontal, Send, Share2, Trash2 } from "@/lib/icons";
+import { Bookmark, Heart, MoreHorizontal, Send, Share2, Trash2 } from "@/lib/icons";
 import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
 import { isSupabaseReady, supabase } from "@/app/data/supabase";
@@ -14,6 +14,7 @@ import { SubscribeModal } from "./SubscribeModal";
 import { UserTitlePill } from "./UserTitlePill";
 import { VerifiedBadge } from "./VerifiedBadge";
 import { sanitizePlainText } from "@/lib/sanitize";
+import { toast } from "@/lib/toast";
 
 function Avatar({ src, fallback, className = "size-11" }) {
   const [broken, setBroken] = useState(false);
@@ -31,19 +32,24 @@ function ImageGallery({ images }) {
   if (images.length === 1) {
     return (
       <div className="overflow-hidden rounded-[10px] border border-[var(--border)] bg-[var(--hover-overlay)]">
-        <img src={images[0]} alt="" loading="lazy" className="mx-auto block max-h-[70vh] w-auto max-w-full object-contain sm:max-h-[600px]" />
+        <img
+          src={images[0]}
+          alt=""
+          loading="lazy"
+          className="block h-auto w-full"
+        />
       </div>
     );
   }
   return (
-    <div className="relative flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1">
+    <div className="relative flex snap-x snap-mandatory flex-col gap-3 pb-1">
       {images.map((src, index) => (
         <img
           key={`${src}-${index}`}
           src={src}
           alt=""
           loading="lazy"
-          className="h-auto max-h-[70vh] w-auto max-w-full shrink-0 snap-center rounded-[10px] border border-[var(--border)] object-contain sm:max-h-[600px]"
+          className="block h-auto w-full rounded-[10px] border border-[var(--border)]"
         />
       ))}
     </div>
@@ -146,9 +152,10 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
         const { error } = await supabase.from("post_likes").delete().eq("user_id", user.id).eq("post_id", post.id);
         if (error) throw error;
       }
-    } catch {
+    } catch (err) {
       setLiked(!nextLiked);
       setLikes((count) => Math.max(0, count + (nextLiked ? -1 : 1)));
+      toast.error(err?.message || "Nao foi possivel registrar sua curtida.");
     } finally {
       setBusy(false);
     }
@@ -172,12 +179,14 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
     }).select().single();
     if (error) {
       setComment(text);
+      toast.error(error.message || "Nao foi possivel enviar o comentario.");
       return;
     }
     setComments((current) => [...current, data]);
     setCommentsLoaded(true);
     setShowComment(true);
     setReplyingTo(null);
+    toast.success("Comentario publicado.");
   }
 
   async function deleteComment(id) {
@@ -194,8 +203,11 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
     try {
       await onDelete(post.id);
       setMenuOpen(false);
+      toast.success("Post removido.");
     } catch (err) {
-      setDeleteError(err?.message || "Nao foi possivel apagar este post.");
+      const message = err?.message || "Nao foi possivel apagar este post.";
+      setDeleteError(message);
+      toast.error(message);
     } finally {
       setBusy(false);
     }
@@ -204,10 +216,17 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
   async function sharePost() {
     const url = `${window.location.origin}${postUrl}`;
     try {
-      if (navigator.share) await navigator.share({ title: "OPE Club", text: post.text, url });
-      else await navigator.clipboard.writeText(url);
-    } catch {
-      // Compartilhamento cancelado pelo usuario.
+      if (navigator.share) {
+        await navigator.share({ title: "OPE Club", text: post.text, url });
+        toast.success("Compartilhamento aberto.");
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast.success("Link copiado para a area de transferencia.");
+      }
+    } catch (err) {
+      if (err?.name !== "AbortError") {
+        toast.error("Nao foi possivel compartilhar o post.");
+      }
     }
   }
 
@@ -284,12 +303,12 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
             <span>{likes}</span>
           </button>
           <button type="button" onClick={() => canComment ? setShowComment((value) => !value) : setSubscribeOpen(true)} className="flex min-h-10 items-center gap-1.5 rounded-full px-2 text-xs text-[var(--text-muted)] hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)] sm:px-3">
-            <MessageCircle className="size-[18px]" strokeWidth={1.5} />
+            <Heart className="size-[18px]" strokeWidth={1.5} />
             <span>{replyCount}</span>
           </button>
         </div>
         <div className="flex items-center gap-1 sm:gap-2">
-          <button type="button" onClick={() => toggleSavedPost(post.id).catch(() => {})} className={`flex min-h-10 items-center gap-1.5 rounded-full px-2 text-xs transition-all sm:px-3 ${saved ? "bg-[#c78359]/10 text-[#c78359]" : "text-[var(--text-muted)] hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]"}`} aria-label={saved ? "Remover dos salvos" : "Salvar post"}>
+          <button type="button" onClick={() => toggleSavedPost(post.id).catch((err) => toast.error(err?.message || "Nao foi possivel salvar o post."))} className={`flex min-h-10 items-center gap-1.5 rounded-full px-2 text-xs transition-all sm:px-3 ${saved ? "bg-[#c78359]/10 text-[#c78359]" : "text-[var(--text-muted)] hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]"}`} aria-label={saved ? "Remover dos salvos" : "Salvar post"}>
             <Bookmark className="size-[18px]" fill={saved ? "currentColor" : "none"} strokeWidth={1.5} />
             <span className="hidden sm:inline">{saved ? "Salvo" : "Salvar"}</span>
           </button>

@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRightIcon } from "@/lib/icons";
 import { PLANS } from "@/lib/abacatepay";
-import { PlanBenefitItem } from "@/components/plan-benefit";
+import { PlanBenefitList } from "@/components/plan-benefit";
 
 export function PricingMonthly() {
   const monthly = PLANS.monthly;
@@ -36,15 +36,11 @@ export function PricingMonthly() {
               </div>
 
               <ul className="space-y-3 mb-8 text-left">
-                {monthly.benefits.map((benefit) => (
-                  <PlanBenefitItem
-                    key={benefit.text}
-                    benefit={benefit}
-                    iconClassName="size-4 text-primary mt-0.5 shrink-0"
-                    className="flex items-start gap-3 text-sm"
-                    showCheck
-                  />
-                ))}
+                <PlanBenefitList
+                  benefits={monthly.benefits}
+                  itemClassName="flex items-start gap-3 text-sm"
+                  iconClassName="size-4 text-primary mt-0.5 shrink-0"
+                />
               </ul>
 
               <Button className="w-full h-12 rounded-full text-sm font-medium" render={<Link to="/entrar" />} nativeButton={false}>

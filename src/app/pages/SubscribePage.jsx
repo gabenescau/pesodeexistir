@@ -6,7 +6,8 @@ import { getCurrentSubscription, isActiveSubscription } from "@/lib/subscription
 import { createCheckout, PLANS } from "@/lib/abacatepay";
 import { useEffect } from "react";
 import { CreditCard, Loader2, QrCode } from "@/lib/icons";
-import { PlanBenefitItem } from "@/components/plan-benefit";
+import { PlanBenefitList } from "@/components/plan-benefit";
+import { toast } from "@/lib/toast";
 
 export function SubscribePage() {
   const { user, isAdmin } = useAuth();
@@ -61,6 +62,7 @@ export function SubscribePage() {
         const updated = await changeSubscriptionPlan(visibleSubscription.id, plan);
         setCurrentSubscription(updated);
         setCreating(null);
+        toast.success("Plano atualizado. A alteracao sera aplicada no proximo ciclo.");
         return;
       }
 
@@ -72,6 +74,7 @@ export function SubscribePage() {
       window.location.assign(data.url);
     } catch (e) {
       setError(e.message);
+      toast.error(e.message);
       setCreating(null);
     }
   }
@@ -83,8 +86,11 @@ export function SubscribePage() {
     try {
       const updated = await cancelSubscription(visibleSubscription.id);
       setCurrentSubscription(updated || { ...visibleSubscription, status: "canceled" });
+      toast.success("Assinatura cancelada. O acesso continua ate o fim do ciclo.");
     } catch (e) {
-      setCancelError(e?.message || "Nao foi possivel cancelar a assinatura.");
+      const message = e?.message || "Nao foi possivel cancelar a assinatura.";
+      setCancelError(message);
+      toast.error(message);
     } finally {
       setCancelling(false);
     }
@@ -108,16 +114,14 @@ export function SubscribePage() {
           <p className="text-[16px] mt-2" style={{ color: "var(--text-muted)" }}>
             Assine o OPE Club e tenha acesso completo à biblioteca e comunidade
           </p>
-          {hasActivePlan && (
+          {hasActivePlan && !isAdmin && (
             <p className="mx-auto mt-4 max-w-xl rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-sm" style={{ color: "var(--text-secondary)" }}>
-              {isAdmin
-                ? "Sua conta tem acesso administrativo. Os planos continuam visiveis para revisao."
-                : "Voce ja tem um plano ativo. Esta tela fica disponivel para consultar ou renovar seu acesso."}
+              "Voce ja tem um plano ativo. Esta tela fica disponivel para consultar ou renovar seu acesso."
             </p>
           )}
         </div>
 
-        {(hasActivePlan || visibleSubscription) && (
+        {!isAdmin && (hasActivePlan || visibleSubscription) && (
           <div className="mx-auto max-w-2xl rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-[var(--shadow-sm)]">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -250,23 +254,31 @@ export function SubscribePage() {
 
                 <div className="mt-4 flex items-baseline gap-1">
                   <span className="text-[36px] font-[700] tracking-[-1.44px] text-[var(--text-primary)]">
-                    {plan.priceFormatted}
+                    {isAnnual ? `R$ ${plan.monthlyEquivalent}` : plan.priceFormatted}
                   </span>
                   <span className="text-[14px]" style={{ color: "var(--text-muted)" }}>
-                    {plan.period}
+                    /mês
                   </span>
                 </div>
 
-                {isAnnual && (
-                  <p className="text-[13px] mt-1 font-[500]" style={{ color: "var(--accent-mint)" }}>
-                    Apenas R$ {plan.monthlyEquivalent}/mês
+                {isAnnual ? (
+                  <p className="text-[13px] mt-1 font-[500]" style={{ color: "var(--text-muted)" }}>
+                    <span className="line-through">R$ {plan.monthlyEquivalent * 2}.00</span>
+                    <span className="ml-1.5">cobrados uma vez por ano ({plan.priceFormatted})</span>
+                  </p>
+                ) : (
+                  <p className="text-[13px] mt-1 font-[500]" style={{ color: "var(--text-muted)" }}>
+                    Cobrança mensal · cancele quando quiser
                   </p>
                 )}
 
                 <ul className="mt-6 space-y-2.5">
-                  {plan.benefits.map((benefit) => (
-                    <PlanBenefitItem key={benefit.text} benefit={benefit} />
-                  ))}
+                  <PlanBenefitList
+                    benefits={plan.benefits}
+                    separator={isAnnual}
+                    itemClassName="flex items-center gap-2 text-[13px] text-[var(--text-secondary)]"
+                    iconClassName="size-3.5 shrink-0 text-[var(--accent-mint)]"
+                  />
                 </ul>
 
                 <button

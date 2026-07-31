@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Lightbulb, MessageSquare, Plus, Send, X } from "@/lib/icons";
+import { ArrowLeft, ArrowRight, Lightbulb, MessageSquare, Plus, Send, Trash2, X } from "@/lib/icons";
 import { useAuth } from "@/app/data/AuthContext";
 import { supabase, isSupabaseReady } from "@/app/data/supabase";
 import { sanitizePlainText, sanitizeSingleLine } from "@/lib/sanitize";
+import { toast } from "@/lib/toast";
 
 const columns = [
   { id: "ideas", title: "Ideias da comunidade", accent: "#9ca3af" },
@@ -35,7 +36,7 @@ function statusIndex(status) {
   return Math.max(0, columns.findIndex((column) => column.id === status));
 }
 
-function SuggestionCard({ suggestion, canManage, onMove, moving }) {
+function SuggestionCard({ suggestion, canManage, onMove, onDelete, moving }) {
   const index = statusIndex(suggestion.status);
   const author = suggestion.author_name || "Leitor";
 
@@ -80,6 +81,15 @@ function SuggestionCard({ suggestion, canManage, onMove, moving }) {
               className="flex size-8 items-center justify-center rounded-[6px] border border-[var(--border)] text-[var(--text-secondary)] disabled:opacity-40"
             >
               <ArrowRight className="size-4" />
+            </button>
+            <button
+              type="button"
+              title="Excluir sugestao"
+              disabled={moving}
+              onClick={() => onDelete(suggestion)}
+              className="flex size-8 items-center justify-center rounded-[6px] border border-[var(--border)] text-red-400 transition-colors hover:border-red-500/40 hover:bg-red-500/10 disabled:opacity-40"
+            >
+              <Trash2 className="size-3.5" />
             </button>
           </div>
         )}
@@ -246,8 +256,35 @@ export function SuggestionsPage() {
         status,
       });
       setSuggestions((current) => current.map((item) => item.id === updated.id ? updated : item));
+      toast.success("Sugestao movida para a nova coluna.");
     } catch (err) {
-      setError(err?.message || "Nao foi possivel mover a sugestao.");
+      const message = err?.message || "Nao foi possivel mover a sugestao.";
+      setError(message);
+      toast.error(message);
+    } finally {
+      setMovingId("");
+    }
+  }
+
+  async function deleteSuggestion(suggestion) {
+    if (!canManageContent) return;
+    const confirmar = typeof window !== "undefined" && window.confirm
+      ? window.confirm(`Excluir a sugestao "${suggestion.title}"? Essa acao nao pode ser desfeita.`)
+      : true;
+    if (!confirmar) return;
+    setMovingId(suggestion.id);
+    setError("");
+    try {
+      await authenticatedApiPost("/api/admin-suggestion", {
+        action: "delete",
+        suggestionId: suggestion.id,
+      });
+      setSuggestions((current) => current.filter((item) => item.id !== suggestion.id));
+      toast.success("Sugestao excluida.");
+    } catch (err) {
+      const message = err?.message || "Nao foi possivel excluir a sugestao.";
+      setError(message);
+      toast.error(message);
     } finally {
       setMovingId("");
     }
@@ -294,6 +331,7 @@ export function SuggestionsPage() {
                     canManage={canManageContent}
                     moving={movingId === suggestion.id}
                     onMove={moveSuggestion}
+                    onDelete={deleteSuggestion}
                   />
                 ))
               ) : (

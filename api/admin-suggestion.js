@@ -27,37 +27,53 @@ export default async function handler(req, res) {
     })) return;
 
     const { action, suggestionId, status } = req.body || {};
-    if (action !== "move") {
-      return res.status(400).json({ success: false, error: "Acao invalida" });
-    }
     requireUuid(suggestionId, "suggestionId");
-    if (!VALID_STATUSES.has(status)) {
-      return res.status(400).json({ success: false, error: "Sugestao ou coluna invalida" });
-    }
 
-    const rows = await supabaseRequest(
-      `suggestions?id=eq.${encodeURIComponent(suggestionId)}`,
-      {
-        method: "PATCH",
-        headers: { "Prefer": "return=representation" },
-        body: JSON.stringify({
-          status,
-          updated_at: new Date().toISOString(),
-        }),
+    if (action === "move") {
+      if (!VALID_STATUSES.has(status)) {
+        return res.status(400).json({ success: false, error: "Sugestao ou coluna invalida" });
       }
-    );
 
-    const updated = rows?.[0];
-    if (!updated) {
-      return res.status(404).json({ success: false, error: "Sugestao nao encontrada" });
+      const rows = await supabaseRequest(
+        `suggestions?id=eq.${encodeURIComponent(suggestionId)}`,
+        {
+          method: "PATCH",
+          headers: { "Prefer": "return=representation" },
+          body: JSON.stringify({
+            status,
+            updated_at: new Date().toISOString(),
+          }),
+        }
+      );
+
+      const updated = rows?.[0];
+      if (!updated) {
+        return res.status(404).json({ success: false, error: "Sugestao nao encontrada" });
+      }
+
+      logAuditEvent("suggestion.move", req, {
+        actorId: user.id,
+        targetId: suggestionId,
+        outcome: "success",
+      });
+      return res.status(200).json({ success: true, data: updated });
     }
 
-    logAuditEvent("suggestion.move", req, {
-      actorId: user.id,
-      targetId: suggestionId,
-      outcome: "success",
-    });
-    return res.status(200).json({ success: true, data: updated });
+    if (action === "delete") {
+      await supabaseRequest(
+        `suggestions?id=eq.${encodeURIComponent(suggestionId)}`,
+        { method: "DELETE" }
+      );
+
+      logAuditEvent("suggestion.delete", req, {
+        actorId: user.id,
+        targetId: suggestionId,
+        outcome: "success",
+      });
+      return res.status(200).json({ success: true, data: { id: suggestionId } });
+    }
+
+    return res.status(400).json({ success: false, error: "Acao invalida" });
   } catch (error) {
     logServerError("admin_suggestion", error, req);
     return sendError(req, res, error, "Erro ao atualizar sugestao");

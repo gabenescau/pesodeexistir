@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
+import { Toaster } from '@/components/toaster'
 import { DataProvider } from '@/app/data/DataContext'
 
 const LandingPage = lazy(() => import('@/components/LandingPage').then((module) => ({ default: module.LandingPage })))
@@ -62,6 +63,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
+      <Toaster />
     </DataProvider>
   )
 }

@@ -24,6 +24,7 @@ const ICONS = {
   CalendarDays: Phosphor.Calendar,
   Camera: Phosphor.Camera,
   Check: Phosphor.Check,
+  CheckCircle: Phosphor.CheckCircle,
   CheckCircle2: Phosphor.CheckCircle,
   CheckCircleIcon: Phosphor.CheckCircle,
   CheckIcon: Phosphor.Check,
@@ -104,6 +105,7 @@ const ICONS = {
   UserPlus: Phosphor.UserPlus,
   UserRound: Phosphor.UserCircle,
   Users: Phosphor.Users,
+  Warning: Phosphor.Warning,
   WifiOff: Phosphor.WifiSlash,
   X: Phosphor.X,
   XIcon: Phosphor.X,
@@ -132,6 +134,7 @@ export const Calendar = Phosphor.CalendarBlank;
 export const CalendarDays = Phosphor.Calendar;
 export const Camera = Phosphor.Camera;
 export const Check = Phosphor.Check;
+export const CheckCircle = Phosphor.CheckCircle;
 export const CheckCircle2 = Phosphor.CheckCircle;
 export const CheckCircleIcon = Phosphor.CheckCircle;
 export const CheckIcon = Phosphor.Check;
@@ -212,6 +215,7 @@ export const UserIcon = Phosphor.User;
 export const UserPlus = Phosphor.UserPlus;
 export const UserRound = Phosphor.UserCircle;
 export const Users = Phosphor.Users;
+export const Warning = Phosphor.Warning;
 export const WifiOff = Phosphor.WifiSlash;
 export const X = Phosphor.X;
 export const XIcon = Phosphor.X;

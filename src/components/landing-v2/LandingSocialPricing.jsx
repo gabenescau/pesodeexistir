@@ -1,9 +1,9 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, ChevronDown, CircleCheck } from "@/lib/icons";
+import { ArrowRight, ChevronDown } from "@/lib/icons";
 import { useAuth } from "@/app/data/AuthContext";
 import { PLANS } from "@/lib/abacatepay";
 import { faqs, testimonials } from "./data";
-import { PlanBenefitItem } from "@/components/plan-benefit";
+import { PlanBenefitList } from "@/components/plan-benefit";
 
 const WHATSAPP_SUPPORT_URL =
   "https://wa.me/?text=Ol%C3%A1%2C%20Gabe!%20Tenho%20uma%20d%C3%BAvida%20sobre%20o%20OPE%20Club.";
@@ -90,23 +90,29 @@ export function LandingPricing() {
                   <p className="mt-2 text-sm leading-6 text-[var(--landing-muted)]">{plan.description}</p>
                   <p className="mt-7 flex items-baseline gap-1">
                     <span className="text-lg font-medium text-[var(--landing-fg)]">R$</span>
-                    <span className="text-5xl font-semibold text-[var(--landing-fg)]">{plan.price / 100}</span>
-                    <span className="text-sm text-[var(--landing-muted)]">{plan.period}</span>
+                    <span className="text-5xl font-semibold text-[var(--landing-fg)]">
+                      {annual ? plan.monthlyEquivalent : (plan.price / 100)}
+                    </span>
+                    <span className="text-sm text-[var(--landing-muted)]">/mês</span>
                   </p>
                   <p className="mt-2 text-xs text-[var(--landing-muted)]">
-                    {annual ? `Apenas R$ ${plan.monthlyEquivalent}/mês` : "Cancele quando quiser"}
+                    {annual ? (
+                      <>
+                        <span className="line-through">R$ {(plan.monthlyEquivalent * 2).toFixed(2).replace(".", ",")}/mês</span>
+                        <span className="ml-1.5">cobrados uma vez por ano ({plan.priceFormatted})</span>
+                      </>
+                    ) : (
+                      "Cancele quando quiser"
+                    )}
                   </p>
                 </div>
                 <ul className="space-y-3 p-7">
-                  {plan.benefits.map((benefit) => (
-                    <PlanBenefitItem
-                      key={benefit.text}
-                      benefit={benefit}
-                      iconClassName="size-4 shrink-0 text-[var(--landing-brand)]"
-                      className="flex items-center gap-3 text-sm text-[var(--landing-fg)]"
-                      showCheck
-                    />
-                  ))}
+                  <PlanBenefitList
+                    benefits={plan.benefits}
+                    separator={annual}
+                    itemClassName="flex items-center gap-3 text-sm text-[var(--landing-fg)]"
+                    iconClassName="size-4 shrink-0 text-[var(--landing-brand)]"
+                  />
                 </ul>
                 <div className="mt-auto border-t border-[var(--landing-border)] p-5">
                   <Link to={destination} className="flex min-h-12 w-full items-center justify-center rounded-full bg-[linear-gradient(110deg,var(--landing-brand-strong),var(--landing-brand))] px-6 text-sm font-medium text-white">

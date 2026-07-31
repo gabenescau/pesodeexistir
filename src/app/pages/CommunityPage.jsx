@@ -9,7 +9,7 @@ import { useData } from "../data/DataContext";
 
 export function CommunityPage() {
   const { posts, deletePost, loading } = useData();
-  const [filter, setFilter] = useState("Todos");
+  const [filter, setFilter] = useState("Discussões");
   const [busca, setBusca] = useState("");
   const [reacoes, setReacoes] = useState([]);
   const [visibleCount, setVisibleCount] = useState(20);
