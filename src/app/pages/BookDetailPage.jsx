@@ -1,20 +1,15 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { BookOpen, CheckCircle2, ChevronLeft, Heart, Lock, Share2, MoreHorizontal } from "@/lib/icons";
+import { BookOpen, CheckCircle2, ChevronLeft, Lock, MoreHorizontal } from "@/lib/icons";
 import { useData } from "../data/DataContext";
-import { useAuth } from "../data/AuthContext";
 import { contagemRegressiva, formatarData } from "@/lib/releases";
-
-const TABS = ["Resumo", "Capitulos"];
 
 export function BookDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { getBookById, getAuthorById, markBookCompleted, getReleaseStatus, toggleFavoriteBook, isFavoriteBook, books } = useData();
+  const { getBookById, getAuthorById, getReleaseStatus, toggleFavoriteBook, isFavoriteBook, books, authors } = useData();
   const book = getBookById(id);
   const release = getReleaseStatus(id);
-  const [activeTab, setActiveTab] = useState("Resumo");
   const [menuOpen, setMenuOpen] = useState(false);
 
   if (!book) {
@@ -39,6 +34,15 @@ export function BookDetailPage() {
   const relatedBooks = books
     .filter((b) => b.id !== book.id && b.category && b.category === book.category)
     .slice(0, 6);
+
+  // Autores relacionados: o proprio autor do livro + autores com obras na
+  // mesma categoria (a quem o leitor tambem poderia se interessar).
+  const relatedAuthors = [
+    ...(author ? [author] : []),
+    ...authors.filter(
+      (a) => a.id !== author?.id && books.some((b) => b.category === book.category && b.authorId === a.id)
+    ),
+  ].slice(0, 6);
 
   function handleStartReading() {
     if (hasPdf && release.liberado) {
@@ -155,71 +159,50 @@ export function BookDetailPage() {
         </button>
       </div>
 
-      {/* Tabs */}
-      <div className="border-b border-[var(--border)] px-4">
-        <div className="flex gap-6">
-          {TABS.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`relative pb-3 text-sm font-medium transition-colors ${
-                activeTab === tab
-                  ? "text-[var(--text-primary)]"
-                  : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-              }`}
-            >
-              {tab}
-              {activeTab === tab && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-[var(--accent-mint)]" />
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Conteudo da aba */}
+      {/* Conteudo */}
       <div className="flex-1 px-4 pt-5">
-        {activeTab === "Resumo" && (
-          <div className="space-y-6">
-            {/* Sinopse / bio */}
-            {book.bio ? (
-              <div>
-                <p className="whitespace-pre-line text-sm leading-relaxed text-[var(--text-secondary)]">
-                  {book.bio}
-                </p>
-              </div>
-            ) : (
-              <p className="text-sm text-[var(--text-muted)]">Sinopse indisponivel.</p>
-            )}
+        <div className="space-y-6">
+          {/* Sinopse / bio */}
+          {book.bio ? (
+            <div>
+              <p className="whitespace-pre-line text-sm leading-relaxed text-[var(--text-secondary)]">
+                {book.bio}
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-[var(--text-muted)]">Sinopse indisponivel.</p>
+          )}
 
-            {/* Progresso */}
-            {progresso > 0 && (
-              <div>
-                <div className="mb-1.5 flex items-center justify-between text-xs text-[var(--text-muted)]">
-                  <span>Progresso</span>
-                  <span>{progresso}%</span>
-                </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-[var(--border)]">
-                  <div className="h-full rounded-full bg-[var(--accent-mint)]" style={{ width: `${progresso}%` }} />
-                </div>
+          {/* Progresso */}
+          {progresso > 0 && (
+            <div>
+              <div className="mb-1.5 flex items-center justify-between text-xs text-[var(--text-muted)]">
+                <span>Progresso</span>
+                <span>{progresso}%</span>
               </div>
-            )}
-
-            {/* Liberacao */}
-            {hasPdf && !release.liberado && (
-              <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4 text-center">
-                <Lock className="mx-auto mb-1.5 size-4 text-[var(--text-muted)]" />
-                <p className="text-sm font-medium text-[var(--text-primary)]">
-                  Libera em {formatarData(release.data)}
-                </p>
-                <p className="mt-0.5 text-xs text-[var(--text-muted)]">{contagemRegressiva(release.diasRestantes)}</p>
+              <div className="h-1.5 overflow-hidden rounded-full bg-[var(--border)]">
+                <div className="h-full rounded-full bg-[var(--accent-mint)]" style={{ width: `${progresso}%` }} />
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Livros relacionados */}
-            {relatedBooks.length > 0 && (
-              <div>
-                <h3 className="mb-3 text-sm font-semibold text-[var(--text-primary)]">Voce tambem pode gostar</h3>
+          {/* Liberacao */}
+          {hasPdf && !release.liberado && (
+            <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4 text-center">
+              <Lock className="mx-auto mb-1.5 size-4 text-[var(--text-muted)]" />
+              <p className="text-sm font-medium text-[var(--text-primary)]">
+                Libera em {formatarData(release.data)}
+              </p>
+              <p className="mt-0.5 text-xs text-[var(--text-muted)]">{contagemRegressiva(release.diasRestantes)}</p>
+            </div>
+          )}
+
+          {/* Livros e autores relacionados */}
+          {(relatedBooks.length > 0 || relatedAuthors.length > 0) && (
+            <div>
+              <h3 className="mb-3 text-sm font-semibold text-[var(--text-primary)]">Talvez você também goste</h3>
+
+              {relatedBooks.length > 0 && (
                 <div className="flex gap-3 overflow-x-auto pb-2">
                   {relatedBooks.map((rb) => (
                     <button
@@ -234,26 +217,40 @@ export function BookDetailPage() {
                     </button>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
 
-            {!hasPdf && (
-              <div className="rounded-[12px] border border-dashed border-[var(--border)] p-8 text-center">
-                <BookOpen className="mx-auto mb-3 size-8 text-[var(--text-muted)]" />
-                <p className="text-sm text-[var(--text-secondary)]">Nenhum PDF disponivel para este livro ainda.</p>
-              </div>
-            )}
-          </div>
-        )}
+              {relatedAuthors.length > 0 && (
+                <div className="mt-2 flex gap-4 overflow-x-auto pb-2">
+                  {relatedAuthors.map((ra) => (
+                    <button
+                      key={ra.id}
+                      onClick={() => navigate(`/app/autor/${ra.id}`)}
+                      className="w-[84px] shrink-0 text-center"
+                    >
+                      <div className="mx-auto size-16 overflow-hidden rounded-full border border-[var(--border)] bg-[var(--bg-card)]">
+                        {ra.image ? (
+                          <img src={ra.image} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="flex h-full w-full items-center justify-center text-lg font-bold text-[var(--text-muted)]">
+                            {ra.name?.charAt(0)}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1.5 truncate text-xs font-medium text-[var(--text-primary)]">{ra.name}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
-        {activeTab === "Capitulos" && (
-          <div className="rounded-[12px] border border-dashed border-[var(--border)] p-8 text-center">
-            <BookOpen className="mx-auto mb-3 size-8 text-[var(--text-muted)]" />
-            <p className="text-sm text-[var(--text-secondary)]">
-              Os capitulos serao disponibilizados em breve.
-            </p>
-          </div>
-        )}
+          {!hasPdf && (
+            <div className="rounded-[12px] border border-dashed border-[var(--border)] p-8 text-center">
+              <BookOpen className="mx-auto mb-3 size-8 text-[var(--text-muted)]" />
+              <p className="text-sm text-[var(--text-secondary)]">Nenhum PDF disponivel para este livro ainda.</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
