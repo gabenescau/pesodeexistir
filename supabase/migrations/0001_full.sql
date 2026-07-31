@@ -518,6 +518,7 @@ CREATE TABLE IF NOT EXISTS public.api_rate_limits (
 -- ============================================================================
 -- 4. VIEW — public_profiles (sem dados sensiveis, sem profiles privados)
 -- ============================================================================
+DROP VIEW IF EXISTS public.public_profiles CASCADE;
 CREATE OR REPLACE VIEW public.public_profiles AS
 SELECT
   p.id,

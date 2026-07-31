@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Bookmark, Heart, MoreHorizontal, Send, Share2, Trash2 } from "@/lib/icons";
+import { Bookmark, MoreHorizontal, Send, Share2, Trash2 } from "@/lib/icons";
+import { HeartIcon } from "@/components/heart-icon";
 import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
 import { isSupabaseReady, supabase } from "@/app/data/supabase";
@@ -314,8 +315,8 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
 
       <footer className="flex items-center justify-between border-t border-[var(--border)] pt-2">
         <div className="flex items-center gap-1 sm:gap-2">
-          <button type="button" onClick={toggleLike} disabled={busy} className={`flex min-h-10 items-center gap-1.5 rounded-full px-2 text-xs transition-all sm:px-3 ${liked ? "bg-[#c78359]/10 text-[#c78359]" : "text-[var(--text-muted)] hover:bg-[#c78359]/10 hover:text-[#c78359]"}`}>
-            <Heart className="size-[18px]" fill={liked ? "currentColor" : "none"} strokeWidth={1.5} />
+          <button type="button" onClick={toggleLike} disabled={busy} className={`flex min-h-10 items-center gap-1.5 rounded-full px-2 text-xs transition-all sm:px-3 ${liked ? "text-red-500" : "text-[var(--text-muted)] hover:text-red-400"}`}>
+            <HeartIcon liked={liked} className="size-[18px]" />
             <span>{likes}</span>
           </button>
           <button type="button" onClick={() => canComment ? setShowComment((value) => !value) : setSubscribeOpen(true)} className="flex min-h-10 items-center gap-1.5 rounded-full px-2 text-xs text-[var(--text-muted)] hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)] sm:px-3">

@@ -1,8 +1,9 @@
 import { useState } from "react";
 import {
-  Camera, Heart, MessageCircle, BookOpen, Users,
+  Camera, MessageCircle, BookOpen, Users,
   PenLine, Clock, Bookmark,
 } from "@/lib/icons";
+import { HeartIcon } from "@/components/heart-icon";
 import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
 import { supabase, isSupabaseReady } from "@/app/data/supabase";
@@ -304,7 +305,7 @@ export function ProfilePage() {
               <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>&ldquo;{p.text}&rdquo;</p>
               <div className="flex items-center gap-4 mt-3 pt-3 border-t border-[var(--border)]">
                 <span className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
-                  <Heart className="size-3.5" strokeWidth={1.5} /> {p.likes || 0}
+                  <HeartIcon className="size-3.5" /> {p.likes || 0}
                 </span>
                 <span className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
                   <MessageCircle className="size-3.5" strokeWidth={1.5} /> {p.replies || 0}

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Heart, Lightbulb, MessageSquare, Plus, Send, Trash2, X } from "@/lib/icons";
+import { ArrowLeft, ArrowRight, Lightbulb, MessageSquare, Plus, Send, Trash2, X } from "@/lib/icons";
+import { HeartIcon } from "@/components/heart-icon";
 import { useAuth } from "@/app/data/AuthContext";
 import { supabase, isSupabaseReady } from "../data/supabase";
 import { sanitizePlainText, sanitizeSingleLine } from "@/lib/sanitize";
@@ -90,11 +91,11 @@ function SuggestionCard({ suggestion, canManage, onMove, onDelete, onLike, liked
             aria-label={liked ? "Tirar curtida" : "Curtir"}
             className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 transition-colors ${
               liked
-                ? "bg-[#c78359]/10 text-[#c78359]"
-                : "text-[var(--text-muted)] hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]"
+                ? "text-red-500"
+                : "text-[var(--text-muted)] hover:text-red-400"
             }`}
           >
-            <Heart className="size-3.5" weight={liked ? "fill" : "regular"} />
+            <HeartIcon liked={liked} className="size-3.5" />
             <span className="text-xs font-medium">{likeCount || 0}</span>
           </button>
         </div>

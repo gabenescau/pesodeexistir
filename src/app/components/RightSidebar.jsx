@@ -18,24 +18,43 @@ function AuthorAvatar({ author }) {
 export function RightSidebar() {
   const { books, authors, posts } = useData();
 
-  const popularTags = Object.entries(
-    posts
-      .map((post) => post.tag)
-      .filter(Boolean)
-      .reduce((acc, tag) => {
-        acc[tag] = (acc[tag] || 0) + 1;
-        return acc;
-      }, {})
-  )
+  // Tags em alta: extrai #hashtags do texto dos posts e conta frequencia.
+  // So aparece se pelo menos 2 usuarios usaram a mesma tag.
+  const hashtagRegex = /#(\w+)/g;
+  const tagCount = {};
+  for (const post of posts) {
+    const text = post.text || "";
+    let match;
+    while ((match = hashtagRegex.exec(text)) !== null) {
+      const tag = `#${match[1]}`;
+      tagCount[tag] = (tagCount[tag] || 0) + 1;
+    }
+  }
+  const popularTags = Object.entries(tagCount)
+    .filter(([, count]) => count >= 2)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 8)
-    .map(([tag]) => (tag.startsWith("#") ? tag : `#${tag}`));
+    .map(([tag]) => tag);
 
-  const featuredAuthors = authors.slice(0, 5).map((author) => ({
-    ...author,
-    works: books.filter((book) => (book.author_id || book.authorId) === author.id).length,
-    initial: author.name?.charAt(0)?.toUpperCase() || "A",
-  }));
+  // Autores em destaque: ordena por total de curtidas nos livros
+  // (saved_posts = favoritos). So aparece quem tem pelo menos 1 like.
+  const authorLikes = {};
+  for (const book of books) {
+    const authorId = book.author_id || book.authorId;
+    if (authorId) {
+      authorLikes[authorId] = (authorLikes[authorId] || 0) + (book.likes || 0);
+    }
+  }
+  const featuredAuthors = authors
+    .map((author) => ({
+      ...author,
+      works: books.filter((book) => (book.author_id || book.authorId) === author.id).length,
+      totalLikes: authorLikes[author.id] || 0,
+      initial: author.name?.charAt(0)?.toUpperCase() || "A",
+    }))
+    .filter((a) => a.totalLikes > 0)
+    .sort((a, b) => b.totalLikes - a.totalLikes)
+    .slice(0, 5);
 
   return (
     <aside className="hidden w-[260px] shrink-0 space-y-5 2xl:block">

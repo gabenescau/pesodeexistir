@@ -5,7 +5,8 @@ import { useData } from "@/app/data/DataContext";
 import { getCurrentSubscription, isActiveSubscription } from "@/lib/subscription";
 import { createCheckout, PLANS } from "@/lib/abacatepay";
 import { useEffect } from "react";
-import { CreditCard, Loader2, QrCode } from "@/lib/icons";
+import { CreditCard, Loader2 } from "@/lib/icons";
+import { PixIcon } from "@/components/pix-icon";
 import { PlanBenefitList } from "@/components/plan-benefit";
 import { toast } from "@/lib/toast";
 import { useCancelSurvey } from "@/components/ui/cancel-survey";
@@ -186,7 +187,7 @@ export function SubscribePage() {
                   : "text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"
               }`}
             >
-              <QrCode className="size-4" />
+              <PixIcon className="size-4" />
               PIX
             </button>
             <button

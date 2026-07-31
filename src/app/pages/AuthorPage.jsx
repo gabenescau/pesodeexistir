@@ -137,14 +137,6 @@ export function AuthorPage() {
           </p>
         )}
       </div>
-
-      <div className="border-t border-[var(--border)] pt-8">
-        <EntityComments
-          targetType="author"
-          targetId={author.id}
-          emptyMessage="Seja o primeiro a comentar sobre este autor."
-        />
-      </div>
     </div>
   );
 }
