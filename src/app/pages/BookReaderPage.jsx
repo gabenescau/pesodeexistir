@@ -8,7 +8,6 @@ import * as pdfjsLib from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { useData } from "../data/DataContext";
 import { supabase, isSupabaseReady } from "../data/supabase";
-import { PageComments } from "../components/PageComments";
 import { contagemRegressiva, formatarData } from "@/lib/releases";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
@@ -96,7 +95,6 @@ export function BookReaderPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notesOpen, setNotesOpen] = useState(false);
-  const [commentsOpen, setCommentsOpen] = useState(false);
   const [notes, setNotes] = useState([]);
   const [noteText, setNoteText] = useState("");
   const [savingNote, setSavingNote] = useState(false);
@@ -679,37 +677,14 @@ export function BookReaderPage() {
             </div>
           )}
         </main>
-
-        {/* Desktop: comentarios em coluna lateral. Mobile: folha inferior. */}
-        {commentsOpen && (
-          <aside className="hidden w-[380px] shrink-0 overflow-y-auto border-l border-[var(--border)] bg-[var(--bg-card)] p-4 lg:block">
-            <PageComments bookId={book.id} pageNumber={page} />
-          </aside>
-        )}
       </div>
-
-      {commentsOpen && (
-        <div className="fixed inset-x-0 bottom-0 z-40 max-h-[70vh] overflow-y-auto rounded-t-2xl border-t border-[var(--border)] bg-[var(--bg-card)] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-18px_45px_rgba(0,0,0,.35)] lg:hidden">
-          <div className="mb-3 flex items-center justify-between">
-            <span className="text-xs uppercase tracking-[0.6px] text-[var(--text-muted)]">Discussão</span>
-            <button
-              onClick={() => setCommentsOpen(false)}
-              className="flex size-8 items-center justify-center rounded-full border border-[var(--border)] text-[var(--text-muted)]"
-              aria-label="Fechar comentários"
-            >
-              <X className="size-4" />
-            </button>
-          </div>
-          <PageComments bookId={book.id} pageNumber={page} />
-        </div>
-      )}
 
       <footer className="flex shrink-0 items-center justify-between gap-2 border-t border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:px-5">
         <button
           onClick={goPrevPage}
           disabled={page <= 1}
           className="flex h-11 min-w-11 items-center justify-center gap-1 rounded-full border border-[var(--border)] px-3 text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--hover-overlay)] disabled:opacity-35"
-          aria-label="Página anterior"
+          aria-label="Pagina anterior"
         >
           <ChevronLeft className="size-5" />
           <span className="hidden sm:inline">Anterior</span>
@@ -727,25 +702,12 @@ export function BookReaderPage() {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => { setCommentsOpen((valor) => !valor); setNotesOpen(false); }}
-            className={`flex h-11 min-w-11 items-center justify-center gap-1 rounded-full border px-3 text-sm transition-colors ${
-              commentsOpen
-                ? "border-[#c78359]/50 bg-[#c78359]/12 text-[#c78359]"
-                : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"
-            }`}
-            aria-label="Comentários da página"
-          >
-            <MessageCircle className="size-5" />
-            <span className="hidden md:inline">Comentários</span>
-          </button>
-
-          <button
             onClick={goNextPage}
             disabled={Boolean(totalPages) && page >= totalPages}
             className="flex h-11 min-w-11 items-center justify-center gap-1 rounded-full border border-[var(--border)] px-3 text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--hover-overlay)] disabled:opacity-35"
-            aria-label="Próxima página"
+            aria-label="Proxima pagina"
           >
-            <span className="hidden sm:inline">Próxima</span>
+            <span className="hidden sm:inline">Proxima</span>
             <ChevronRight className="size-5" />
           </button>
         </div>

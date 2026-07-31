@@ -1,17 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search } from "@/lib/icons";
 import { isSupabaseReady, supabase } from "../data/supabase";
 import { CreatePost } from "../components/CreatePost";
 import { PostCard } from "../components/PostCard";
 import { RightSidebar } from "../components/RightSidebar";
 import { useData } from "../data/DataContext";
+import { AutocompleteSearch, buildSearchItems } from "@/components/ui/autocomplete";
 
 export function CommunityPage() {
-  const { posts, deletePost, loading } = useData();
-  const [filter, setFilter] = useState("Discussões");
+  const { posts, deletePost, loading, books, authors, categories } = useData();
+  const [filter, setFilter] = useState("Todos");
   const [busca, setBusca] = useState("");
   const [reacoes, setReacoes] = useState([]);
   const [visibleCount, setVisibleCount] = useState(20);
+
+  const searchItems = useMemo(
+    () => buildSearchItems({ books, authors, categories }),
+    [books, authors, categories]
+  );
 
   // Uma consulta para as reacoes do feed inteiro, em vez de uma por card.
   useEffect(() => {
@@ -79,16 +84,10 @@ export function CommunityPage() {
   return (
     <div className="flex flex-col gap-8 2xl:flex-row 2xl:gap-10">
       <div className="mx-auto w-full min-w-0 max-w-3xl flex-1 space-y-5 sm:space-y-6 2xl:mx-0">
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-[18px] text-[var(--text-placeholder)]" />
-          <input
-            type="text"
-            value={busca}
-            onChange={(event) => setBusca(event.target.value)}
-            placeholder="Pesquisar posts, pessoas ou livros..."
-            className="w-full h-10 sm:h-12 pl-11 pr-4 rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] text-sm text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-none focus:border-[var(--border-strong)] transition-colors"
-          />
-        </div>
+        <AutocompleteSearch
+          placeholder="Pesquisar posts, pessoas ou livros..."
+          items={searchItems}
+        />
 
         <div className="flex items-center justify-between gap-3">
           <div>

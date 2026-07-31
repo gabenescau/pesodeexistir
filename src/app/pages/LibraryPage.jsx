@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
-import { Search, SlidersHorizontal, X, Check } from "@/lib/icons";
+import { SlidersHorizontal, X, Check } from "@/lib/icons";
 import { BookRow } from "../components/BookRow";
 import { useData } from "../data/DataContext";
 import { CATEGORIES, groupByCategory } from "@/lib/categories";
+import { AutocompleteSearch, buildSearchItems } from "@/components/ui/autocomplete";
 
 function LibrarySkeleton() {
   return (
@@ -29,12 +30,17 @@ function LibrarySkeleton() {
 }
 
 export function LibraryPage() {
-  const { books, authors, bookFavorites, loading } = useData();
+  const { books, authors, categories, bookFavorites, loading } = useData();
   const [query, setQuery] = useState("");
   const [categoriaAtiva, setCategoriaAtiva] = useState("Todas");
   const [autorAtivo, setAutorAtivo] = useState(null);
   const [abaAtiva, setAbaAtiva] = useState("todos"); // todos | favoritos | lendo
   const [filtroAberto, setFiltroAberto] = useState(false);
+
+  const searchItems = useMemo(
+    () => buildSearchItems({ books, authors, categories }),
+    [books, authors, categories]
+  );
 
   const allBooks = useMemo(() => books.map((b) => ({
     ...b,
@@ -118,16 +124,15 @@ export function LibraryPage() {
 
       {/* Pesquisa + botão de filtro (categorias/autores) */}
       <div className="flex gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-4 top-1/2 size-[18px] -translate-y-1/2 text-[var(--text-placeholder)]" />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Pesquisar livros, autores ou categorias..."
-            className="h-10 w-full rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] pl-11 pr-4 text-sm text-[var(--text-primary)] outline-none transition-colors placeholder:text-[var(--text-placeholder)] focus:border-[var(--border-strong)] sm:h-12"
-          />
-        </div>
+        <AutocompleteSearch
+          className="flex-1"
+          placeholder="Pesquisar livros, autores ou categorias..."
+          items={searchItems}
+          onSelect={(item) => {
+            if (item.kind === "category") setCategoriaAtiva(item.label);
+            if (item.kind === "author") setAutorAtivo(item.id?.replace("author-", ""));
+          }}
+        />
         <button
           onClick={() => setFiltroAberto((v) => !v)}
           aria-label="Abrir filtros"

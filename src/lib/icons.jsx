@@ -29,6 +29,7 @@ const ICONS = {
   Check: Phosphor.Check,
   CheckCircle: Phosphor.CheckCircle,
   ChartLine: Phosphor.ChartLine,
+  ChatCircle: Phosphor.ChatCircle,
   CheckCircle2: Phosphor.CheckCircle,
   CheckCircleIcon: Phosphor.CheckCircle,
   CheckIcon: Phosphor.Check,
@@ -48,6 +49,8 @@ const ICONS = {
   Eye: Phosphor.Eye,
   Feather: Phosphor.Feather,
   FolderOpen: Phosphor.FolderOpen,
+  Folder: Phosphor.Folder,
+  MagnifyingGlass: Phosphor.MagnifyingGlass,
   Globe: Phosphor.Globe,
   GraduationCap: Phosphor.GraduationCap,
   Hand: Phosphor.Hand,
@@ -144,6 +147,7 @@ export const CaretRight = Phosphor.CaretRight;
 export const Check = Phosphor.Check;
 export const CheckCircle = Phosphor.CheckCircle;
 export const ChartLine = Phosphor.ChartLine;
+export const ChatCircle = Phosphor.ChatCircle;
 export const CheckCircle2 = Phosphor.CheckCircle;
 export const CheckCircleIcon = Phosphor.CheckCircle;
 export const CheckIcon = Phosphor.Check;
@@ -163,6 +167,8 @@ export const Edit3 = Phosphor.PencilSimpleLine;
 export const Eye = Phosphor.Eye;
 export const Feather = Phosphor.Feather;
 export const FolderOpen = Phosphor.FolderOpen;
+export const Folder = Phosphor.Folder;
+export const MagnifyingGlass = Phosphor.MagnifyingGlass;
 export const Globe = Phosphor.Globe;
 export const GraduationCap = Phosphor.GraduationCap;
 export const Hand = Phosphor.Hand;

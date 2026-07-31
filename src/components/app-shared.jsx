@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import {
+  BellIcon,
   BookOpenIcon,
   CompassIcon,
   CreditCardIcon,
@@ -27,6 +28,7 @@ export const navGroups = [
       { title: "Biblioteca", path: "/app/biblioteca", icon: <BookOpenIcon />, match: "/app/biblioteca" },
       { title: "Explorar", path: "/app/explorar", icon: <CompassIcon />, match: "/app/explorar" },
       { title: "Sugestoes", path: "/app/sugestoes", icon: <LightbulbIcon />, match: "/app/sugestoes" },
+      { title: "Notificacoes", path: "/app/notificacoes", icon: <BellIcon />, match: "/app/notificacoes" },
     ],
   },
   {

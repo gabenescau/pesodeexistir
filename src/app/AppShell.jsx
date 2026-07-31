@@ -21,6 +21,7 @@ const SuggestionsPage = lazyPage(() => import("./pages/SuggestionsPage"), "Sugge
 const PostDetailPage = lazyPage(() => import("./pages/PostDetailPage"), "PostDetailPage");
 const AdminPage = lazyPage(() => import("./pages/AdminPage"), "AdminPage");
 const SubscribePage = lazyPage(() => import("./pages/SubscribePage"), "SubscribePage");
+const NotificacoesPage = lazyPage(() => import("./pages/NotificacoesPage"), "NotificacoesPage");
 
 function PageLoading() {
   return (
@@ -47,6 +48,7 @@ export function AppShell() {
         <Route path="explorar" element={<SubscriptionGuard><ExplorePage /></SubscriptionGuard>} />
         <Route path="lancamentos" element={<SubscriptionGuard><ReleasesPage /></SubscriptionGuard>} />
         <Route path="sugestoes" element={<SubscriptionGuard><SuggestionsPage /></SubscriptionGuard>} />
+        <Route path="notificacoes" element={<NotificacoesPage />} />
         <Route path="post/:id" element={<PostDetailPage />} />
         <Route path="planos" element={<SubscribePage />} />
         <Route path="perfil" element={<Navigate to="/app/configuracoes?aba=perfil" replace />} />
