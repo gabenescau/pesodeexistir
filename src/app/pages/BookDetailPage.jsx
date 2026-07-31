@@ -1,20 +1,26 @@
+import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { BookOpen, CheckCircle2, ChevronLeft, Heart, Lock, Share2 } from "@/lib/icons";
+import { BookOpen, CheckCircle2, ChevronLeft, Heart, Lock, Share2, MoreHorizontal } from "@/lib/icons";
 import { useData } from "../data/DataContext";
+import { useAuth } from "../data/AuthContext";
 import { contagemRegressiva, formatarData } from "@/lib/releases";
-import { EntityComments } from "../components/EntityComments";
+
+const TABS = ["Resumo", "Capitulos"];
 
 export function BookDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getBookById, getAuthorById, markBookCompleted, getReleaseStatus, toggleFavoriteBook, isFavoriteBook } = useData();
+  const { user } = useAuth();
+  const { getBookById, getAuthorById, markBookCompleted, getReleaseStatus, toggleFavoriteBook, isFavoriteBook, books } = useData();
   const book = getBookById(id);
   const release = getReleaseStatus(id);
+  const [activeTab, setActiveTab] = useState("Resumo");
+  const [menuOpen, setMenuOpen] = useState(false);
 
   if (!book) {
     return (
       <div className="py-16 text-center">
-        <p className="text-[var(--text-muted)]">Livro não encontrado.</p>
+        <p className="text-[var(--text-muted)]">Livro nao encontrado.</p>
         <button onClick={() => navigate("/app/biblioteca")} className="mt-4 text-sm text-[var(--text-primary)] hover:underline">
           Voltar para biblioteca
         </button>
@@ -25,132 +31,230 @@ export function BookDetailPage() {
   const author = getAuthorById(book.authorId || book.author_id);
   const hasPdf = Boolean(book.pdfFile || book.pdf_url);
   const favoritado = isFavoriteBook(book.id);
+  const progresso = Number(book.progress || 0);
+  const isCompleted = progresso >= 100;
+  const status = isCompleted ? "Concluido" : progresso > 0 ? "Em leitura" : "Nao iniciado";
+
+  // Livros relacionados (mesma categoria, excluindo este)
+  const relatedBooks = books
+    .filter((b) => b.id !== book.id && b.category && b.category === book.category)
+    .slice(0, 6);
+
+  function handleStartReading() {
+    if (hasPdf && release.liberado) {
+      navigate(`/app/ler/${book.id}`);
+    }
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Header com botão voltar + compartilhar */}
-      <div className="flex items-center justify-between">
+    <div className="flex min-h-dvh flex-col pb-20">
+      {/* Header */}
+      <div className="sticky top-0 z-30 flex items-center justify-between bg-[var(--bg-page)] px-4 py-3">
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-1 text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
+          className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-[var(--hover-overlay)]"
+          aria-label="Voltar"
         >
-          <ChevronLeft className="size-4" /> Voltar
+          <ChevronLeft className="size-5 text-[var(--text-primary)]" />
         </button>
-        <div className="flex gap-2">
-          <button
-            onClick={async () => {
-              await toggleFavoriteBook(book.id);
-            }}
-            className={`flex h-9 w-9 items-center justify-center rounded-full border transition-colors ${
-              favoritado ? "border-[var(--text-primary)] bg-[var(--text-primary)]/10" : "border-[var(--border)] hover:bg-[var(--hover-overlay)]"
-            }`}
-            aria-label={favoritado ? "Remover dos favoritos" : "Adicionar aos favoritos"}
-          >
-            <Heart className={`size-4 ${favoritado ? "text-[var(--text-primary)] fill-[var(--text-primary)]" : "text-[var(--text-muted)]"}`} />
-          </button>
-          <button
-            onClick={() => {
-              if (navigator.share) {
-                navigator.share({ title: book.title, text: `Confira ${book.title} no OPE Club`, url: window.location.href });
-              } else {
-                navigator.clipboard.writeText(window.location.href);
-              }
-            }}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] hover:bg-[var(--hover-overlay)] transition-colors"
-            aria-label="Compartilhar"
-          >
-            <Share2 className="size-4 text-[var(--text-muted)]" />
-          </button>
-        </div>
+        <button
+          onClick={() => setMenuOpen((v) => !v)}
+          className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-[var(--hover-overlay)]"
+          aria-label="Mais opcoes"
+        >
+          <MoreHorizontal className="size-5 text-[var(--text-primary)]" />
+        </button>
       </div>
 
-      {/* Layout mobile-first: capa + ações em cima, conteúdo embaixo */}
-      <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
-        <div className="mx-auto w-full max-w-48 shrink-0 lg:mx-0 lg:w-48">
-          <img
-            src={book.image}
-            alt={book.title}
-            className="aspect-[2/3] w-full rounded-[12px] border border-[var(--border)] object-cover"
-          />
-
-          {hasPdf && release.liberado && (
-            <button
-              onClick={() => navigate(`/app/ler/${book.id}`)}
-              className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-full bg-[var(--text-primary)] text-sm font-medium text-[var(--bg-card)] transition-colors hover:opacity-90"
-            >
-              <BookOpen className="size-4" /> Ler agora
-            </button>
-          )}
-
-          {hasPdf && !release.liberado && (
-            <div className="mt-3 rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-3 text-center">
-              <Lock className="mx-auto mb-1.5 size-4 text-[var(--text-muted)]" />
-              <p className="text-xs font-medium text-[var(--text-primary)]">
-                Libera em {formatarData(release.data)}
-              </p>
-              <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">{contagemRegressiva(release.diasRestantes)}</p>
-            </div>
-          )}
-
-          <button
-            onClick={() => markBookCompleted(book.id)}
-            className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-full border border-[var(--border)] text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--hover-overlay)]"
-          >
-            <CheckCircle2 className="size-4" />
-            {Number(book.progress || 0) >= 100 ? "Concluído" : "Marcar como concluído"}
-          </button>
+      {/* Hero: capa + info */}
+      <div className="flex gap-5 px-4 pb-4">
+        {/* Capa */}
+        <div className="w-[38%] shrink-0">
+          <div className="aspect-[2/3] overflow-hidden rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)]">
+            <img
+              src={book.image}
+              alt={book.title}
+              className="h-full w-full object-cover"
+            />
+          </div>
         </div>
 
-        <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">{book.title}</h1>
+        {/* Info */}
+        <div className="min-w-0 flex-1 pt-1">
+          <h1 className="text-[18px] font-[700] leading-[24px] tracking-[-0.36px] text-[var(--text-primary)]">
+            {book.title}
+          </h1>
+
           {author && (
-            <Link to={`/app/autor/${author.id}`} className="mt-1 text-sm text-[var(--text-secondary)] hover:underline">
+            <Link to={`/app/autor/${author.id}`} className="mt-2 flex items-center gap-2 text-sm text-[var(--text-secondary)] hover:underline">
+              {author.image ? (
+                <img src={author.image} alt="" className="size-5 rounded-full object-cover" />
+              ) : (
+                <span className="flex size-5 items-center justify-center rounded-full bg-[var(--hover-overlay)] text-[10px] font-bold text-[var(--text-muted)]">
+                  {author.name?.charAt(0)}
+                </span>
+              )}
               {author.name}
             </Link>
           )}
-          {book.category && (
-            <span className="mt-2 inline-block rounded-full border border-[var(--border)] bg-[var(--hover-overlay)] px-3 py-1 text-xs text-[var(--text-muted)]">
-              {book.category}
-            </span>
-          )}
 
-          {Number(book.progress || 0) > 0 && (
-            <div className="mt-6">
-              <div className="mb-1 flex items-center justify-between text-xs text-[var(--text-muted)]">
-                <span>Progresso de leitura</span>
-                <span>{book.progress}%</span>
-              </div>
-              <div className="h-1 overflow-hidden rounded-full bg-[var(--border)]">
-                <div className="h-full rounded-full bg-[var(--text-primary)]" style={{ width: `${book.progress}%` }} />
-              </div>
+          {/* Status + categoria */}
+          <div className="mt-4 space-y-2">
+            <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+              <BookOpen className="size-4 shrink-0 text-[var(--text-muted)]" />
+              {status}
             </div>
-          )}
+            {book.category && (
+              <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                <span className="size-1.5 rounded-full bg-[var(--text-muted)]" />
+                {book.category}
+              </div>
+            )}
+          </div>
 
-          {!hasPdf && (
-            <div className="mt-8 rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-8 text-center">
-              <BookOpen className="mx-auto mb-3 size-8 text-[var(--text-muted)]" />
-              <p className="text-sm text-[var(--text-secondary)]">Nenhum PDF disponível para este livro ainda.</p>
-              <p className="mt-1 text-xs text-[var(--text-muted)]">O administrador pode adicionar o PDF no painel admin.</p>
-            </div>
-          )}
-
-          {book.bio && (
-            <div className="mt-8">
-              <h2 className="text-sm font-semibold text-[var(--text-primary)]">Sobre o livro</h2>
-              <p className="mt-2 max-w-2xl whitespace-pre-line text-sm leading-relaxed text-[var(--text-secondary)]">
-                {book.bio}
-              </p>
+          {/* Tags */}
+          {book.tag && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {book.tag.split(",").map((t) => t.trim()).filter(Boolean).slice(0, 3).map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full border border-[var(--border)] bg-[var(--hover-overlay)] px-2.5 py-0.5 text-[11px] text-[var(--text-muted)]"
+                >
+                  {tag}
+                </span>
+              ))}
             </div>
           )}
         </div>
       </div>
 
-      <div className="mt-8 border-t border-[var(--border)] pt-8">
-        <EntityComments
-          targetType="book"
-          targetId={book.id}
-          emptyMessage="Seja o primeiro a comentar sobre este livro."
-        />
+      {/* Tabs */}
+      <div className="border-b border-[var(--border)] px-4">
+        <div className="flex gap-6">
+          {TABS.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`relative pb-3 text-sm font-medium transition-colors ${
+                activeTab === tab
+                  ? "text-[var(--text-primary)]"
+                  : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+              }`}
+            >
+              {tab}
+              {activeTab === tab && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-[var(--accent-mint)]" />
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Conteudo da aba */}
+      <div className="flex-1 px-4 pt-5">
+        {activeTab === "Resumo" && (
+          <div className="space-y-6">
+            {/* Sinopse / bio */}
+            {book.bio ? (
+              <div>
+                <p className="whitespace-pre-line text-sm leading-relaxed text-[var(--text-secondary)]">
+                  {book.bio}
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--text-muted)]">Sinopse indisponivel.</p>
+            )}
+
+            {/* Progresso */}
+            {progresso > 0 && (
+              <div>
+                <div className="mb-1.5 flex items-center justify-between text-xs text-[var(--text-muted)]">
+                  <span>Progresso</span>
+                  <span>{progresso}%</span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-[var(--border)]">
+                  <div className="h-full rounded-full bg-[var(--accent-mint)]" style={{ width: `${progresso}%` }} />
+                </div>
+              </div>
+            )}
+
+            {/* Liberacao */}
+            {hasPdf && !release.liberado && (
+              <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4 text-center">
+                <Lock className="mx-auto mb-1.5 size-4 text-[var(--text-muted)]" />
+                <p className="text-sm font-medium text-[var(--text-primary)]">
+                  Libera em {formatarData(release.data)}
+                </p>
+                <p className="mt-0.5 text-xs text-[var(--text-muted)]">{contagemRegressiva(release.diasRestantes)}</p>
+              </div>
+            )}
+
+            {/* Livros relacionados */}
+            {relatedBooks.length > 0 && (
+              <div>
+                <h3 className="mb-3 text-sm font-semibold text-[var(--text-primary)]">Voce tambem pode gostar</h3>
+                <div className="flex gap-3 overflow-x-auto pb-2">
+                  {relatedBooks.map((rb) => (
+                    <button
+                      key={rb.id}
+                      onClick={() => navigate(`/app/livro/${rb.id}`)}
+                      className="w-[120px] shrink-0 text-left"
+                    >
+                      <div className="aspect-[2/3] overflow-hidden rounded-[8px] border border-[var(--border)] bg-[var(--bg-card)]">
+                        <img src={rb.image} alt="" className="h-full w-full object-cover" />
+                      </div>
+                      <p className="mt-1.5 truncate text-xs font-medium text-[var(--text-primary)]">{rb.title}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!hasPdf && (
+              <div className="rounded-[12px] border border-dashed border-[var(--border)] p-8 text-center">
+                <BookOpen className="mx-auto mb-3 size-8 text-[var(--text-muted)]" />
+                <p className="text-sm text-[var(--text-secondary)]">Nenhum PDF disponivel para este livro ainda.</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "Capitulos" && (
+          <div className="rounded-[12px] border border-dashed border-[var(--border)] p-8 text-center">
+            <BookOpen className="mx-auto mb-3 size-8 text-[var(--text-muted)]" />
+            <p className="text-sm text-[var(--text-secondary)]">
+              Os capitulos serao disponibilizados em breve.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom bar fixo */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border)] bg-[var(--bg-page)] px-4 py-3">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleStartReading}
+            disabled={!hasPdf || !release.liberado}
+            className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full border border-[var(--border-strong)] bg-[var(--bg-card)] text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--hover-overlay)] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {hasPdf && release.liberado ? "Comecar a ler" : "Indisponivel"}
+          </button>
+          <button
+            onClick={() => toggleFavoriteBook(book.id)}
+            className={`flex size-12 items-center justify-center rounded-full border transition-colors ${
+              favoritado
+                ? "border-[var(--accent-mint)] bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]"
+                : "border-[var(--border-strong)] bg-[var(--bg-card)] text-[var(--text-primary)] hover:bg-[var(--hover-overlay)]"
+            }`}
+            aria-label={favoritado ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+          >
+            {favoritado ? (
+              <CheckCircle2 className="size-5" />
+            ) : (
+              <span className="text-xl leading-none">+</span>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );
