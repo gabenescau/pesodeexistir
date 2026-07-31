@@ -157,7 +157,7 @@ export function TopNavbar() {
           <Logo className="text-[20px] text-[var(--text-primary)]" />
         </Link>
 
-        <nav className="hidden min-w-0 items-center gap-0.5 md:flex">
+        <nav className="hidden min-w-0 items-center gap-0.5 overflow-x-auto overscroll-x-contain md:flex">
           {items.map((item) => renderItem(item))}
         </nav>
       </div>

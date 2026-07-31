@@ -1,79 +1,74 @@
-import * as React from "react";
 import { cn } from "@/lib/utils";
-import { CaretLeft, CaretRight } from "@/lib/icons";
+import { ChevronLeft, ChevronRight, MoreHorizontal } from "@/lib/icons";
 
-function buildRange(current, total) {
-  const siblings = 1;
-  const range = [];
-  const left = Math.max(2, current - siblings);
-  const right = Math.min(total - 1, current + siblings);
-
-  range.push(1);
-  if (left > 2) range.push("...");
-  for (let page = left; page <= right; page += 1) range.push(page);
-  if (right < total - 1) range.push("...");
-  if (total > 1) range.push(total);
-  return range;
-}
-
-export function Pagination({ currentPage, totalPages, onPageChange, className, siblingCount = 1 }) {
-  if (totalPages <= 1) return null;
-  const items = buildRange(currentPage, totalPages);
-  const previousDisabled = currentPage <= 1;
-  const nextDisabled = currentPage >= totalPages;
-
-  function go(page) {
-    if (page < 1 || page > totalPages || page === currentPage) return;
-    onPageChange(page);
-  }
-
+function Pagination({ className, ...props }) {
   return (
-    <nav
-      role="navigation"
-      aria-label="Paginacao"
-      className={cn("flex items-center justify-center gap-1", className)}
-    >
-      <button
-        type="button"
-        aria-label="Pagina anterior"
-        onClick={() => go(currentPage - 1)}
-        disabled={previousDisabled}
-        className="flex h-9 items-center gap-1 rounded-[8px] border border-[var(--border)] px-3 text-xs text-[var(--text-secondary)] transition-colors hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)] disabled:opacity-40"
-      >
-        <CaretLeft className="size-3.5" weight="bold" />
-        <span className="hidden sm:inline">Anterior</span>
-      </button>
-      {items.map((item, index) =>
-        item === "..." ? (
-          <span key={`ellipsis-${index}`} className="px-1 text-xs text-[var(--text-muted)]">...</span>
-        ) : (
-          <button
-            key={item}
-            type="button"
-            aria-label={`Pagina ${item}`}
-            aria-current={item === currentPage ? "page" : undefined}
-            onClick={() => go(item)}
-            className={cn(
-              "flex size-9 items-center justify-center rounded-[8px] text-xs transition-colors",
-              item === currentPage
-                ? "bg-[var(--accent-mint)] text-[#111] font-semibold"
-                : "border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]"
-            )}
-          >
-            {item}
-          </button>
-        )
-      )}
-      <button
-        type="button"
-        aria-label="Proxima pagina"
-        onClick={() => go(currentPage + 1)}
-        disabled={nextDisabled}
-        className="flex h-9 items-center gap-1 rounded-[8px] border border-[var(--border)] px-3 text-xs text-[var(--text-secondary)] transition-colors hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)] disabled:opacity-40"
-      >
-        <span className="hidden sm:inline">Proxima</span>
-        <CaretRight className="size-3.5" weight="bold" />
-      </button>
-    </nav>
+    <nav role="navigation" aria-label="pagination" className={cn("mx-auto flex w-full justify-center", className)} {...props} />
   );
 }
+
+function PaginationContent({ className, ...props }) {
+  return <ul className={cn("flex flex-row flex-wrap items-center justify-center gap-1", className)} {...props} />;
+}
+
+function PaginationItem({ className, ...props }) {
+  return <li className={cn("", className)} {...props} />;
+}
+
+function PaginationLink({ className, isActive, size = "icon", render, ...props }) {
+  const Component = render?.type || "a";
+  return (
+    <Component
+      {...(render?.props || {})}
+      aria-current={isActive ? "page" : undefined}
+      className={cn(
+        "inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-md text-sm font-medium transition-colors",
+        size === "default" && "h-9 min-w-9 px-3",
+        size === "icon" && "size-9",
+        isActive
+          ? "bg-[var(--text-primary)] text-[var(--bg-card)]"
+          : "text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]",
+        "disabled:pointer-events-none disabled:opacity-40",
+        className
+      )}
+      {...props}
+    />
+  );
+}
+
+function PaginationPrevious({ className, ...props }) {
+  return (
+    <PaginationLink aria-label="Ir para a pagina anterior" size="default" className={cn("gap-1 pl-2.5", className)} {...props}>
+      <ChevronLeft className="size-4" />
+      <span>Anterior</span>
+    </PaginationLink>
+  );
+}
+
+function PaginationNext({ className, ...props }) {
+  return (
+    <PaginationLink aria-label="Ir para a proxima pagina" size="default" className={cn("gap-1 pr-2.5", className)} {...props}>
+      <span>Proxima</span>
+      <ChevronRight className="size-4" />
+    </PaginationLink>
+  );
+}
+
+function PaginationEllipsis({ className, ...props }) {
+  return (
+    <span aria-hidden className={cn("flex size-9 items-center justify-center", className)} {...props}>
+      <MoreHorizontal className="size-4" />
+      <span className="sr-only">Mais paginas</span>
+    </span>
+  );
+}
+
+export {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationPrevious,
+  PaginationNext,
+  PaginationEllipsis,
+};

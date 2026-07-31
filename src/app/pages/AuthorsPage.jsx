@@ -1,11 +1,34 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Search } from "@/lib/icons";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { useData } from "../data/DataContext";
+
+const PAGE_SIZE = 12;
+
+function getPageItems(current, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const items = [1];
+  for (let i = 2; i < total; i++) {
+    if (Math.abs(i - current) <= 1) items.push(i);
+    else if (items[items.length - 1] !== "ellipsis") items.push("ellipsis");
+  }
+  items.push(total);
+  return items;
+}
 
 export function AuthorsPage() {
   const { authors } = useData();
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
 
   const termo = query.trim().toLowerCase();
 
@@ -19,6 +42,11 @@ export function AuthorsPage() {
     );
   }, [authors, termo]);
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const visible = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const pageItems = getPageItems(currentPage, totalPages);
+
   return (
     <div className="space-y-6">
       <div>
@@ -31,34 +59,79 @@ export function AuthorsPage() {
         <input
           type="text"
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setPage(1);
+          }}
           placeholder="Buscar autores por nome ou tema..."
           className="h-10 w-full rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] pl-11 pr-4 text-sm text-[var(--text-primary)] outline-none transition-colors placeholder:text-[var(--text-placeholder)] focus:border-[var(--border-strong)] sm:h-12"
         />
       </div>
 
       {filtered.length > 0 ? (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          {filtered.map((a) => (
-            <Link key={a.id} to={`/app/autor/${a.id}`} className="group cursor-pointer">
-              <div className="relative aspect-[3/4] overflow-hidden rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)]">
-                <img
-                  src={a.image}
-                  alt={a.name}
-                  className="h-full w-full object-cover opacity-70 transition-opacity group-hover:opacity-90"
-                />
-                <div className="absolute inset-0 bg-linear-to-t from-[var(--bg-card)] via-transparent to-transparent" />
-                {a.theme && (
-                  <span className="absolute bottom-2 left-2 rounded-full border border-[var(--border)] bg-[var(--hover-overlay)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
-                    {a.theme}
-                  </span>
+        <>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            {visible.map((a) => (
+              <Link key={a.id} to={`/app/autor/${a.id}`} className="group cursor-pointer">
+                <div className="relative aspect-[3/4] overflow-hidden rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)]">
+                  <img
+                    src={a.image}
+                    alt={a.name}
+                    className="h-full w-full object-cover opacity-70 transition-opacity group-hover:opacity-90"
+                  />
+                  <div className="absolute inset-0 bg-linear-to-t from-[var(--bg-card)] via-transparent to-transparent" />
+                  {a.theme && (
+                    <span className="absolute bottom-2 left-2 rounded-full border border-[var(--border)] bg-[var(--hover-overlay)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
+                      {a.theme}
+                    </span>
+                  )}
+                </div>
+                <h3 className="mt-2 truncate text-xs font-medium text-[var(--text-primary)]">{a.name}</h3>
+                {a.theme && <p className="truncate text-[11px] text-[var(--text-muted)]">{a.theme}</p>}
+              </Link>
+            ))}
+          </div>
+
+          {totalPages > 1 && (
+            <Pagination className="pt-1">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    render={<button type="button" />}
+                    disabled={currentPage === 1}
+                    onClick={() => setPage(Math.max(1, currentPage - 1))}
+                  />
+                </PaginationItem>
+
+                {pageItems.map((item, index) =>
+                  item === "ellipsis" ? (
+                    <PaginationItem key={`ellipsis-${index}`}>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  ) : (
+                    <PaginationItem key={item}>
+                      <PaginationLink
+                        render={<button type="button" />}
+                        isActive={item === currentPage}
+                        onClick={() => setPage(item)}
+                      >
+                        {item}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )
                 )}
-              </div>
-              <h3 className="mt-2 truncate text-xs font-medium text-[var(--text-primary)]">{a.name}</h3>
-              {a.theme && <p className="truncate text-[11px] text-[var(--text-muted)]">{a.theme}</p>}
-            </Link>
-          ))}
-        </div>
+
+                <PaginationItem>
+                  <PaginationNext
+                    render={<button type="button" />}
+                    disabled={currentPage === totalPages}
+                    onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
+        </>
       ) : (
         <p className="py-8 text-center text-sm text-[var(--text-muted)]">Nenhum autor encontrado.</p>
       )}

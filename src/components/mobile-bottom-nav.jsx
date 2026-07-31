@@ -20,7 +20,7 @@ export function MobileBottomNav() {
               }`}
             >
               <Icon className="size-5" strokeWidth={isActive ? 2 : 1.5} />
-              <span className="text-[10px] font-medium">{item.label}</span>
+              <span className="max-w-full truncate text-[10px] font-medium">{item.label}</span>
             </Link>
           );
         })}
