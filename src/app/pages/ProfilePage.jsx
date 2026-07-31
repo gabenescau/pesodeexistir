@@ -259,7 +259,7 @@ export function ProfilePage() {
               <>
                 <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
                   <h1 className="text-xl sm:text-2xl font-[600] text-[var(--text-primary)]">{profile.name}</h1>
-                  {(authProfile?.verified || authProfile?.is_verified || authProfile?.role === "admin") && <VerifiedBadge className="size-5 text-[#3b82f6]" />}
+                  {(authProfile?.verified || authProfile?.is_verified || authProfile?.role === "admin") && <VerifiedBadge className="size-5 text-[var(--accent-mint)]" />}
                   <UserTitlePill userId={user?.id} />
                 </div>
                 <p className="text-sm" style={{ color: "var(--text-muted)" }}>@{profile.handle}</p>

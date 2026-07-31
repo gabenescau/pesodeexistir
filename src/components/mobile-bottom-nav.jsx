@@ -5,7 +5,7 @@ export function MobileBottomNav() {
   const location = useLocation();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-[var(--border)] bg-[#131113]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-[var(--border)] bg-[var(--bg-canvas)]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden">
       <div className="flex min-h-14 items-center justify-around px-1 sm:px-2">
         {bottomNavItems.map((item) => {
           const Icon = item.icon;

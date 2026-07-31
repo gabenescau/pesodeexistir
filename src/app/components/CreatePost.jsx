@@ -244,7 +244,7 @@ export function CreatePost() {
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4">
-          <div className="flex max-h-[92svh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[14px] border border-[var(--border)] bg-[var(--bg-card)] shadow-[0_22px_80px_rgba(0,0,0,.45)] sm:rounded-[14px]">
+          <div className="flex max-h-[92svh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[14px] border border-[var(--border)] bg-[var(--bg-card)] shadow-[var(--shadow-sm)] sm:rounded-[14px]">
             <header className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
               <div className="flex min-w-0 items-center gap-3">
                 <Avatar src={avatar} fallback={initial} />
@@ -275,7 +275,7 @@ export function CreatePost() {
                 />
 
                 {mention && suggestions.length > 0 && (
-                  <div className="absolute left-2 right-2 top-full z-30 mt-1 max-h-64 overflow-y-auto rounded-[10px] border border-[var(--border)] bg-[var(--bg-card)] p-1 shadow-[0_18px_45px_rgba(0,0,0,.28)]">
+                  <div className="absolute left-2 right-2 top-full z-30 mt-1 max-h-64 overflow-y-auto rounded-[10px] border border-[var(--border)] bg-[var(--bg-card)] p-1 shadow-[var(--shadow-sm)]">
                     {suggestions.map((item) => (
                       <button key={`${item.type}-${item.id}`} type="button" onClick={() => applySuggestion(item)} className="flex w-full items-center gap-3 rounded-[8px] px-2 py-2 text-left hover:bg-[var(--hover-overlay)]">
                         {item.type === "livro" ? (

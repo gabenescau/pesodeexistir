@@ -50,7 +50,7 @@ function AuthorCard({ author }) {
         className="absolute inset-0 h-full w-full object-cover grayscale"
       />
       <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/15" />
-      <span className="absolute left-5 top-5 rounded-[6px] border border-[#c78359]/60 bg-black/45 px-2 py-1 text-[11px] text-[#d89567]">
+      <span className="absolute left-5 top-5 rounded-[6px] border border-[var(--landing-brand)]/60 bg-black/45 px-2 py-1 text-[11px] text-[var(--landing-brand)]">
         {author.school}
       </span>
       <div className="absolute inset-x-5 bottom-5">

@@ -4,7 +4,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-const PALETTE = ["#c78359", "#3b82f6", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#06b6d4", "#a855f7"];
+const PALETTE = ["#0066cc", "#2997ff", "#0071e3", "#10b981", "#f59e0b", "#ef4444", "#7a7a7a", "#1d1d1f"];
 
 function pickColor(index) {
   return PALETTE[index % PALETTE.length];
@@ -97,7 +97,7 @@ export function DonutChart({ data, size = 140, className, label }) {
   );
 }
 
-export function LineChart({ data, height = 160, className, color = "#c78359" }) {
+export function LineChart({ data, height = 160, className, color = "#0066cc" }) {
   if (!data?.length) return null;
   const max = Math.max(1, ...data.map((item) => item.value || 0));
   const width = 100;

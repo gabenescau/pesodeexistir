@@ -50,7 +50,7 @@ function AlertDialogPopup({ className, children, ...props }) {
         <BaseAlertDialog.Popup
           data-slot="alert-dialog-popup"
           className={cn(
-            "w-full max-w-md gap-4 rounded-t-[16px] border border-[var(--border)] bg-[var(--bg-card)] p-6 shadow-[0_24px_60px_rgba(0,0,0,.4)]",
+            "w-full max-w-md gap-4 rounded-t-[16px] border border-[var(--border)] bg-[var(--bg-card)] p-6 shadow-[var(--shadow-sm)]",
             "data-[starting-style]:opacity-0 data-[ending-style]:opacity-0",
             "data-[starting-style]:translate-y-2 data-[ending-style]:translate-y-2",
             "transition-all duration-200 sm:rounded-[16px] sm:data-[starting-style]:translate-y-0 sm:data-[ending-style]:translate-y-0",

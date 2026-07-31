@@ -26,7 +26,7 @@ export function MobileNav() {
         aria-controls="mobile-menu"
         aria-expanded={open}
         aria-label={open ? "Fechar menu" : "Abrir menu"}
-        className="mobile-menu-trigger size-10 rounded-full! border border-[#c78359]/30 bg-[#2a1a13]/80 text-[#f3eee6] shadow-none! hover:bg-[#3a2318]"
+        className="mobile-menu-trigger size-10 rounded-full! border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-none! hover:bg-[var(--bg-card-hover)]"
         onClick={() => setOpen(!open)}
         size="icon"
         variant="outline"
@@ -36,15 +36,15 @@ export function MobileNav() {
 
       {open && (
         <Portal id="mobile-menu">
-          <div className="mobile-menu-panel fixed inset-0 z-[90] bg-[#030303]/96 backdrop-blur-xl">
+          <div className="mobile-menu-panel fixed inset-0 z-[90] bg-[var(--bg-canvas)]/96 backdrop-blur-xl">
             <div
               aria-hidden="true"
-              className="absolute inset-x-0 top-0 h-72 bg-[radial-gradient(circle_at_70%_0%,rgba(199,131,89,.22),transparent_45%)]"
+              className="absolute inset-x-0 top-0 h-72 bg-[radial-gradient(circle_at_70%_0%,var(--accent-mint)/22,transparent_45%)]"
             />
             <div className="relative flex min-h-dvh flex-col px-5 pb-6 pt-5">
               <div className="flex items-center justify-between">
                 <Link
-                  className="mobile-menu-logo text-[#f3eee6]"
+                  className="mobile-menu-logo text-[var(--text-primary)]"
                   to="/"
                   onClick={() => setOpen(false)}
                 >
@@ -53,7 +53,7 @@ export function MobileNav() {
                 <div className="flex items-center gap-2">
                   <button
                     aria-label="Alternar modo claro e escuro"
-                    className="mobile-menu-icon flex size-10 items-center justify-center rounded-full border border-[#c78359]/30 bg-[#2a1a13] text-[#f3eee6]"
+                    className="mobile-menu-icon flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-primary)]"
                     onClick={toggle}
                     type="button"
                   >
@@ -61,7 +61,7 @@ export function MobileNav() {
                   </button>
                   <button
                     aria-label="Fechar menu"
-                    className="mobile-menu-icon flex size-10 items-center justify-center rounded-full border border-[#c78359]/30 bg-[#2a1a13] text-[#f3eee6]"
+                    className="mobile-menu-icon flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-primary)]"
                     onClick={() => setOpen(false)}
                     type="button"
                   >
@@ -73,27 +73,27 @@ export function MobileNav() {
               <nav className="mt-12 grid gap-1">
                 {navLinks.map((link) => (
                   <a
-                    className="mobile-menu-link group flex items-center justify-between border-b border-[#c78359]/12 py-4 text-[13px] font-[500] uppercase tracking-[0.26em] text-[#d8cfc3] transition-colors hover:text-[#c78359]"
+                    className="mobile-menu-link group flex items-center justify-between border-b border-[var(--border)] py-4 text-[13px] font-[500] uppercase tracking-[0.26em] text-[var(--text-secondary)] transition-colors hover:text-[var(--accent-mint)]"
                     href={link.href}
                     key={link.label}
                     onClick={() => setOpen(false)}
                   >
                     {link.label}
-                    <ArrowRightIcon className="size-4 text-[#c78359] opacity-70 transition-transform group-hover:translate-x-1" />
+                    <ArrowRightIcon className="size-4 text-[var(--accent-mint)] opacity-70 transition-transform group-hover:translate-x-1" />
                   </a>
                 ))}
               </nav>
 
               <div className="mt-auto grid gap-3 pt-10">
                 <Link
-                  className="mobile-menu-ghost flex h-12 items-center justify-center rounded-full border border-[#c78359]/25 text-[12px] font-[600] uppercase tracking-[0.22em] text-[#d8cfc3]"
+                  className="mobile-menu-ghost flex h-12 items-center justify-center rounded-full border border-[var(--border)] text-[12px] font-[600] uppercase tracking-[0.22em] text-[var(--text-secondary)]"
                   onClick={() => setOpen(false)}
                   to={isAuthenticated ? "/app/inicio" : "/entrar"}
                 >
                   {isAuthenticated ? "Ir para o app" : "Entrar"}
                 </Link>
                 <Link
-                  className="mobile-menu-cta flex h-12 items-center justify-center rounded-full bg-[#c78359] text-[12px] font-[700] uppercase tracking-[0.22em] text-[#111111]"
+                  className="mobile-menu-cta flex h-12 items-center justify-center rounded-full bg-[var(--accent-mint)] text-[12px] font-[700] uppercase tracking-[0.22em] text-white"
                   onClick={() => setOpen(false)}
                   to={ctaTo}
                 >

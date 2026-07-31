@@ -71,9 +71,9 @@ export function AuthorsSection() {
               <div
                 className={cn(
                   "relative h-[420px] rounded-[12px] overflow-hidden border border-border bg-card",
-                  "shadow-[0px_1px_1px_#00000005,0px_2px_2px_#0000000a]",
+                  "shadow-[var(--shadow-sm)]",
                   "transition-all duration-500 ease-out",
-                  "group-hover:border-primary/30 group-hover:shadow-[0px_2px_2px_#0000000a,0px_8px_16px_-4px_#0000000a]"
+                  "group-hover:border-primary/30 group-hover:shadow-[var(--shadow-sm)]"
                 )}
               >
                 <div className="absolute inset-0">
@@ -83,7 +83,7 @@ export function AuthorsSection() {
                     className="author-card-image size-full object-cover opacity-75 group-hover:opacity-90 group-hover:scale-105 transition-all duration-700"
                     loading="lazy"
                   />
-                  <div className="author-card-overlay absolute inset-0 bg-linear-to-t from-[#030303]/88 via-[#030303]/36 to-transparent" />
+                  <div className="author-card-overlay absolute inset-0 bg-linear-to-t from-[#000000]/88 via-[#000000]/36 to-transparent" />
                 </div>
 
                 <div className="author-card-content relative h-full flex flex-col justify-end p-6">

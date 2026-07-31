@@ -54,7 +54,7 @@ export function Calendar({ selected, onSelect, month, onMonthChange, className }
   const today = startOfDay(new Date());
 
   return (
-    <div className={cn("w-[280px] rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-3 shadow-[0_18px_45px_rgba(0,0,0,.3)]", className)}>
+    <div className={cn("w-[280px] rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-3 shadow-[var(--shadow-sm)]", className)}>
       <div className="mb-2 flex items-center justify-between">
         <button
           type="button"

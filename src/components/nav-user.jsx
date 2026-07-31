@@ -51,7 +51,7 @@ export function NavUser() {
             onClick={() => setOpen(false)}
             className="fixed inset-0 z-40 cursor-default"
           />
-          <div className="absolute right-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-1 shadow-[0_18px_45px_rgba(0,0,0,.24)]">
+          <div className="absolute right-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-1 shadow-[var(--shadow-sm)]">
             <div className="border-b border-[var(--border)] px-3 py-2.5">
               <p className="truncate text-sm font-medium text-[var(--text-primary)]">{name}</p>
               {user?.email && <p className="truncate text-xs text-[var(--text-muted)]">{user.email}</p>}

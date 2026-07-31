@@ -8,7 +8,7 @@ import { VerifiedBadge } from "@/app/components/VerifiedBadge";
 
 function BenefitIcon({ kind }) {
   if (kind === "verified") {
-    return <VerifiedBadge className="size-3.5 shrink-0 text-[#3b82f6]" title="Selo de verificado" />;
+    return <VerifiedBadge className="size-3.5 shrink-0 text-[var(--accent-mint)]" title="Selo de verificado" />;
   }
   if (kind === "instagram") {
     return <InstagramLogo className="size-3.5 shrink-0" aria-label="Instagram" />;

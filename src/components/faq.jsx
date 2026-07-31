@@ -37,7 +37,7 @@ export function FAQ() {
             {faqs.map((faq) => (
               <details
                 key={faq.q}
-                className="group p-5 rounded-[12px] border border-border bg-card shadow-[0px_1px_1px_#00000005,0px_2px_2px_#0000000a] cursor-pointer"
+                className="group p-5 rounded-[12px] border border-border bg-card shadow-[var(--shadow-sm)] cursor-pointer"
               >
                 <summary className="flex items-center justify-between text-[14px] font-[500] leading-[20px] tracking-[-0.28px] text-foreground list-none">
                   {faq.q}

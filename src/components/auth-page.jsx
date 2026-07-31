@@ -146,20 +146,20 @@ export function AuthPage() {
   };
 
   return (
-    <main className="auth-page relative bg-[#030303] text-[#f3eee6] md:h-screen md:overflow-hidden lg:grid lg:grid-cols-2">
-      <div className="auth-visual-panel relative hidden h-full flex-col border-r border-[#c78359]/12 bg-[#120d0a] p-10 lg:flex">
-        <div className="absolute inset-0 bg-linear-to-b from-transparent via-transparent to-[#030303]" />
+    <main className="auth-page relative bg-[var(--bg-canvas)] text-[var(--text-primary)] md:h-screen md:overflow-hidden lg:grid lg:grid-cols-2">
+      <div className="auth-visual-panel relative hidden h-full flex-col border-r border-[var(--border)] bg-[var(--bg-surface)] p-10 lg:flex">
+        <div className="absolute inset-0 bg-linear-to-b from-transparent via-transparent to-[var(--bg-canvas)]" />
         <div className="flex items-center gap-2 mr-auto">
-          <Logo className="text-[26px] text-[#f3eee6]" />
+          <Logo className="text-[26px] text-[var(--text-primary)]" />
         </div>
 
         <div className="auth-quote z-10 mt-auto">
           <blockquote className="space-y-2">
-            <p className="text-xl text-[#d8cfc3]">
+            <p className="text-xl text-[var(--text-secondary)]">
               &ldquo;A leitura não acaba quando você fecha o livro.
               Ela continua nas conversas.&rdquo;
             </p>
-            <footer className="font-mono font-semibold text-sm text-[#c78359]">
+            <footer className="font-mono font-semibold text-sm text-[var(--accent-mint)]">
               ~ OPE Club
             </footer>
           </blockquote>
@@ -170,7 +170,7 @@ export function AuthPage() {
         </div>
       </div>
 
-      <div className="auth-form-panel relative flex min-h-screen flex-col justify-center bg-[#030303] px-6 sm:px-8">
+      <div className="auth-form-panel relative flex min-h-screen flex-col justify-center bg-[var(--bg-canvas)] px-6 sm:px-8">
         <div
           aria-hidden
           className="absolute inset-0 isolate -z-10 opacity-60 contain-strict"
@@ -182,20 +182,20 @@ export function AuthPage() {
 
         <Link
           to="/"
-          className="absolute top-7 left-5 inline-flex items-center gap-1.5 rounded-[50px] border border-[#c78359]/20 px-3 py-1.5 text-sm text-[#b8aca0] transition-colors hover:text-[#c78359]"
+          className="absolute top-7 left-5 inline-flex items-center gap-1.5 rounded-[50px] border border-[var(--border)] px-3 py-1.5 text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--accent-mint)]"
         >
           <ChevronLeftIcon className="size-4" />Início
         </Link>
 
         <div className="auth-form-card mx-auto w-full max-w-sm space-y-4">
           <div className="flex items-center gap-2 lg:hidden">
-            <Logo className="text-[26px] text-[#f3eee6]" />
+            <Logo className="text-[26px] text-[var(--text-primary)]" />
           </div>
           <div className="flex flex-col space-y-1">
-            <h1 className="font-bold text-2xl tracking-wide text-[#f3eee6]">
+            <h1 className="font-bold text-2xl tracking-wide text-[var(--text-primary)]">
               {mode === "login" ? "Entrar" : "Criar conta"}
             </h1>
-            <p className="text-base text-[#b8aca0]">
+            <p className="text-base text-[var(--text-secondary)]">
               {mode === "login"
                 ? "Acesse sua biblioteca e comunidade."
                 : "Crie sua conta no OPE Club."}
@@ -203,7 +203,7 @@ export function AuthPage() {
           </div>
 
           <form className="space-y-3" onSubmit={handleSubmit}>
-            <p className="text-start text-xs text-[#9f9083]">
+            <p className="text-start text-xs text-[var(--text-muted)]">
               {mode === "login"
                 ? "Digite seu email e senha para entrar"
                 : "Preencha os dados para criar sua conta"}
@@ -255,12 +255,12 @@ export function AuthPage() {
             </InputGroup>
 
             {error && (
-              <p className={`text-xs ${error.includes("criada") ? "text-[#c78359]" : "text-red-500"}`}>
+              <p className={`text-xs ${error.includes("criada") ? "text-[var(--accent-mint)]" : "text-red-500"}`}>
                 {error}
               </p>
             )}
 
-            <Button className="w-full bg-[linear-gradient(135deg,#8a5535,#2a1a13)] text-[#fff7ee] hover:bg-[linear-gradient(135deg,#9b6240,#352017)]" type="submit" disabled={loading}>
+            <Button className="w-full bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint)]" type="submit" disabled={loading}>
               {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
             </Button>
           </form>
@@ -273,7 +273,7 @@ export function AuthPage() {
                 setTermsAccepted(false);
                 setMarketingOptIn(false);
               }}
-              className="text-sm text-[#b8aca0] underline underline-offset-4 transition-colors hover:text-[#c78359]"
+              className="text-sm text-[var(--text-muted)] underline underline-offset-4 transition-colors hover:text-[var(--accent-mint)]"
             >
               {mode === "login"
                 ? "Não tem conta? Assinar agora"
@@ -283,7 +283,7 @@ export function AuthPage() {
 
           {mode === "signup" && (
             <div className="space-y-3 pt-2">
-              <label className="flex items-start gap-3 text-left text-xs text-[#9f9083]">
+              <label className="flex items-start gap-3 text-left text-xs text-[var(--text-muted)]">
                 <Checkbox
                   checked={termsAccepted}
                   onCheckedChange={(value) => setTermsAccepted(value === true)}
@@ -294,7 +294,7 @@ export function AuthPage() {
                   Li e aceito os{" "}
                   <TermsDialog
                     trigger={
-                      <span className="cursor-pointer underline underline-offset-4 hover:text-[#c78359]">
+                      <span className="cursor-pointer underline underline-offset-4 hover:text-[var(--accent-mint)]">
                         Termos de Servico
                       </span>
                     }
@@ -302,7 +302,7 @@ export function AuthPage() {
                   {" "}e a{" "}
                   <PrivacyDialog
                     trigger={
-                      <span className="cursor-pointer underline underline-offset-4 hover:text-[#c78359]">
+                      <span className="cursor-pointer underline underline-offset-4 hover:text-[var(--accent-mint)]">
                         Politica de Privacidade
                       </span>
                     }
@@ -310,7 +310,7 @@ export function AuthPage() {
                   {" "}do OPE Club, em conformidade com a Lei Geral de Protecao de Dados (LGPD - Lei 13.709/2018).
                 </span>
               </label>
-              <label className="flex items-start gap-3 text-left text-xs text-[#9f9083]">
+              <label className="flex items-start gap-3 text-left text-xs text-[var(--text-muted)]">
                 <Checkbox
                   checked={marketingOptIn}
                   onCheckedChange={(value) => setMarketingOptIn(value === true)}
@@ -323,12 +323,12 @@ export function AuthPage() {
             </div>
           )}
 
-          <p className="mt-6 text-center text-[11px] leading-relaxed text-[#6b5d52]">
+          <p className="mt-6 text-center text-[11px] leading-relaxed text-[var(--text-muted)]">
             OPE Club respeita sua privacidade. Os dados coletados (nome, email, atividades de leitura)
             sao usados para operacao do clube, personalizacao de conteudo e cumprimento de obrigacoes legais.
             Voce pode exercer os direitos previstos no art. 18 da LGPD (confirmacao, acesso, correcao,
             anonimizacao, portabilidade e eliminacao) pelo email{" "}
-            <a className="underline underline-offset-4 hover:text-[#c78359]" href="mailto:privacidade@pesodeexistir.online">
+            <a className="underline underline-offset-4 hover:text-[var(--accent-mint)]" href="mailto:privacidade@pesodeexistir.online">
               privacidade@pesodeexistir.online
             </a>.
           </p>

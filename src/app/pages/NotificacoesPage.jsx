@@ -77,7 +77,7 @@ export function NotificacoesPage() {
       items.push({
         id: `follow-${follow.follower_id}-${follow.following_id}`,
         icon: UserPlus,
-        accent: "#3b82f6",
+        accent: "var(--accent-mint)",
         quem: autor.name || "Leitor",
         acao: "comecou a seguir voce",
         alvo: "",

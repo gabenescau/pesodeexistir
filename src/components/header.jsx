@@ -22,8 +22,8 @@ export function Header() {
 
   return (
     <header className="landing-header absolute inset-x-0 top-0 z-50 px-4 pt-4 sm:px-6 lg:px-8">
-      <nav className="mx-auto flex h-16 w-full max-w-[1500px] items-center justify-between rounded-full bg-[#080706]/72 px-5 shadow-[0_18px_80px_rgba(0,0,0,.34)] backdrop-blur-xl sm:h-18 sm:px-7">
-        <Link className="flex min-w-[112px] items-center text-[#f4eee6]" to="/">
+      <nav className="mx-auto flex h-16 w-full max-w-[1500px] items-center justify-between rounded-full bg-[#000000]/72 px-5 backdrop-blur-xl sm:h-18 sm:px-7">
+        <Link className="flex min-w-[112px] items-center text-[var(--text-primary)]" to="/">
           <Logo className="text-[26px] sm:text-[31px]" />
         </Link>
 
@@ -32,7 +32,7 @@ export function Header() {
             {navLinks.map((link) => (
               <a
                 key={link.label}
-                className="text-[11px] font-[500] uppercase tracking-[0.28em] text-[#e8ded2]/70 transition-colors hover:text-[#d38b5f] lg:text-[12px]"
+                className="text-[11px] font-[500] uppercase tracking-[0.28em] text-[var(--text-muted)] transition-colors hover:text-[var(--accent-mint)] lg:text-[12px]"
                 href={link.href}
               >
                 {link.label}
@@ -44,14 +44,14 @@ export function Header() {
         <div className="hidden items-center gap-2 md:flex">
           <button
             aria-label="Alternar modo claro e escuro"
-            className="flex size-9 items-center justify-center rounded-full border border-[#c78359]/25 text-[#d8cfc3] transition hover:bg-[#c78359]/10 hover:text-[#c78359]"
+            className="flex size-9 items-center justify-center rounded-full border border-[var(--border)] text-[var(--text-muted)] transition hover:bg-[var(--hover-overlay)] hover:text-[var(--accent-mint)]"
             onClick={toggle}
             type="button"
           >
             {theme === "dark" ? <SunIcon className="size-4" /> : <MoonIcon className="size-4" />}
           </button>
           <Link
-            className="rounded-full bg-[#d08a5d] px-5 py-2.5 text-[11px] font-[600] uppercase tracking-[0.2em] text-[#090705] transition hover:bg-[#e1a073]"
+            className="rounded-full bg-[var(--accent-mint)] px-5 py-2.5 text-[11px] font-[600] uppercase tracking-[0.2em] text-white transition hover:bg-[var(--accent-mint)]"
             to={ctaTo}
           >
             {ctaLabel}

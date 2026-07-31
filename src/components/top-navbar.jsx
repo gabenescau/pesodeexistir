@@ -53,7 +53,7 @@ function NavDropdown({ label, to, active, subItems, verTudo = true }) {
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 max-h-[70vh] min-w-52 overflow-y-auto rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-1.5 shadow-[0_18px_45px_rgba(0,0,0,.24)]">
+        <div className="absolute left-0 top-full z-50 mt-1 max-h-[70vh] min-w-52 overflow-y-auto rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-1.5 shadow-[var(--shadow-sm)]">
           {verTudo && (
             <>
               <button
@@ -161,7 +161,7 @@ export function TopNavbar() {
           {notifOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
-              <div className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] shadow-[0_18px_45px_rgba(0,0,0,.24)]">
+              <div className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] shadow-[var(--shadow-sm)]">
                 <div className="border-b border-[var(--border)] px-4 py-3">
                   <p className="text-sm font-medium text-[var(--text-primary)]">Notificacoes</p>
                 </div>

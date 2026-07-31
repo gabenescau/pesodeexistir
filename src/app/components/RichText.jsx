@@ -21,7 +21,7 @@ export function RichText({ text, className, onTagClick }) {
             <Link
               key={index}
               to={alvo.href}
-              className="font-medium text-[var(--accent-mint,#c78359)] hover:underline"
+              className="font-medium text-[var(--accent-mint)] hover:underline"
             >
               @{alvo.rotulo}
             </Link>
@@ -34,7 +34,7 @@ export function RichText({ text, className, onTagClick }) {
               key={index}
               type="button"
               onClick={() => onTagClick?.(parte.valor)}
-              className="font-medium text-[var(--accent-mint,#c78359)] hover:underline"
+              className="font-medium text-[var(--accent-mint)] hover:underline"
             >
               {parte.texto}
             </button>

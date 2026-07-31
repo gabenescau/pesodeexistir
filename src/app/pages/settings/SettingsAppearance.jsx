@@ -39,7 +39,7 @@ export function SettingsAppearance() {
               <Moon className="size-4 text-[var(--text-muted)]" />
               <span className="text-sm font-semibold text-[var(--text-primary)]">Escuro</span>
             </div>
-            <div className="h-16 w-full rounded-[8px] bg-[#0b0b0c] ring-1 ring-white/10" />
+            <div className="h-16 w-full rounded-[8px] bg-[#000000] ring-1 ring-white/10" />
           </button>
           <button
             type="button"

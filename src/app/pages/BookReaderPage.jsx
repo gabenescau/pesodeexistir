@@ -490,7 +490,7 @@ export function BookReaderPage() {
             <div className="flex h-full w-full items-center justify-center">
               <canvas
                 ref={canvasRef}
-                className="max-h-full max-w-full rounded-[6px] bg-white shadow-[0_18px_60px_rgba(0,0,0,.25)]"
+                className="max-h-full max-w-full rounded-[6px] bg-white shadow-[var(--shadow-sm)]"
               />
             </div>
           )}
@@ -508,7 +508,7 @@ export function BookReaderPage() {
             <div className="pointer-events-none absolute inset-0 z-30 flex items-end justify-center p-4 sm:items-center">
               <div
                 onPointerUp={(event) => event.stopPropagation()}
-                className="pointer-events-auto w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-[0_24px_60px_rgba(0,0,0,.35)]"
+                className="pointer-events-auto w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-[var(--shadow-sm)]"
               >
                 <p className="text-sm font-semibold text-[var(--text-primary)]">Como virar a página</p>
                 <ul className="mt-4 space-y-3 text-xs leading-relaxed text-[var(--text-secondary)]">

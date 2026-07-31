@@ -55,7 +55,7 @@ function FeatureCard({ feature, className, ...props }) {
     <div
       className={cn(
         "relative flex flex-col justify-between gap-6 rounded-[12px] border border-border bg-card p-8",
-        "shadow-[0px_1px_1px_#00000005,0px_2px_2px_#0000000a,0px_8px_8px_-8px_#0000000a]",
+        "shadow-[var(--shadow-sm)]",
         "dark:bg-[radial-gradient(50%_80%_at_25%_0%,--theme(--color-foreground/.1),transparent)]",
         className
       )}

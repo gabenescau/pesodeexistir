@@ -141,7 +141,7 @@ export function AutocompleteSearch({
 
       {open && query && (
         <div
-          className="absolute left-0 right-0 top-full z-30 mt-1 max-h-[320px] overflow-y-auto rounded-[10px] border border-[var(--border)] bg-[var(--bg-card)] p-1 shadow-[0_18px_45px_rgba(0,0,0,.32)]"
+          className="absolute left-0 right-0 top-full z-30 mt-1 max-h-[320px] overflow-y-auto rounded-[10px] border border-[var(--border)] bg-[var(--bg-card)] p-1 shadow-[var(--shadow-sm)]"
         >
           {resultados.length === 0 ? (
             <p className="px-3 py-4 text-center text-xs text-[var(--text-muted)]">

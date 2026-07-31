@@ -70,7 +70,7 @@ function CommentItem({ item, canDelete, onDelete, onReply }) {
           <Link to={`/app/perfil/${item.user_id}`} className="font-medium text-[var(--text-primary)] hover:underline">
             {name}
           </Link>
-          {isVerifiedProfile(profile) && <VerifiedBadge className="size-3.5 text-[#3b82f6]" />}
+          {isVerifiedProfile(profile) && <VerifiedBadge className="size-3.5 text-[var(--accent-mint)]" />}
           <span className="text-[var(--text-muted)]">@{handleDoPerfil(profile)}</span>
           <span className="text-[var(--text-muted)]">· {relativeTime(item.created_at)}</span>
         </div>
@@ -283,7 +283,7 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
             <MoreHorizontal className="size-5" />
           </button>
           {menuOpen && (
-            <div className="absolute right-0 top-10 z-20 w-44 overflow-hidden rounded-[10px] border border-[var(--border)] bg-[var(--bg-card)] p-1 shadow-[0_18px_45px_rgba(0,0,0,.24)]">
+            <div className="absolute right-0 top-10 z-20 w-44 overflow-hidden rounded-[10px] border border-[var(--border)] bg-[var(--bg-card)] p-1 shadow-[var(--shadow-sm)]">
               {canDelete ? (
                 <button type="button" onClick={handleDelete} disabled={busy} className="flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-left text-sm text-red-400 hover:bg-red-500/10 disabled:opacity-50">
                   <Trash2 className="size-4" />

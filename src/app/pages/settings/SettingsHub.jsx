@@ -110,7 +110,7 @@ export function SettingsHub() {
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-1.5">
               <p className="truncate text-base font-semibold text-[var(--text-primary)]">{nome}</p>
-              {isVerified ? <VerifiedBadge className="size-4 text-[#3b82f6]" /> : null}
+              {isVerified ? <VerifiedBadge className="size-4 text-[var(--accent-mint)]" /> : null}
               <UserTitlePill userId={user?.id} />
             </div>
             <p className="truncate text-xs text-[var(--text-muted)]">@{handle}</p>

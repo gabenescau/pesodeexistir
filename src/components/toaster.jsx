@@ -32,7 +32,7 @@ export function Toaster() {
         return (
           <div
             key={item.id}
-            className={`pointer-events-auto flex items-start gap-3 rounded-[10px] border px-3.5 py-3 shadow-[0_18px_45px_rgba(0,0,0,.32)] backdrop-blur ${KIND_STYLES[item.kind] || KIND_STYLES.info}`}
+            className={`pointer-events-auto flex items-start gap-3 rounded-[10px] border px-3.5 py-3 shadow-[var(--shadow-sm)] backdrop-blur ${KIND_STYLES[item.kind] || KIND_STYLES.info}`}
           >
             <Icon className="mt-0.5 size-4 shrink-0" weight="fill" />
             <p className="flex-1 text-sm leading-snug">{item.message}</p>

@@ -8,10 +8,10 @@ import { toast } from "@/lib/toast";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const columns = [
-  { id: "ideas", title: "Ideias da comunidade", accent: "#9ca3af" },
+  { id: "ideas", title: "Ideias da comunidade", accent: "#7a7a7a" },
   { id: "reading", title: "Em avaliacao", accent: "#facc15" },
-  { id: "building", title: "Em preparo", accent: "#0f766e" },
-  { id: "released", title: "Publicado", accent: "#84cc16" },
+  { id: "building", title: "Em preparo", accent: "#f59e0b" },
+  { id: "released", title: "Publicado", accent: "#10b981" },
 ];
 
 const categoryOptions = ["Biblioteca", "Comunidade", "Leitura", "Planos", "Perfil"];

@@ -123,7 +123,7 @@ function TestimonialsCard({ testimonial, className, ...props }) {
   return (
     <figure
       className={cn(
-        "w-full max-w-xs rounded-[12px] border border-border bg-card p-6 shadow-[0px_1px_1px_#00000005,0px_2px_2px_#0000000a,0px_8px_8px_-8px_#0000000a]",
+        "w-full max-w-xs rounded-[12px] border border-border bg-card p-6 shadow-[var(--shadow-sm)]",
         "before:absolute before:inset-0 before:rounded-[12px] before:shadow-[inset_0_0_0_1px_#ffffff08] before:pointer-events-none relative",
         className
       )}

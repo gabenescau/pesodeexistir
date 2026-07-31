@@ -132,7 +132,7 @@ export function EmojiReactions({ targetType, targetId, reacoesIniciais = null })
             onClick={() => setAberto(false)}
             className="fixed inset-0 z-10 cursor-default"
           />
-          <div className="absolute bottom-9 left-0 z-20 flex max-w-[min(20rem,80vw)] flex-wrap gap-1 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-2 shadow-[0_18px_45px_rgba(0,0,0,.28)]">
+          <div className="absolute bottom-9 left-0 z-20 flex max-w-[min(20rem,80vw)] flex-wrap gap-1 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-2 shadow-[var(--shadow-sm)]">
             {EMOJIS.map((emoji) => (
               <button
                 key={emoji}

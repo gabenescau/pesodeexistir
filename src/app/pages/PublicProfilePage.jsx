@@ -18,7 +18,7 @@ function Avatar({ src, fallback, size = "lg" }) {
   const textCls = size === "lg" ? "text-3xl" : "text-sm";
 
   return (
-    <div className={`${sizeCls} shrink-0 overflow-hidden rounded-full border-[3px] border-white/90 bg-white/10 text-white shadow-[0_8px_24px_rgba(0,0,0,.25)] ${textCls} font-bold`}>
+    <div className={`${sizeCls} shrink-0 overflow-hidden rounded-full border-[3px] border-white/90 bg-white/10 text-white shadow-[var(--shadow-sm)] ${textCls} font-bold`}>
       {ehImagem ? (
         <img src={src} alt="" className="h-full w-full object-cover" onError={() => setQuebrada(true)} />
       ) : (
@@ -160,7 +160,7 @@ export function PublicProfilePage() {
       {/* COVER + PERFIL (igual a referencia) */}
       <section
         ref={coverRef}
-        className="relative overflow-hidden bg-gradient-to-br from-rose-500 via-orange-500 to-amber-500 px-4 pb-3 pt-3 text-white sm:mx-0 sm:rounded-t-[16px]"
+        className="relative overflow-hidden bg-gradient-to-br from-[#0066cc] via-[#0071e3] to-[#2997ff] px-4 pb-3 pt-3 text-white sm:mx-0 sm:rounded-t-[16px]"
       >
         {/* Barra superior: titulo + 3 botoes redondos */}
         <div className="flex items-center justify-between">
@@ -174,7 +174,7 @@ export function PublicProfilePage() {
                 <MoreHorizontal className="size-4 text-white" weight="bold" />
               </button>
               {menuOpen ? (
-                <div className="absolute right-0 top-11 z-30 w-44 overflow-hidden rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] shadow-[0_18px_45px_rgba(0,0,0,.35)]">
+                <div className="absolute right-0 top-11 z-30 w-44 overflow-hidden rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] shadow-[var(--shadow-sm)]">
                   <button onClick={handleCopyLink} className="block w-full px-4 py-2.5 text-left text-sm hover:bg-[var(--hover-overlay)]">Copiar link</button>
                   <button onClick={handleReport} className="block w-full px-4 py-2.5 text-left text-sm text-red-400 hover:bg-[var(--hover-overlay)]">Denunciar perfil</button>
                 </div>
@@ -220,7 +220,7 @@ export function PublicProfilePage() {
             <div className="mt-4 flex w-full max-w-md justify-center gap-4 overflow-x-auto pb-1 sm:gap-5" style={{ scrollbarWidth: "none" }}>
               {interestChips.map((chip) => (
                 <div key={chip.category} className="flex w-[64px] shrink-0 flex-col items-center text-center sm:w-[72px]">
-                  <div className="size-16 overflow-hidden rounded-full border-2 border-white/80 bg-white/15 shadow-[0_6px_18px_rgba(0,0,0,.2)] sm:size-[72px]">
+                  <div className="size-16 overflow-hidden rounded-full border-2 border-white/80 bg-white/15 shadow-[var(--shadow-sm)] sm:size-[72px]">
                     {chip.cover ? (
                       <img src={chip.cover} alt="" className="h-full w-full object-cover" loading="lazy" />
                     ) : (

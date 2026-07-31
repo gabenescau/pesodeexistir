@@ -61,7 +61,7 @@ function Feature({ title, description, icon }) {
       className={cn(
         "flex flex-col rounded-[8px] border border-border bg-card p-6 relative group/feature",
         "hover:border-primary/30 transition-all duration-200",
-        "shadow-[0px_1px_1px_#00000005,0px_2px_2px_#0000000a]",
+        "shadow-[var(--shadow-sm)]",
         "before:absolute before:inset-0 before:rounded-[8px] before:shadow-[inset_0_0_0_1px_#ffffff08] before:pointer-events-none"
       )}
     >

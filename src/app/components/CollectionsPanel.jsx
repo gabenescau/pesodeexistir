@@ -6,12 +6,12 @@ import { useData } from "../data/DataContext";
 import { toast } from "@/lib/toast";
 
 const COLORS = [
-  "from-amber-500 to-rose-500",
-  "from-violet-500 to-fuchsia-500",
-  "from-sky-500 to-cyan-500",
-  "from-emerald-500 to-teal-500",
-  "from-rose-500 to-orange-500",
-  "from-indigo-500 to-purple-500",
+  "from-[#0066cc] to-[#0071e3]",
+  "from-[#2997ff] to-[#0071e3]",
+  "from-[#0071e3] to-[#0066cc]",
+  "from-[#0066cc] to-[#1d1d1f]",
+  "from-[#2997ff] to-[#1d1d1f]",
+  "from-[#2997ff] to-[#2997ff]",
 ];
 
 function colorFor(id = "") {
@@ -71,7 +71,7 @@ function Sheet({ open, onClose, title, children }) {
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label={title}>
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative z-10 flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[16px] border border-[var(--border)] bg-[var(--bg-card)] shadow-[0_24px_60px_rgba(0,0,0,.5)] sm:max-h-[85vh] sm:max-w-md sm:rounded-[16px]">
+      <div className="relative z-10 flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[16px] border border-[var(--border)] bg-[var(--bg-card)] shadow-[var(--shadow-sm)] sm:max-h-[85vh] sm:max-w-md sm:rounded-[16px]">
         <div className="flex shrink-0 items-center justify-between border-b border-[var(--border)] px-4 py-3">
           <h3 className="text-sm font-semibold text-[var(--text-primary)]">{title}</h3>
           <button onClick={onClose} className="flex size-8 items-center justify-center rounded-full hover:bg-[var(--hover-overlay)]" aria-label="Fechar">

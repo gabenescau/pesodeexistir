@@ -35,7 +35,7 @@ export function MoreThanReading() {
               {items.map((item) => (
                 <div
                   key={item}
-                  className="flex items-start gap-3 p-3 rounded-[8px] border border-border bg-card shadow-[0px_1px_1px_#00000005,0px_2px_2px_#0000000a]"
+                  className="flex items-start gap-3 p-3 rounded-[8px] border border-border bg-card shadow-[var(--shadow-sm)]"
                 >
                   <div className="size-7 rounded-[6px] bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 mt-0.5">
                     <CheckIcon className="size-3.5 text-primary" />

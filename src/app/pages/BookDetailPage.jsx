@@ -154,7 +154,7 @@ export function BookDetailPage() {
 
           {/* Capa do livro (centralizada, com sombra) */}
           <div className="mt-6 w-[58%] max-w-[260px] sm:mt-8 sm:w-[52%] sm:max-w-[300px]">
-            <div className="overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)] shadow-[0_24px_60px_rgba(0,0,0,.35)]">
+            <div className="overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)] shadow-[var(--shadow-sm)]">
               <div className="aspect-[2/3]">
                 <img
                   src={book.image}
@@ -259,7 +259,7 @@ export function BookDetailPage() {
         <button
           onClick={handleStartReading}
           disabled={!hasPdf || !release.liberado}
-          className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-amber-500 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(245,158,11,.35)] transition-colors hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-amber-500/40 disabled:shadow-none"
+          className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-amber-500 text-sm font-semibold text-white shadow-[var(--shadow-sm)] transition-colors hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-amber-500/40 disabled:shadow-none"
         >
           <BookOpen className="size-4" weight="bold" />
           {ctaLabel}

@@ -21,7 +21,7 @@ export function LandingHeader() {
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-6 sm:pt-4">
-      <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between rounded-[8px] border border-[var(--landing-border)] bg-[var(--landing-bg-glass)] px-4 py-3 shadow-[0_12px_45px_rgba(0,0,0,.12)] backdrop-blur-xl sm:px-6">
+      <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between rounded-[8px] border border-[var(--landing-border)] bg-[var(--landing-bg-glass)] px-4 py-3 shadow-[var(--shadow-sm)] backdrop-blur-xl sm:px-6">
         <a href="#top" className="font-serif text-[15px] leading-[0.9] text-[var(--landing-fg)] sm:text-[17px]">
           OPE
           <br />

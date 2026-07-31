@@ -32,7 +32,7 @@ function BookRow({ images, direction }) {
         {repeated.map((src, index) => (
           <button
             aria-label="Ver capa do livro"
-            className="book-cover group h-[180px] w-[116px] shrink-0 overflow-hidden rounded-[10px] border border-[var(--kvn-border,rgba(199,131,89,.16))] bg-[var(--kvn-surface-2)] shadow-[0_12px_26px_rgba(0,0,0,.18)] transition-transform duration-300 hover:-translate-y-1 md:h-[250px] md:w-[162px]"
+            className="book-cover group h-[180px] w-[116px] shrink-0 overflow-hidden rounded-[10px] border border-[var(--kvn-border)] bg-[var(--kvn-surface-2)] shadow-[var(--shadow-sm)] transition-transform duration-300 hover:-translate-y-1 md:h-[250px] md:w-[162px]"
             key={`${src}-${index}`}
             type="button"
           >
