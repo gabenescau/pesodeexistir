@@ -39,6 +39,7 @@ const ICONS = {
   ChevronLeftIcon: Phosphor.CaretLeft,
   ChevronRight: Phosphor.CaretRight,
   ChevronRightIcon: Phosphor.CaretRight,
+  ChevronUp: Phosphor.CaretUp,
   CircleCheck: Phosphor.CheckCircle,
   Clock: Phosphor.Clock,
   Compass: Phosphor.Compass,
@@ -79,6 +80,7 @@ const ICONS = {
   MessageCircle: Phosphor.ChatCircle,
   MessageSquare: Phosphor.ChatTeardrop,
   MessagesSquare: Phosphor.ChatsCircle,
+  Monitor: Phosphor.Monitor,
   Minus: Phosphor.Minus,
   Moon: Phosphor.Moon,
   MoonIcon: Phosphor.Moon,
@@ -101,6 +103,7 @@ const ICONS = {
   ShieldAlert: Phosphor.ShieldWarning,
   ShieldIcon: Phosphor.Shield,
   SlidersHorizontal: Phosphor.SlidersHorizontal,
+  Smartphone: Phosphor.DeviceMobile,
   Smile: Phosphor.Smiley,
   SmilePlus: Phosphor.Smiley,
   Sparkles: Phosphor.Sparkle,
@@ -116,6 +119,7 @@ const ICONS = {
   UserPlus: Phosphor.UserPlus,
   UserRound: Phosphor.UserCircle,
   Users: Phosphor.Users,
+  Wallet: Phosphor.Wallet,
   Warning: Phosphor.Warning,
   WifiOff: Phosphor.WifiSlash,
   X: Phosphor.X,
@@ -160,6 +164,7 @@ export const ChevronLeft = Phosphor.CaretLeft;
 export const ChevronLeftIcon = Phosphor.CaretLeft;
 export const ChevronRight = Phosphor.CaretRight;
 export const ChevronRightIcon = Phosphor.CaretRight;
+export const ChevronUp = Phosphor.CaretUp;
 export const CircleCheck = Phosphor.CheckCircle;
 export const Clock = Phosphor.Clock;
 export const Compass = Phosphor.Compass;
@@ -200,6 +205,7 @@ export const MenuIcon = Phosphor.List;
 export const MessageCircle = Phosphor.ChatCircle;
 export const MessageSquare = Phosphor.ChatTeardrop;
 export const MessagesSquare = Phosphor.ChatsCircle;
+export const Monitor = Phosphor.Monitor;
 export const Minus = Phosphor.Minus;
 export const Moon = Phosphor.Moon;
 export const MoonIcon = Phosphor.Moon;
@@ -222,6 +228,7 @@ export const Shield = Phosphor.Shield;
 export const ShieldAlert = Phosphor.ShieldWarning;
 export const ShieldIcon = Phosphor.Shield;
 export const SlidersHorizontal = Phosphor.SlidersHorizontal;
+export const Smartphone = Phosphor.DeviceMobile;
 export const Smile = Phosphor.Smiley;
 export const SmilePlus = Phosphor.Smiley;
 export const Sparkles = Phosphor.Sparkle;
@@ -237,6 +244,7 @@ export const UserIcon = Phosphor.User;
 export const UserPlus = Phosphor.UserPlus;
 export const UserRound = Phosphor.UserCircle;
 export const Users = Phosphor.Users;
+export const Wallet = Phosphor.Wallet;
 export const Warning = Phosphor.Warning;
 export const WifiOff = Phosphor.WifiSlash;
 export const X = Phosphor.X;
