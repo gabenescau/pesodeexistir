@@ -9,7 +9,7 @@ import {
   ShieldIcon,
   Sparkles,
   UserIcon,
-} from "lucide-react";
+} from "@/lib/icons";
 import { useData } from "@/app/data/DataContext";
 
 function hasActiveReleases(weeklyReleases) {

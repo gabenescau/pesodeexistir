@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   CheckCircle2, ChevronLeft, ChevronRight, Hand, Info, Keyboard, Lock, Maximize2,
   MessageCircle, Minus, MousePointerClick, NotebookPen, Plus, X,
-} from "lucide-react";
+} from "@/lib/icons";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { useData } from "../data/DataContext";

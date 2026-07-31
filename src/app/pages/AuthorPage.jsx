@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ChevronLeft, BookOpen, Heart, MessageCircle } from "lucide-react";
+import { ChevronLeft, BookOpen, Heart, MessageCircle } from "@/lib/icons";
 import { useData } from "../data/DataContext";
 
 export function AuthorPage() {

@@ -1,4 +1,4 @@
-import { StarIcon, QuoteIcon } from "lucide-react";
+import { StarIcon, QuoteIcon } from "@/lib/icons";
 
 const testimonials = [
   {

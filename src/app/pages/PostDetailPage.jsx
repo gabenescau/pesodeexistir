@@ -1,5 +1,5 @@
 import { Link, Navigate, useParams } from "react-router-dom";
-import { ChevronLeft, MessageCircle } from "lucide-react";
+import { ChevronLeft, MessageCircle } from "@/lib/icons";
 import { useData } from "@/app/data/DataContext";
 import { PostCard } from "@/app/components/PostCard";
 

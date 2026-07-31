@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Search, SlidersHorizontal, X, Check } from "@/lib/icons";
 import { BookRow } from "../components/BookRow";
 import { useData } from "../data/DataContext";
 import { CATEGORIES, groupByCategory } from "@/lib/categories";
@@ -8,12 +8,15 @@ export function LibraryPage() {
   const { books, authors, bookFavorites } = useData();
   const [query, setQuery] = useState("");
   const [categoriaAtiva, setCategoriaAtiva] = useState("Todas");
+  const [autorAtivo, setAutorAtivo] = useState(null);
   const [abaAtiva, setAbaAtiva] = useState("todos"); // todos | favoritos | lendo
+  const [filtroAberto, setFiltroAberto] = useState(false);
 
   const allBooks = useMemo(() => books.map((b) => ({
     ...b,
     authorName: authors.find((a) => a.id === b.authorId)?.name || b.authorName || "",
     author: authors.find((a) => a.id === b.authorId)?.name || b.authorName || "",
+    authorId: b.authorId || authors.find((a) => a.name === (b.authorName || b.author))?.id || null,
   })), [books, authors]);
 
   const readingBooks = useMemo(() => allBooks.filter((b) => Number(b.progress || 0) > 0), [allBooks]);
@@ -23,6 +26,13 @@ export function LibraryPage() {
     const presentes = new Set(allBooks.map((b) => b.category).filter(Boolean));
     return CATEGORIES.filter((c) => presentes.has(c));
   }, [allBooks]);
+
+  const autoresDisponiveis = useMemo(() => {
+    const ids = new Set(allBooks.map((b) => b.authorId).filter(Boolean));
+    return authors
+      .filter((a) => ids.has(a.id))
+      .sort((a, b) => a.name.localeCompare(b.name, "pt"));
+  }, [allBooks, authors]);
 
   const termo = query.trim().toLowerCase();
   const buscaAtiva = termo.length > 0;
@@ -39,13 +49,20 @@ export function LibraryPage() {
   const livrosParaPrateleiras = useMemo(() => {
     if (abaAtiva === "favoritos") return favoriteBooks;
     if (abaAtiva === "lendo") return readingBooks;
-    const base = categoriaAtiva === "Todas" ? allBooks : allBooks.filter((b) => b.category === categoriaAtiva);
+    let base = categoriaAtiva === "Todas" ? allBooks : allBooks.filter((b) => b.category === categoriaAtiva);
+    if (autorAtivo) base = base.filter((b) => b.authorId === autorAtivo);
     return base;
-  }, [abaAtiva, categoriaAtiva, allBooks, favoriteBooks, readingBooks]);
+  }, [abaAtiva, categoriaAtiva, autorAtivo, allBooks, favoriteBooks, readingBooks]);
 
   const prateleiras = useMemo(() => groupByCategory(livrosParaPrateleiras), [livrosParaPrateleiras]);
 
   const totalResultados = resultadosBusca.length;
+  const filtroAtivo = categoriaAtiva !== "Todas" || autorAtivo;
+
+  const limparFiltros = () => {
+    setCategoriaAtiva("Todas");
+    setAutorAtivo(null);
+  };
 
   return (
     <div className="space-y-6">
@@ -75,34 +92,100 @@ export function LibraryPage() {
         ))}
       </div>
 
-      {/* Pesquisa */}
-      <div className="relative">
-        <Search className="absolute left-4 top-1/2 size-[18px] -translate-y-1/2 text-[var(--text-placeholder)]" />
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Pesquisar livros, autores ou categorias..."
-          className="h-10 w-full rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] pl-11 pr-4 text-sm text-[var(--text-primary)] outline-none transition-colors placeholder:text-[var(--text-placeholder)] focus:border-[var(--border-strong)] sm:h-12"
-        />
+      {/* Pesquisa + botão de filtro (categorias/autores) */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-4 top-1/2 size-[18px] -translate-y-1/2 text-[var(--text-placeholder)]" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Pesquisar livros, autores ou categorias..."
+            className="h-10 w-full rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] pl-11 pr-4 text-sm text-[var(--text-primary)] outline-none transition-colors placeholder:text-[var(--text-placeholder)] focus:border-[var(--border-strong)] sm:h-12"
+          />
+        </div>
+        <button
+          onClick={() => setFiltroAberto((v) => !v)}
+          aria-label="Abrir filtros"
+          aria-expanded={filtroAberto}
+          className={`flex h-10 shrink-0 items-center gap-2 rounded-[6px] border px-4 text-sm font-medium transition-colors sm:h-12 ${
+            filtroAberto || filtroAtivo
+              ? "border-transparent bg-[var(--text-primary)] text-[var(--bg-card)]"
+              : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"
+          }`}
+        >
+          <SlidersHorizontal className="size-[18px]" />
+          <span className="hidden sm:inline">Filtros{filtroAtivo ? " *" : ""}</span>
+        </button>
       </div>
 
-      {/* Filtro de categoria — some durante a busca */}
-      {!buscaAtiva && abaAtiva === "todos" && categoriasDisponiveis.length > 0 && (
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0" style={{ scrollbarWidth: "none" }}>
-          {["Todas", ...categoriasDisponiveis].map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setCategoriaAtiva(cat)}
-              className={`shrink-0 rounded-full border px-4 py-1.5 text-xs font-medium transition-colors ${
-                categoriaAtiva === cat
-                  ? "border-transparent bg-[var(--text-primary)] text-[var(--bg-card)]"
-                  : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
+      {/* Painel de filtros: categoria + autor — some durante a busca */}
+      {filtroAberto && !buscaAtiva && abaAtiva === "todos" && (categoriasDisponiveis.length > 0 || autoresDisponiveis.length > 0) && (
+        <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4 space-y-4">
+          {filtroAtivo && (
+            <div className="flex justify-end">
+              <button
+                onClick={limparFiltros}
+                className="flex items-center gap-1 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              >
+                <X className="size-3" /> Limpar filtros
+              </button>
+            </div>
+          )}
+
+          {categoriasDisponiveis.length > 0 && (
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">Categorias</p>
+              <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0" style={{ scrollbarWidth: "none" }}>
+                {["Todas", ...categoriasDisponiveis].map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setCategoriaAtiva(cat)}
+                    className={`shrink-0 rounded-full border px-4 py-1.5 text-xs font-medium transition-colors ${
+                      categoriaAtiva === cat
+                        ? "border-transparent bg-[var(--text-primary)] text-[var(--bg-card)]"
+                        : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"
+                    }`}
+                  >
+                    {categoriaAtiva === cat && cat !== "Todas" && <Check className="mr-1 inline size-3" />}
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {autoresDisponiveis.length > 0 && (
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">Autores</p>
+              <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0" style={{ scrollbarWidth: "none" }}>
+                <button
+                  onClick={() => setAutorAtivo(null)}
+                  className={`shrink-0 rounded-full border px-4 py-1.5 text-xs font-medium transition-colors ${
+                    autorAtivo === null
+                      ? "border-transparent bg-[var(--text-primary)] text-[var(--bg-card)]"
+                      : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"
+                  }`}
+                >
+                  Todos
+                </button>
+                {autoresDisponiveis.map((autor) => (
+                  <button
+                    key={autor.id}
+                    onClick={() => setAutorAtivo((prev) => (prev === autor.id ? null : autor.id))}
+                    className={`shrink-0 rounded-full border px-4 py-1.5 text-xs font-medium transition-colors ${
+                      autorAtivo === autor.id
+                        ? "border-transparent bg-[var(--text-primary)] text-[var(--bg-card)]"
+                        : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"
+                    }`}
+                  >
+                    {autorAtivo === autor.id && <Check className="mr-1 inline size-3" />}
+                    {autor.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -139,7 +222,7 @@ export function LibraryPage() {
             ))
           ) : (
             <p className="rounded-xl border border-dashed border-[var(--border)] p-10 text-center text-sm text-[var(--text-muted)]">
-              Nenhum livro nesta categoria ainda.
+              Nenhum livro encontrado com esses filtros.
             </p>
           )}
         </div>

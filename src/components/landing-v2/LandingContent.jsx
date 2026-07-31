@@ -1,4 +1,4 @@
-import { AtSign, BookMarked, Compass, CreditCard, LogIn, MessageCircle, MessagesSquare, WifiOff } from "lucide-react";
+import { AtSign, BookMarked, Compass, CreditCard, LogIn, MessageCircle, MessagesSquare, WifiOff } from "@/lib/icons";
 
 const features = [
   { icon: BookMarked, title: "Biblioteca", text: "Leia grandes obras de filosofia, literatura e psicologia diretamente no aplicativo." },

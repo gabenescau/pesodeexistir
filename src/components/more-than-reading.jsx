@@ -1,4 +1,4 @@
-import { CheckIcon } from "lucide-react";
+import { CheckIcon } from "@/lib/icons";
 
 const items = [
   "Compartilhar reflexões",

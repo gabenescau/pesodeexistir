@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { UserCheck, UserPlus } from "lucide-react";
+import { UserCheck, UserPlus } from "@/lib/icons";
 import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
 

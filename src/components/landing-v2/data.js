@@ -72,15 +72,3 @@ export const faqs = [
   { q: "A comunidade é moderada?", a: "Sim. A comunidade é moderada diariamente para manter um espaço inteligente, respeitoso e sem barulho, com foco em leitura e ideias." },
   { q: "Posso publicar meus próprios textos?", a: "Pode. Você publica reflexões, resenhas e trechos e recebe comentários de outros leitores que estão nas mesmas páginas que você." },
 ];
-
-export const planFeatures = [
-  "Biblioteca integrada ao aplicativo",
-  "Comunidade exclusiva dentro do aplicativo",
-  "Publicações ilimitadas",
-  "Discussões sobre livros e autores",
-  "Recomendações da comunidade",
-  "Novos conteúdos semanalmente",
-  "Leitura offline",
-  "Atualizações constantes",
-  "Acesso em todos os dispositivos",
-];

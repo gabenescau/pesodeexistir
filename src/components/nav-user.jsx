@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { LogOut, Settings, User } from "lucide-react";
+import { LogOut, Settings, User } from "@/lib/icons";
 import {
   Avatar,
   AvatarFallback,

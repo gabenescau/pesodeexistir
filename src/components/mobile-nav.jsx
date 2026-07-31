@@ -6,7 +6,7 @@ import { navLinks } from "@/components/header";
 import { Logo } from "@/components/logo";
 import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/app/data/AuthContext";
-import { XIcon, MenuIcon, ArrowRightIcon, MoonIcon, SunIcon } from "lucide-react";
+import { XIcon, MenuIcon, ArrowRightIcon, MoonIcon, SunIcon } from "@/lib/icons";
 
 export function MobileNav() {
   const [open, setOpen] = React.useState(false);

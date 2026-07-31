@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
-import { ChevronLeft, MessageCircle, Users } from "lucide-react";
+import { ChevronLeft, MessageCircle, Users } from "@/lib/icons";
 import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
 import { FollowButton } from "../components/FollowButton";

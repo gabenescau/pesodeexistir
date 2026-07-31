@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { CreditCard, LogIn, MessageCircle } from "lucide-react";
+import { CreditCard, LogIn, MessageCircle } from "@/lib/icons";
 
 const steps = [
   {

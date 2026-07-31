@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { BarChart3, BookOpen, Image, Plus, Send, UserRound, X } from "lucide-react";
+import { BarChart3, BookOpen, Image, Plus, Send, UserRound, X } from "@/lib/icons";
 import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
 import { isSupabaseReady, supabase } from "@/app/data/supabase";

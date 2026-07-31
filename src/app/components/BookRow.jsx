@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronRight, ChevronDown } from "lucide-react";
+import { ChevronRight, ChevronDown } from "@/lib/icons";
 
 export function BookRow({ title, books, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen);

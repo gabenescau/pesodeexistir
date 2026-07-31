@@ -1,4 +1,4 @@
-import { HelpCircleIcon } from "lucide-react";
+import { HelpCircleIcon } from "@/lib/icons";
 
 const faqs = [
   {

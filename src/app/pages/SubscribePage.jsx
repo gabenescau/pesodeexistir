@@ -5,7 +5,8 @@ import { useData } from "@/app/data/DataContext";
 import { getCurrentSubscription, isActiveSubscription } from "@/lib/subscription";
 import { createCheckout, PLANS } from "@/lib/abacatepay";
 import { useEffect } from "react";
-import { Check, CreditCard, Loader2, QrCode } from "lucide-react";
+import { CreditCard, Loader2, QrCode } from "@/lib/icons";
+import { PlanBenefitItem } from "@/components/plan-benefit";
 
 export function SubscribePage() {
   const { user, isAdmin } = useAuth();
@@ -263,18 +264,8 @@ export function SubscribePage() {
                 )}
 
                 <ul className="mt-6 space-y-2.5">
-                  {[
-                    "Acesso completo à biblioteca",
-                    "Comunidade exclusiva",
-                    "Grupos de leitura",
-                    "Leitura offline",
-                    "Sem anúncios",
-                    ...(isAnnual ? ["Melhor custo-benefício"] : []),
-                  ].map((f) => (
-                    <li key={f} className="flex items-center gap-2 text-[13px]" style={{ color: "var(--text-secondary)" }}>
-                      <Check className="size-3.5 shrink-0 text-[var(--accent-mint)]" strokeWidth={2.5} />
-                      {f}
-                    </li>
+                  {plan.benefits.map((benefit) => (
+                    <PlanBenefitItem key={benefit.text} benefit={benefit} />
                   ))}
                 </ul>
 

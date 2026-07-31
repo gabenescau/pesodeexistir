@@ -2,7 +2,7 @@ import { useState } from "react";
 import {
   Camera, Heart, MessageCircle, BookOpen, Users,
   PenLine, Clock, Bookmark,
-} from "lucide-react";
+} from "@/lib/icons";
 import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
 import { supabase, isSupabaseReady } from "@/app/data/supabase";

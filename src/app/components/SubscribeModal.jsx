@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/app/data/AuthContext";
 import { createCheckout, PLANS } from "@/lib/abacatepay";
-import { Check, CreditCard, Loader2, Lock, QrCode, X } from "lucide-react";
+import { Check, CreditCard, Loader2, Lock, QrCode, X } from "@/lib/icons";
 
 const BENEFITS = [
   "Acesso completo à biblioteca",

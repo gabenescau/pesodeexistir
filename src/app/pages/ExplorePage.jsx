@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Search, SlidersHorizontal, X, Check } from "lucide-react";
+import { Search, SlidersHorizontal, X, Check } from "@/lib/icons";
 import { useData } from "../data/DataContext";
 
 export function ExplorePage() {

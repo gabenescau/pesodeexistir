@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { CalendarDays, Lock, Sparkles } from "lucide-react";
+import { CalendarDays, Lock, Sparkles } from "@/lib/icons";
 import { useData } from "../data/DataContext";
 import { contagemRegressiva, formatarData } from "@/lib/releases";
 

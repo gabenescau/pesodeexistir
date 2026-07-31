@@ -14,7 +14,7 @@ export const PLAN_CATALOG = {
     plan: "ope_club_annual",
     externalId: "ope_club_annual_subscription_v1",
     name: "OPE Club Anual",
-    price: 14400,
+    price: 16800,
     durationDays: 365,
     description: "Assinatura anual OPE Club",
     cycle: "ANNUALLY",

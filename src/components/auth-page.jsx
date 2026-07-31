@@ -8,7 +8,7 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { FloatingPaths } from "@/components/floating-paths";
-import { ChevronLeftIcon, AtSignIcon, LockIcon, UserIcon } from "lucide-react";
+import { ChevronLeftIcon, AtSignIcon, LockIcon, UserIcon } from "@/lib/icons";
 import { useAuth } from "@/app/data/AuthContext";
 import { supabase, isSupabaseReady } from "@/app/data/supabase";
 import { getSupabaseErrorMessage } from "@/lib/supabase-error";

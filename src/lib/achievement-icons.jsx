@@ -11,7 +11,7 @@ import {
   Smile,
   Sparkles,
   Users,
-} from "lucide-react";
+} from "@/lib/icons";
 
 export const ACHIEVEMENT_ICONS = Object.freeze({
   BookOpen,

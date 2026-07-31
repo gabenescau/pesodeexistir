@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Menu, Moon, Sun, X } from "lucide-react";
+import { ArrowRight, Menu, Moon, Sun, X } from "@/lib/icons";
 import { useAuth } from "@/app/data/AuthContext";
 import { useTheme } from "@/components/theme-provider";
 

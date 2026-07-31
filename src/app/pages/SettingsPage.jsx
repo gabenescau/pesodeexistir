@@ -4,7 +4,6 @@ import {
   AlertCircle,
   Camera,
   ChevronRight,
-  CircleCheck,
   CreditCard,
   Eye,
   Globe,
@@ -16,24 +15,28 @@ import {
   Sun,
   Trash2,
   User,
-} from "lucide-react";
+} from "@/lib/icons";
 import { useTheme } from "@/components/theme-provider";
 import { useData } from "@/app/data/DataContext";
 import { useAuth } from "@/app/data/AuthContext";
 import { supabase, isSupabaseReady } from "@/app/data/supabase";
 import { validateStrongPassword } from "@/lib/sanitize";
 import { isActiveSubscription } from "@/lib/subscription";
+import { PLANS } from "@/lib/abacatepay";
+import { PlanBenefitItem } from "@/components/plan-benefit";
 import { ProfilePage } from "./ProfilePage";
 
-const planFeatures = [
-  "Acesso completo à biblioteca",
-  "Comunidade exclusiva de leitores",
-  "Grupos de leitura",
-  "Participação em eventos ao vivo",
-  "Leitura offline",
-  "Sem anúncios",
-  "Suporte prioritário",
-];
+function currentPlanBenefits(subscription) {
+  if (subscription?.plan === "ope_club_annual") return PLANS.annual.benefits;
+  if (subscription?.plan === "ope_club_monthly") return PLANS.monthly.benefits;
+  return PLANS.annual.benefits;
+}
+
+function currentPlanPriceLabel(subscription) {
+  if (subscription?.plan === "ope_club_annual") return `${PLANS.annual.priceFormatted},00 / ano`;
+  if (subscription?.plan === "ope_club_monthly") return `${PLANS.monthly.priceFormatted},00 / mes`;
+  return "—";
+}
 
 const statusLabels = {
   active: { text: "Ativo", color: "var(--accent-mint)" },
@@ -281,7 +284,7 @@ export function SettingsPage() {
               </span>
               <span className="mt-1 block text-[12px] font-[400] uppercase tracking-[0.6px] text-[var(--text-muted)]">
                 {active
-                  ? subscription?.plan === "ope_club_annual" ? "R$ 144,00 / ano" : "R$ 24,00 / mes"
+                  ? currentPlanPriceLabel(subscription)
                   : isAdmin ? "Acesso administrativo" : "Sem assinatura ativa"}
               </span>
               {subscription?.current_period_end && (
@@ -313,11 +316,14 @@ export function SettingsPage() {
 
           {(active || isAdmin) && (
             <ul className="mb-5 space-y-2.5">
-              {planFeatures.map((feature) => (
-                <li key={feature} className="flex items-center gap-3 text-sm text-[var(--text-secondary)]">
-                  <CircleCheck className="size-4 shrink-0 text-[var(--accent-mint)]" strokeWidth={1.5} />
-                  {feature}
-                </li>
+              {currentPlanBenefits(subscription).map((benefit) => (
+                <PlanBenefitItem
+                  key={benefit.text}
+                  benefit={benefit}
+                  iconClassName="size-4 shrink-0 text-[var(--accent-mint)]"
+                  className="flex items-center gap-3 text-sm text-[var(--text-secondary)]"
+                  showCheck
+                />
               ))}
             </ul>
           )}

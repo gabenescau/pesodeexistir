@@ -1,5 +1,5 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { BookOpen, CheckCircle2, ChevronLeft, Heart, Lock, Share2 } from "lucide-react";
+import { BookOpen, CheckCircle2, ChevronLeft, Heart, Lock, Share2 } from "@/lib/icons";
 import { useData } from "../data/DataContext";
 import { contagemRegressiva, formatarData } from "@/lib/releases";
 

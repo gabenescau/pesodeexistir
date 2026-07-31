@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Lightbulb, MessageSquare, Plus, Send, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Lightbulb, MessageSquare, Plus, Send, X } from "@/lib/icons";
 import { useAuth } from "@/app/data/AuthContext";
 import { supabase, isSupabaseReady } from "@/app/data/supabase";
 import { sanitizePlainText, sanitizeSingleLine } from "@/lib/sanitize";

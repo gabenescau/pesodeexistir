@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRightIcon } from "lucide-react";
+import { ArrowRightIcon } from "@/lib/icons";
 
 export function FinalClosing() {
   return (

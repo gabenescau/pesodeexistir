@@ -1,20 +1,9 @@
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { CheckCircleIcon } from "lucide-react";
+import { CheckCircleIcon } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { PLANS } from "@/lib/abacatepay";
-
-const features = [
-  "Biblioteca integrada ao aplicativo",
-  "Comunidade exclusiva dentro do aplicativo",
-  "Publicações ilimitadas",
-  "Discussões sobre livros e autores",
-  "Recomendações da comunidade",
-  "Novos conteúdos semanalmente",
-  "Leitura offline",
-  "Atualizações constantes",
-  "Acesso em todos os dispositivos",
-];
+import { PlanBenefitItem } from "@/components/plan-benefit";
 
 export function PricingSection() {
   return (
@@ -74,7 +63,7 @@ function PricingCard({ plan: p, featured, className, ...props }) {
         <h3 className="mt-6 mb-1 flex w-max items-end gap-1">
           <span className="text-[24px] font-[600] leading-[32px] tracking-[-0.96px] text-foreground">R$</span>
           <span className="font-[600] text-[48px] leading-[48px] tracking-[-2.4px] text-foreground">
-            {p.price === 2400 ? "24" : "144"}
+            {p.price === 2400 ? "24" : "168"}
           </span>
         </h3>
         <p className="mb-2 font-[400] text-muted-foreground text-[12px] leading-[16px]">
@@ -82,17 +71,20 @@ function PricingCard({ plan: p, featured, className, ...props }) {
         </p>
         {isAnnual && (
           <p className="text-[13px] font-[500] text-primary">
-            Apenas R$ {p.monthlyEquivalent}/mês — economia de mais de 50%!
+            Apenas R$ {p.monthlyEquivalent}/mês — economize 40%!
           </p>
         )}
       </div>
 
       <div className="space-y-3 px-8 pt-6 pb-8 text-muted-foreground text-[14px] font-[400] leading-[20px] tracking-[-0.28px]">
-        {features.map((feature) => (
-          <div className="flex items-center gap-2" key={feature}>
-            <CheckCircleIcon className="size-4 text-primary shrink-0" />
-            <p>{feature}</p>
-          </div>
+        {p.benefits.map((benefit) => (
+          <PlanBenefitItem
+            key={benefit.text}
+            benefit={benefit}
+            iconClassName="size-4 text-primary shrink-0"
+            className="flex items-center gap-2"
+            showCheck
+          />
         ))}
       </div>
 

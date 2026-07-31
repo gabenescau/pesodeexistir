@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Search } from "@/lib/icons";
 import { isSupabaseReady, supabase } from "../data/supabase";
 import { CreatePost } from "../components/CreatePost";
 import { FilterPills } from "../components/FilterPills";

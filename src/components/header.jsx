@@ -3,7 +3,7 @@ import { MobileNav } from "@/components/mobile-nav";
 import { Logo } from "@/components/logo";
 import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/app/data/AuthContext";
-import { MoonIcon, SunIcon } from "lucide-react";
+import { MoonIcon, SunIcon } from "@/lib/icons";
 
 export const navLinks = [
   { label: "Biblioteca", href: "#acervo" },

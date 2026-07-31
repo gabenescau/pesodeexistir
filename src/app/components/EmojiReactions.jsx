@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { SmilePlus } from "lucide-react";
+import { SmilePlus } from "@/lib/icons";
 import { useAuth } from "@/app/data/AuthContext";
 import { isSupabaseReady, supabase } from "@/app/data/supabase";
 

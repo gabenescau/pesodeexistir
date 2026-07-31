@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, Trophy } from "lucide-react";
+import { ChevronDown, Trophy } from "@/lib/icons";
 import { AchievementBadge } from "@/components/ui/achievement-badge";
 import { computeAchievements } from "@/lib/achievements";
 

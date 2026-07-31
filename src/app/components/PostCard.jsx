@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Bookmark, Heart, MessageCircle, MoreHorizontal, Send, Share2, Trash2 } from "lucide-react";
+import { Bookmark, Heart, MessageCircle, MoreHorizontal, Send, Share2, Trash2 } from "@/lib/icons";
 import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
 import { isSupabaseReady, supabase } from "@/app/data/supabase";
@@ -31,7 +31,7 @@ function ImageGallery({ images }) {
   if (images.length === 1) {
     return (
       <div className="overflow-hidden rounded-[10px] border border-[var(--border)] bg-[var(--hover-overlay)]">
-        <img src={images[0]} alt="" loading="lazy" className="max-h-[520px] w-full object-cover" />
+        <img src={images[0]} alt="" loading="lazy" className="mx-auto block max-h-[70vh] w-auto max-w-full object-contain sm:max-h-[600px]" />
       </div>
     );
   }
@@ -43,7 +43,7 @@ function ImageGallery({ images }) {
           src={src}
           alt=""
           loading="lazy"
-          className="h-64 w-[84%] shrink-0 snap-center rounded-[10px] border border-[var(--border)] object-cover sm:w-[68%]"
+          className="h-auto max-h-[70vh] w-auto max-w-full shrink-0 snap-center rounded-[10px] border border-[var(--border)] object-contain sm:max-h-[600px]"
         />
       ))}
     </div>

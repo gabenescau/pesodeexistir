@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { CustomSidebarTrigger } from "@/components/custom-sidebar-trigger";
 import { NavUser } from "@/components/nav-user";
-import { BellIcon, SunIcon, MoonIcon } from "lucide-react";
+import { BellIcon, SunIcon, MoonIcon } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/theme-provider";
 

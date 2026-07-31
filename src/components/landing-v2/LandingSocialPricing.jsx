@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, ChevronDown, CircleCheck } from "lucide-react";
+import { ArrowRight, ChevronDown, CircleCheck } from "@/lib/icons";
 import { useAuth } from "@/app/data/AuthContext";
 import { PLANS } from "@/lib/abacatepay";
-import { faqs, planFeatures, testimonials } from "./data";
+import { faqs, testimonials } from "./data";
+import { PlanBenefitItem } from "@/components/plan-benefit";
 
 const WHATSAPP_SUPPORT_URL =
   "https://wa.me/?text=Ol%C3%A1%2C%20Gabe!%20Tenho%20uma%20d%C3%BAvida%20sobre%20o%20OPE%20Club.";
@@ -97,11 +98,14 @@ export function LandingPricing() {
                   </p>
                 </div>
                 <ul className="space-y-3 p-7">
-                  {planFeatures.map((feature) => (
-                    <li key={feature} className="flex items-center gap-3 text-sm text-[var(--landing-fg)]">
-                      <CircleCheck className="size-4 shrink-0 text-[var(--landing-brand)]" />
-                      {feature}
-                    </li>
+                  {plan.benefits.map((benefit) => (
+                    <PlanBenefitItem
+                      key={benefit.text}
+                      benefit={benefit}
+                      iconClassName="size-4 shrink-0 text-[var(--landing-brand)]"
+                      className="flex items-center gap-3 text-sm text-[var(--landing-fg)]"
+                      showCheck
+                    />
                   ))}
                 </ul>
                 <div className="mt-auto border-t border-[var(--landing-border)] p-5">

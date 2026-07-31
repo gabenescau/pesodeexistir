@@ -1152,6 +1152,37 @@ html:not(.dark) .sales-page .book-marquee > div:nth-child(2) {
   border-color: transparent !important;
 }
 
+/* Mobile sidebar renders through a Portal (base-ui Sheet), so it falls outside
+   the .app-kirvano scope. Apply the same chrome here so the menu stays readable
+   when opened from a hamburger. */
+[data-slot="sheet-content"][data-sidebar="sidebar"][data-mobile="true"] {
+  background: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-slot="sheet-content"][data-sidebar="sidebar"][data-mobile="true"] [data-slot="sidebar-menu-button"] {
+  color: var(--text-secondary) !important;
+}
+
+[data-slot="sheet-content"][data-sidebar="sidebar"][data-mobile="true"] [data-slot="sidebar-menu-button"]:hover {
+  background: var(--hover-overlay) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-slot="sheet-content"][data-sidebar="sidebar"][data-mobile="true"] [data-slot="sidebar-menu-button"][data-active="true"] {
+  background: var(--accent-mint) !important;
+  color: #111111 !important;
+}
+
+[data-slot="sheet-content"][data-sidebar="sidebar"][data-mobile="true"] [data-slot="sidebar-menu-button"][data-active="true"] span,
+[data-slot="sheet-content"][data-sidebar="sidebar"][data-mobile="true"] [data-slot="sidebar-menu-button"][data-active="true"] svg {
+  color: #111111 !important;
+}
+
+[data-slot="sheet-content"][data-sidebar="sidebar"][data-mobile="true"] [data-slot="sidebar-group-label"] {
+  color: var(--text-muted) !important;
+}
+
 /* Responsive Vercel-style primitives shared by marketing and product screens. */
 .page-container {
   width: min(100% - 2rem, 72rem);

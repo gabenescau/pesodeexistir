@@ -1,0 +1,217 @@
+// Compatibility shim: lets the rest of the app keep importing icon names from
+// "lucide-react" while actually rendering Phosphor icons. Saves the user from
+// renaming every import. Phosphor's <Icon /> accepts the same className / size
+// / color props we already pass everywhere; the visual weight defaults to
+// "regular", which is the closest equivalent to Lucide's default stroke.
+import * as Phosphor from "@phosphor-icons/react";
+
+const ICONS = {
+  AlertCircle: Phosphor.WarningCircle,
+  ArrowLeft: Phosphor.ArrowLeft,
+  ArrowRight: Phosphor.ArrowRight,
+  ArrowRightIcon: Phosphor.ArrowRight,
+  ArrowUpDown: Phosphor.ArrowsDownUp,
+  AtSign: Phosphor.At,
+  AtSignIcon: Phosphor.At,
+  BarChart3: Phosphor.ChartBar,
+  Bell: Phosphor.Bell,
+  BellIcon: Phosphor.Bell,
+  BookMarked: Phosphor.Bookmarks,
+  Bookmark: Phosphor.Bookmark,
+  BookOpen: Phosphor.BookOpen,
+  BookOpenIcon: Phosphor.BookOpen,
+  Calendar: Phosphor.CalendarBlank,
+  CalendarDays: Phosphor.Calendar,
+  Camera: Phosphor.Camera,
+  Check: Phosphor.Check,
+  CheckCircle2: Phosphor.CheckCircle,
+  CheckCircleIcon: Phosphor.CheckCircle,
+  CheckIcon: Phosphor.Check,
+  ChevronDown: Phosphor.CaretDown,
+  ChevronLeft: Phosphor.CaretLeft,
+  ChevronLeftIcon: Phosphor.CaretLeft,
+  ChevronRight: Phosphor.CaretRight,
+  ChevronRightIcon: Phosphor.CaretRight,
+  CircleCheck: Phosphor.CheckCircle,
+  Clock: Phosphor.Clock,
+  Compass: Phosphor.Compass,
+  CompassIcon: Phosphor.Compass,
+  CreditCard: Phosphor.CreditCard,
+  CreditCardIcon: Phosphor.CreditCard,
+  Crown: Phosphor.Crown,
+  Edit3: Phosphor.PencilSimpleLine,
+  Eye: Phosphor.Eye,
+  Feather: Phosphor.Feather,
+  FolderOpen: Phosphor.FolderOpen,
+  Globe: Phosphor.Globe,
+  GraduationCap: Phosphor.GraduationCap,
+  Hand: Phosphor.Hand,
+  HelpCircleIcon: Phosphor.Question,
+  Heart: Phosphor.Heart,
+  Home: Phosphor.House,
+  HomeIcon: Phosphor.House,
+  Image: Phosphor.Image,
+  Info: Phosphor.Info,
+  Keyboard: Phosphor.Keyboard,
+  Library: Phosphor.Books,
+  Lightbulb: Phosphor.Lightbulb,
+  LightbulbIcon: Phosphor.Lightbulb,
+  Loader2: Phosphor.CircleNotch,
+  Lock: Phosphor.Lock,
+  LockIcon: Phosphor.Lock,
+  LogIn: Phosphor.SignIn,
+  LogOut: Phosphor.SignOut,
+  Mail: Phosphor.EnvelopeSimple,
+  Maximize2: Phosphor.CornersOut,
+  Menu: Phosphor.List,
+  MenuIcon: Phosphor.List,
+  MessageCircle: Phosphor.ChatCircle,
+  MessageSquare: Phosphor.ChatTeardrop,
+  MessagesSquare: Phosphor.ChatsCircle,
+  Minus: Phosphor.Minus,
+  Moon: Phosphor.Moon,
+  MoonIcon: Phosphor.Moon,
+  MoreHorizontal: Phosphor.DotsThree,
+  MoreHorizontalIcon: Phosphor.DotsThree,
+  MousePointerClick: Phosphor.MouseSimple,
+  NotebookPen: Phosphor.Notebook,
+  PanelLeftIcon: Phosphor.Sidebar,
+  PenLine: Phosphor.PencilLine,
+  Plus: Phosphor.Plus,
+  QrCode: Phosphor.QrCode,
+  QuoteIcon: Phosphor.Quotes,
+  RefreshCw: Phosphor.ArrowsClockwise,
+  Search: Phosphor.MagnifyingGlass,
+  Send: Phosphor.PaperPlaneTilt,
+  Settings: Phosphor.Gear,
+  SettingsIcon: Phosphor.Gear,
+  Share2: Phosphor.ShareNetwork,
+  Shield: Phosphor.Shield,
+  ShieldAlert: Phosphor.ShieldWarning,
+  ShieldIcon: Phosphor.Shield,
+  SlidersHorizontal: Phosphor.SlidersHorizontal,
+  Smile: Phosphor.Smiley,
+  SmilePlus: Phosphor.Smiley,
+  Sparkles: Phosphor.Sparkle,
+  StarIcon: Phosphor.Star,
+  Sun: Phosphor.Sun,
+  SunIcon: Phosphor.Sun,
+  Trash2: Phosphor.Trash,
+  Trophy: Phosphor.Trophy,
+  User: Phosphor.User,
+  UserCheck: Phosphor.UserCheck,
+  UserIcon: Phosphor.User,
+  UserPlus: Phosphor.UserPlus,
+  UserRound: Phosphor.UserCircle,
+  Users: Phosphor.Users,
+  WifiOff: Phosphor.WifiSlash,
+  X: Phosphor.X,
+  XIcon: Phosphor.X,
+};
+
+export function Icon({ name, ...props }) {
+  const Component = ICONS[name] || Phosphor.Question;
+  return <Component weight="regular" {...props} />;
+}
+
+export const AlertCircle = Phosphor.WarningCircle;
+export const ArrowLeft = Phosphor.ArrowLeft;
+export const ArrowRight = Phosphor.ArrowRight;
+export const ArrowRightIcon = Phosphor.ArrowRight;
+export const ArrowUpDown = Phosphor.ArrowsDownUp;
+export const AtSign = Phosphor.At;
+export const AtSignIcon = Phosphor.At;
+export const BarChart3 = Phosphor.ChartBar;
+export const Bell = Phosphor.Bell;
+export const BellIcon = Phosphor.Bell;
+export const BookMarked = Phosphor.Bookmarks;
+export const Bookmark = Phosphor.Bookmark;
+export const BookOpen = Phosphor.BookOpen;
+export const BookOpenIcon = Phosphor.BookOpen;
+export const Calendar = Phosphor.CalendarBlank;
+export const CalendarDays = Phosphor.Calendar;
+export const Camera = Phosphor.Camera;
+export const Check = Phosphor.Check;
+export const CheckCircle2 = Phosphor.CheckCircle;
+export const CheckCircleIcon = Phosphor.CheckCircle;
+export const CheckIcon = Phosphor.Check;
+export const ChevronDown = Phosphor.CaretDown;
+export const ChevronLeft = Phosphor.CaretLeft;
+export const ChevronLeftIcon = Phosphor.CaretLeft;
+export const ChevronRight = Phosphor.CaretRight;
+export const ChevronRightIcon = Phosphor.CaretRight;
+export const CircleCheck = Phosphor.CheckCircle;
+export const Clock = Phosphor.Clock;
+export const Compass = Phosphor.Compass;
+export const CompassIcon = Phosphor.Compass;
+export const CreditCard = Phosphor.CreditCard;
+export const CreditCardIcon = Phosphor.CreditCard;
+export const Crown = Phosphor.Crown;
+export const Edit3 = Phosphor.PencilSimpleLine;
+export const Eye = Phosphor.Eye;
+export const Feather = Phosphor.Feather;
+export const FolderOpen = Phosphor.FolderOpen;
+export const Globe = Phosphor.Globe;
+export const GraduationCap = Phosphor.GraduationCap;
+export const Hand = Phosphor.Hand;
+export const HelpCircleIcon = Phosphor.Question;
+export const Heart = Phosphor.Heart;
+export const Home = Phosphor.House;
+export const HomeIcon = Phosphor.House;
+export const Image = Phosphor.Image;
+export const Info = Phosphor.Info;
+export const Keyboard = Phosphor.Keyboard;
+export const Library = Phosphor.Books;
+export const Lightbulb = Phosphor.Lightbulb;
+export const LightbulbIcon = Phosphor.Lightbulb;
+export const Loader2 = Phosphor.CircleNotch;
+export const Lock = Phosphor.Lock;
+export const LockIcon = Phosphor.Lock;
+export const LogIn = Phosphor.SignIn;
+export const LogOut = Phosphor.SignOut;
+export const Mail = Phosphor.EnvelopeSimple;
+export const Maximize2 = Phosphor.CornersOut;
+export const Menu = Phosphor.List;
+export const MenuIcon = Phosphor.List;
+export const MessageCircle = Phosphor.ChatCircle;
+export const MessageSquare = Phosphor.ChatTeardrop;
+export const MessagesSquare = Phosphor.ChatsCircle;
+export const Minus = Phosphor.Minus;
+export const Moon = Phosphor.Moon;
+export const MoonIcon = Phosphor.Moon;
+export const MoreHorizontal = Phosphor.DotsThree;
+export const MoreHorizontalIcon = Phosphor.DotsThree;
+export const MousePointerClick = Phosphor.MouseSimple;
+export const NotebookPen = Phosphor.Notebook;
+export const PanelLeftIcon = Phosphor.Sidebar;
+export const PenLine = Phosphor.PencilLine;
+export const Plus = Phosphor.Plus;
+export const QrCode = Phosphor.QrCode;
+export const QuoteIcon = Phosphor.Quotes;
+export const RefreshCw = Phosphor.ArrowsClockwise;
+export const Search = Phosphor.MagnifyingGlass;
+export const Send = Phosphor.PaperPlaneTilt;
+export const Settings = Phosphor.Gear;
+export const SettingsIcon = Phosphor.Gear;
+export const Share2 = Phosphor.ShareNetwork;
+export const Shield = Phosphor.Shield;
+export const ShieldAlert = Phosphor.ShieldWarning;
+export const ShieldIcon = Phosphor.Shield;
+export const SlidersHorizontal = Phosphor.SlidersHorizontal;
+export const Smile = Phosphor.Smiley;
+export const SmilePlus = Phosphor.Smiley;
+export const Sparkles = Phosphor.Sparkle;
+export const StarIcon = Phosphor.Star;
+export const Sun = Phosphor.Sun;
+export const SunIcon = Phosphor.Sun;
+export const Trash2 = Phosphor.Trash;
+export const Trophy = Phosphor.Trophy;
+export const User = Phosphor.User;
+export const UserCheck = Phosphor.UserCheck;
+export const UserIcon = Phosphor.User;
+export const UserPlus = Phosphor.UserPlus;
+export const UserRound = Phosphor.UserCircle;
+export const Users = Phosphor.Users;
+export const WifiOff = Phosphor.WifiSlash;
+export const X = Phosphor.X;
+export const XIcon = Phosphor.X;

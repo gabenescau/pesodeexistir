@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LogOut } from "lucide-react";
+import { LogOut } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/logo";
 import {
