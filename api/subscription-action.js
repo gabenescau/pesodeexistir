@@ -18,8 +18,8 @@ import {
   updateSubscription,
 } from "../server/supabase.js";
 
-function isAdmin(user, profile) {
-  return profile?.role === "admin" || user?.app_metadata?.role === "admin";
+function isAdmin(profile) {
+  return profile?.role === "admin";
 }
 
 function providerSubscriptionId(remote) {
@@ -153,7 +153,7 @@ export default async function handler(req, res) {
     if (!subscription) {
       return res.status(404).json({ success: false, error: "Assinatura nao encontrada" });
     }
-    if (!isAdmin(user, profile) && subscription.user_id !== user.id) {
+    if (!isAdmin(profile) && subscription.user_id !== user.id) {
       return res.status(403).json({ success: false, error: "Operacao nao permitida" });
     }
 

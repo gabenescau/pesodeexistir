@@ -33,10 +33,18 @@ const BookCard = memo(function BookCard({ book }) {
       </div>
       <h3 className="mt-1.5 truncate text-[11px] font-semibold text-[var(--text-primary)]">{book.title}</h3>
       <p className="truncate text-[10px] text-[var(--text-muted)]">{book.autorNome || book.authorName}</p>
-      <div className="mt-0.5 flex items-center gap-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
-        <StarIcon className="size-2.5 text-amber-500" weight="fill" />
-        <span>{book.nota.toFixed(1)}</span>
-      </div>
+      {book.ratingCount > 0 ? (
+        <div className="mt-0.5 flex items-center gap-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
+          <StarIcon className="size-2.5 text-amber-500" weight="fill" />
+          <span>{book.nota.toFixed(1)}</span>
+          <span className="text-[var(--text-muted)]">({book.ratingCount})</span>
+        </div>
+      ) : (
+        <div className="mt-0.5 flex items-center gap-0.5 text-[10px] text-[var(--text-muted)]">
+          <StarIcon className="size-2.5" />
+          <span>Sem avaliacoes</span>
+        </div>
+      )}
     </Link>
   );
 });
@@ -57,7 +65,7 @@ const ContinueCard = memo(function ContinueCard({ book }) {
         <p className="truncate text-[10px] text-[var(--text-muted)]">{book.autorNome || book.authorName}</p>
         <div className="mt-1 flex items-center gap-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
           <StarIcon className="size-3 text-amber-500" weight="fill" />
-          <span>{book.nota.toFixed(1)}</span>
+          <span>{book.ratingCount > 0 ? book.nota.toFixed(1) : "—"}</span>
         </div>
       </div>
     </Link>
@@ -132,10 +140,17 @@ export function LibraryPage() {
       autorNome: autoresMap.get(book.authorId)?.name || book.authorName || "",
       plano: h % 2 === 0 ? "gratis" : "premium",
       destaque: h % 7 === 0,
-      nota: 3.8 + (h % 13) / 10,
       progress: Number(book.progress || 0),
     };
   }), [books, autoresMap]);
+
+  // "Popular": livros com mais avaliacoes em primeiro (nota real).
+  const popular = useMemo(() => {
+    const comNota = [...livrosComMeta].sort(
+      (a, b) => (b.ratingCount || 0) - (a.ratingCount || 0) || (b.nota || 0) - (a.nota || 0)
+    );
+    return comNota.slice(0, 6);
+  }, [livrosComMeta]);
 
   const categorias = useMemo(() => {
     const nomes = new Set();
@@ -143,7 +158,6 @@ export function LibraryPage() {
     return ["Todas", ...[...nomes].sort((a, b) => a.localeCompare(b, "pt"))];
   }, [books]);
 
-  const popular = useMemo(() => livrosComMeta.slice(0, 6), [livrosComMeta]);
   const destaque = popular[0];
   const carouselBooks = useMemo(() => popular.slice(1, 6), [popular]);
 

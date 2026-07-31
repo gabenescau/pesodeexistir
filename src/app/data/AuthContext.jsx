@@ -158,11 +158,7 @@ export function AuthProvider({ children }) {
     setProfile(null);
   }, []);
 
-  const role = normalizeRole(
-    profile?.role ||
-    session?.user?.app_metadata?.role ||
-    user?.role
-  );
+  const role = normalizeRole(profile?.role);
   const isAdmin = role === ROLES.ADMIN;
   const isEditor = role === ROLES.EDITOR;
   const can = (permission) => hasPermission(role, permission);

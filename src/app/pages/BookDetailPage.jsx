@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { BookOpen, CheckCircle2, ChevronLeft, Lock, MoreHorizontal } from "@/lib/icons";
 import { useData } from "../data/DataContext";
 import { contagemRegressiva, formatarData } from "@/lib/releases";
+import { relatedBooks as recomendarLivros } from "@/lib/recommendations";
 
 export function BookDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getBookById, getAuthorById, getReleaseStatus, toggleFavoriteBook, isFavoriteBook, books, authors } = useData();
+  const { getBookById, getAuthorById, getReleaseStatus, toggleFavoriteBook, isFavoriteBook, books, authors, rateBook, myBookRating, bookRatingStats } = useData();
   const book = getBookById(id);
   const release = getReleaseStatus(id);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -30,10 +31,22 @@ export function BookDetailPage() {
   const isCompleted = progresso >= 100;
   const status = isCompleted ? "Concluido" : progresso > 0 ? "Em leitura" : "Nao iniciado";
 
-  // Livros relacionados (mesma categoria, excluindo este)
-  const relatedBooks = books
-    .filter((b) => b.id !== book.id && b.category && b.category === book.category)
-    .slice(0, 6);
+  // Livros com a nota reativa (para os cards relacionados atualizarem na hora).
+  const livrosComNotaViva = useMemo(() => {
+    return books.map((b) => {
+      const stats = bookRatingStats[b.id];
+      if (!stats || stats.count === 0) return { ...b, nota: b.nota || 0, ratingCount: b.ratingCount || 0 };
+      return {
+        ...b,
+        nota: Math.round((stats.sum / stats.count) * 10) / 10,
+        ratingCount: stats.count,
+      };
+    });
+  }, [books, bookRatingStats]);
+
+  // Livros relacionados: pontuados por categoria, autor, tags e popularidade
+  // (nota real + numero de avaliacoes), excluindo este livro.
+  const relatedBooks = recomendarLivros(livrosComNotaViva, book);
 
   // Autores relacionados: o proprio autor do livro + autores com obras na
   // mesma categoria (a quem o leitor tambem poderia se interessar).
@@ -44,10 +57,22 @@ export function BookDetailPage() {
     ),
   ].slice(0, 6);
 
+  const minhaNota = myBookRating(book.id);
+  // Nota media reativa: vem das avaliacoes em memoria (bookRatingStats) para
+  // que o numero e a contagem atualizem na hora apos o usuario avaliar.
+  const statsDesteLivro = bookRatingStats[book.id];
+  const notaMedia = statsDesteLivro && statsDesteLivro.count > 0
+    ? Math.round((statsDesteLivro.sum / statsDesteLivro.count) * 10) / 10
+    : 0;
+
   function handleStartReading() {
     if (hasPdf && release.liberado) {
       navigate(`/app/ler/${book.id}`);
     }
+  }
+
+  function handleRate(valor) {
+    rateBook(book.id, valor).catch(() => {});
   }
 
   return (
@@ -159,6 +184,45 @@ export function BookDetailPage() {
         </button>
       </div>
 
+      {/* Avaliacao: nota media real + estrelas para o usuario avaliar */}
+      <div className="flex items-center gap-3 px-4 pb-4">
+        <div className="flex items-center gap-1">
+          {[1, 2, 3, 4, 5].map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => handleRate(value)}
+              aria-label={`Avaliar com ${value} estrela${value > 1 ? "s" : ""}`}
+              className="p-0.5"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                className={`size-6 transition-colors ${
+                  value <= minhaNota
+                    ? "fill-amber-400 text-amber-400"
+                    : "fill-none text-[var(--border-strong)]"
+                }`}
+              >
+                <path
+                  d="M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.7l-5.8 3-1.1-6.5L.4 9.3l6.5-.9L12 2.5z"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          ))}
+        </div>
+        {statsDesteLivro && statsDesteLivro.count > 0 ? (
+          <p className="text-xs text-[var(--text-muted)]">
+            <span className="font-semibold text-[var(--text-primary)]">{notaMedia.toFixed(1)}</span> · {statsDesteLivro.count}{" "}
+            {statsDesteLivro.count === 1 ? "avaliacao" : "avaliacoes"}
+          </p>
+        ) : (
+          <p className="text-xs text-[var(--text-muted)]">Seja o primeiro a avaliar</p>
+        )}
+      </div>
+
       {/* Conteudo */}
       <div className="flex-1 px-4 pt-5">
         <div className="space-y-6">
@@ -214,6 +278,14 @@ export function BookDetailPage() {
                         <img src={rb.image} alt="" className="h-full w-full object-cover" />
                       </div>
                       <p className="mt-1.5 truncate text-xs font-medium text-[var(--text-primary)]">{rb.title}</p>
+                      {rb.ratingCount > 0 ? (
+                        <p className="mt-0.5 flex items-center gap-0.5 text-[10px] text-[var(--text-secondary)]">
+                          <svg viewBox="0 0 24 24" className="size-3 fill-amber-400 text-amber-400">
+                            <path d="M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.7l-5.8 3-1.1-6.5L.4 9.3l6.5-.9L12 2.5z" />
+                          </svg>
+                          {rb.nota.toFixed(1)}
+                        </p>
+                      ) : null}
                     </button>
                   ))}
                 </div>

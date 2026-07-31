@@ -285,8 +285,9 @@ export async function enforceRateLimit(req, res, {
       return false;
     }
   } catch (error) {
-    // Evita derrubar pagamentos durante a janela entre deploy e migration.
-    // Em producao, RATE_LIMIT_FAIL_CLOSED=true torna a falha bloqueante.
+    // Fail-closed por padrao: falha de rate limit bloqueia a requisicao
+    // (endpoints de pagamento nao podem abrir sem protecao). So volta a abrir
+    // com RATE_LIMIT_FAIL_OPEN=true, como escape manual consciente.
     console.warn(JSON.stringify({
       level: "warn",
       context: "rate_limit_unavailable",
@@ -294,7 +295,7 @@ export async function enforceRateLimit(req, res, {
       scope,
       message: String(error?.message || "indisponivel").slice(0, 300),
     }));
-    if (process.env.RATE_LIMIT_FAIL_CLOSED === "true") {
+    if (process.env.RATE_LIMIT_FAIL_OPEN !== "true") {
       res.status(503).json({
         success: false,
         error: "Servico temporariamente indisponivel.",
@@ -316,7 +317,7 @@ export async function getProfile(userId) {
 
 export async function requireAdmin(user) {
   const profile = await getProfile(user.id);
-  const isAdmin = profile?.role === "admin" || user?.app_metadata?.role === "admin";
+  const isAdmin = profile?.role === "admin";
   if (!isAdmin) {
     const error = new Error("Acesso restrito a administradores");
     error.status = 403;
@@ -327,7 +328,7 @@ export async function requireAdmin(user) {
 
 export async function requirePermission(user, permission) {
   const profile = await getProfile(user.id);
-  const role = normalizeRole(profile?.role || user?.app_metadata?.role);
+  const role = normalizeRole(profile?.role);
   if (!hasPermission(role, permission)) {
     const error = new Error("Voce nao tem permissao para esta operacao");
     error.status = 403;

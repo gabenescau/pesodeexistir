@@ -1,7 +1,6 @@
 import { getPlanByCode, getPlanByExternalId } from "../server/plans.js";
 import {
   DEFAULT_ABACATEPAY_WEBHOOK_PUBLIC_KEY,
-  safeCompare,
   verifyAbacateSignature,
 } from "../server/webhook-security.js";
 import {
@@ -248,9 +247,6 @@ export default async function handler(req, res) {
     requireServerConfig();
 
     const rawBody = await readRawBody(req);
-    if (!safeCompare(req.query?.webhookSecret || "", WEBHOOK_SECRET)) {
-      return res.status(401).json({ success: false, error: "Secret do webhook invalido" });
-    }
     if (!verifyAbacateSignature(rawBody, getSignature(req), WEBHOOK_PUBLIC_KEY)) {
       return res.status(401).json({ success: false, error: "Assinatura invalida" });
     }

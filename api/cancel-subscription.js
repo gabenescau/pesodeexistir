@@ -34,7 +34,7 @@ export default async function handler(req, res) {
       return res.status(404).json({ success: false, error: "Assinatura nao encontrada" });
     }
 
-    const isAdmin = profile?.role === "admin" || user?.app_metadata?.role === "admin";
+    const isAdmin = profile?.role === "admin";
     if (!isAdmin && subscription.user_id !== user.id) {
       return res.status(403).json({ success: false, error: "Operacao nao permitida" });
     }

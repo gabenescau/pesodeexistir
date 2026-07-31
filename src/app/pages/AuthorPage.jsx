@@ -1,13 +1,7 @@
 import { memo, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, BookOpen, MoreHorizontal, StarIcon, Users } from "@/lib/icons";
 import { useData } from "../data/DataContext";
-
-function hashCode(str) {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
 
 function formatStat(n) {
   if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k+`;
@@ -24,10 +18,12 @@ const AuthorBookCard = memo(function AuthorBookCard({ book, authorName }) {
       <h3 className="mt-2 truncate text-xs font-semibold text-[var(--text-primary)]">{book.title}</h3>
       <p className="truncate text-[10px] text-[var(--text-muted)]">por {authorName}</p>
       <div className="mt-1 flex items-center gap-2 text-[10px]">
-        <span className="flex items-center gap-0.5 font-medium text-[var(--text-secondary)]">
-          <StarIcon className="size-3 text-amber-500" weight="fill" />
-          {book.nota.toFixed(1)}
-        </span>
+        {book.ratingCount > 0 ? (
+          <span className="flex items-center gap-0.5 font-medium text-[var(--text-secondary)]">
+            <StarIcon className="size-3 text-amber-500" weight="fill" />
+            {book.nota.toFixed(1)}
+          </span>
+        ) : null}
         <span className="flex items-center gap-0.5 text-[var(--text-muted)]">
           <BookOpen className="size-3" />
           Ebook
@@ -78,13 +74,7 @@ export function AuthorPage() {
   const isFav = author ? isFavoriteAuthor(author.id) : false;
   const [abaAtiva, setAbaAtiva] = useState("bookshelf");
 
-  const livrosComMeta = useMemo(() => authorBooks.map((book) => {
-    const h = hashCode(book.id || book.title || "");
-    return {
-      ...book,
-      nota: 3.8 + (h % 13) / 10,
-    };
-  }), [authorBooks]);
+  const livrosComMeta = useMemo(() => authorBooks, [authorBooks]);
 
   const authorBookIds = useMemo(() => new Set(authorBooks.map((b) => b.id)), [authorBooks]);
   const authorPosts = useMemo(
@@ -92,17 +82,15 @@ export function AuthorPage() {
     [posts, authorBookIds]
   );
 
-  // Related books: same category as the author's first book, excluding author's own books.
+  // Related books: same category as the author's books, best rated first,
+  // excluding the author's own books.
   const relatedBooks = useMemo(() => {
-    const categoria = authorBooks[0]?.category;
-    if (!categoria) return [];
+    const categorias = new Set(authorBooks.map((b) => b.category).filter(Boolean));
+    if (categorias.size === 0) return [];
     return books
-      .filter((b) => b.category === categoria && !authorBookIds.has(b.id))
-      .slice(0, 8)
-      .map((book) => {
-        const h = hashCode(book.id || book.title || "");
-        return { ...book, nota: 3.8 + (h % 13) / 10 };
-      });
+      .filter((b) => categorias.has(b.category) && !authorBookIds.has(b.id))
+      .sort((a, b) => (b.ratingCount || 0) - (a.ratingCount || 0) || (b.nota || 0) - (a.nota || 0))
+      .slice(0, 8);
   }, [books, authorBooks, authorBookIds]);
 
   const stats = useMemo(() => ({

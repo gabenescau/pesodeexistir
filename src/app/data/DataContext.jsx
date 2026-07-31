@@ -8,7 +8,7 @@ import { handleDoPerfil } from "@/lib/mentions";
 import { createSignedUrlMap, LIBRARY_BUCKETS, removeLibraryFile } from "@/lib/library-media";
 import { useAuth } from "./AuthContext";
 import { POST_IMAGE_BUCKET } from "@/lib/social";
-import { normalizeEmail, sanitizePlainText, sanitizeSingleLine } from "@/lib/sanitize";
+import { sanitizePlainText, sanitizeSingleLine } from "@/lib/sanitize";
 
 const DataContext = createContext(null);
 
@@ -60,6 +60,8 @@ export function DataProvider({ children }) {
   const [categories, setCategories] = useState([]);
   const [bookFavorites, setBookFavorites] = useState([]);
   const [authorFavorites, setAuthorFavorites] = useState([]);
+  const [bookRatingStats, setBookRatingStats] = useState({});
+  const [myBookRatings, setMyBookRatings] = useState([]);
   // Contagens do proprio usuario que nao vem nas listas ja carregadas
   // (comentarios e reacoes que ele escreveu). Alimentam as conquistas.
   const [myCounts, setMyCounts] = useState({ comments: 0, reactions: 0 });
@@ -109,7 +111,7 @@ export function DataProvider({ children }) {
           )
         : { data: authProfile || null, error: null };
       const currentProfile = currentProfileRes.error ? null : currentProfileRes.data;
-      const isCurrentAdmin = isAdmin || currentProfile?.role === "admin" || user?.app_metadata?.role === "admin";
+      const isCurrentAdmin = isAdmin || currentProfile?.role === "admin";
       const emptyResult = { data: [], error: null };
 
       // Admin le a tabela inteira (role, gestao de assinaturas). O email agora
@@ -131,6 +133,8 @@ export function DataProvider({ children }) {
         categoriesRes,
         bookFavRes,
         authorFavRes,
+        ratingsRes,
+        myRatingsRes,
       ] = await Promise.all([
         runSupabaseQuery(
           () => supabase.from("books").select("*, authors(name)").order("created_at", { ascending: false }),
@@ -220,6 +224,16 @@ export function DataProvider({ children }) {
               "carregar autores favoritos"
             )
           : Promise.resolve(emptyResult),
+        runSupabaseQuery(
+          () => supabase.from("book_ratings_public").select("book_id, rating_sum, rating_count"),
+          "carregar notas dos livros"
+        ),
+        currentUserId
+          ? runSupabaseQuery(
+              () => supabase.from("book_ratings").select("book_id, rating").eq("user_id", currentUserId),
+              "carregar minha nota dos livros"
+            )
+          : Promise.resolve(emptyResult),
       ]);
 
       const postIds = postsRes.error ? [] : (postsRes.data || []).map((post) => post.id);
@@ -254,6 +268,10 @@ export function DataProvider({ children }) {
           ...(authorsRes.data || []).map((author) => author.image_path),
         ]
       );
+      const ratingsByBook = (ratingsRes.error ? [] : ratingsRes.data || []).reduce((acc, r) => {
+        acc[r.book_id] = { sum: r.rating_sum || 0, count: r.rating_count || 0 };
+        return acc;
+      }, {});
       let normalizedBooks = [];
 
       if (!booksRes.error) {
@@ -261,11 +279,17 @@ export function DataProvider({ children }) {
         normalizedBooks = booksRes.data.map(b => {
           const userProgress = progressList.find(item => item.book_id === b.id);
           const localBook = localBookById.get(b.id) || localBookByTitle.get(b.title) || {};
+          const ratingAgg = ratingsByBook[b.id];
+          const nota = ratingAgg && ratingAgg.count > 0
+            ? Math.round((ratingAgg.sum / ratingAgg.count) * 10) / 10
+            : 0;
           return {
             ...b,
             authorId: b.author_id,
             authorName: b.authors?.name || "",
             author: b.authors?.name || "",
+            nota,
+            ratingCount: ratingAgg?.count || 0,
             image: normalizeAssetUrl(
               firstFilled(coverUrlMap.get(b.image_path), b.image, b.image_url, b.cover_url, b.cover, b.thumbnail_url, localBook.image),
               "livros"
@@ -390,6 +414,13 @@ export function DataProvider({ children }) {
       setCategories(categoriesRes.error ? [] : (categoriesRes.data || []));
       setBookFavorites(bookFavRes.error ? [] : (bookFavRes.data || []).map((item) => item.book_id));
       setAuthorFavorites(authorFavRes.error ? [] : (authorFavRes.data || []).map((item) => item.author_id));
+      setBookRatingStats(
+        (ratingsRes.error ? [] : ratingsRes.data || []).reduce((acc, r) => {
+          acc[r.book_id] = { sum: r.rating_sum || 0, count: r.rating_count || 0 };
+          return acc;
+        }, {})
+      );
+      setMyBookRatings(myRatingsRes.error ? [] : (myRatingsRes.data || []));
 
       if (currentUserId) {
         // head:true => so o total, sem trazer as linhas. Barato o suficiente
@@ -415,7 +446,6 @@ export function DataProvider({ children }) {
     isSupabase,
     authLoading,
     user?.id,
-    user?.app_metadata?.role,
     authProfile,
     isAdmin,
     content.books,
@@ -928,6 +958,50 @@ export function DataProvider({ children }) {
 
   const isFavoriteAuthor = useCallback((authorId) => authorFavorites.includes(authorId), [authorFavorites]);
 
+  // NOTAS — 1 a 5 por usuario/livro. Estado otimista, rollback em erro.
+  const myBookRating = useCallback(
+    (bookId) => myBookRatings.find((r) => r.book_id === bookId)?.rating || 0,
+    [myBookRatings]
+  );
+
+  const rateBook = useCallback(async (bookId, rating) => {
+    const currentUserId = user?.id;
+    if (!isSupabase || !currentUserId || !bookId) return;
+    const nota = Math.max(1, Math.min(5, Math.round(Number(rating) || 0)));
+    const anterior = myBookRatings.find((r) => r.book_id === bookId)?.rating;
+    const nova = anterior ? nota - anterior : nota;
+    const incremento = anterior ? 0 : 1;
+    setBookRatingStats((prev) => {
+      const atual = prev[bookId] || { sum: 0, count: 0 };
+      return {
+        ...prev,
+        [bookId]: { sum: atual.sum + nova, count: atual.count + incremento },
+      };
+    });
+    setMyBookRatings((prev) => [
+      ...prev.filter((r) => r.book_id !== bookId),
+      { book_id: bookId, rating: nota },
+    ]);
+    const { error } = await supabase
+      .from("book_ratings")
+      .upsert({ user_id: currentUserId, book_id: bookId, rating: nota }, { onConflict: "user_id, book_id" });
+    if (error) {
+      setBookRatingStats((prev) => {
+        const atual = prev[bookId] || { sum: 0, count: 0 };
+        return {
+          ...prev,
+          [bookId]: { sum: atual.sum - nova, count: atual.count - incremento },
+        };
+      });
+      setMyBookRatings((prev) =>
+        anterior
+          ? [...prev.filter((r) => r.book_id !== bookId), { book_id: bookId, rating: anterior }]
+          : prev.filter((r) => r.book_id !== bookId)
+      );
+      throw error;
+    }
+  }, [isSupabase, user?.id, myBookRatings]);
+
   const deleteWeeklyRelease = useCallback(async (id) => {
     if (!isSupabase || !id) return;
     const { error } = await supabase.from("weekly_releases").delete().eq("id", id);
@@ -950,7 +1024,7 @@ export function DataProvider({ children }) {
       if (typeof preferences?.[key] === "boolean") payload[key] = preferences[key];
     }
     if (typeof preferences?.email === "string") {
-      payload.email = normalizeEmail(preferences.email);
+      throw new Error("Troca de email deve passar por updateUser (auth) — o email vive em user_emails, nao em profiles.");
     }
 
     const { data, error } = await supabase
@@ -1095,10 +1169,11 @@ export function DataProvider({ children }) {
     <DataContext.Provider value={{
       books, authors, posts, subscription, subscriptions, profiles, profile, weeklyReleases, loading,
       follows, following, followerCounts, followingCounts, savedPostIds,
-      categories, bookFavorites, authorFavorites,
+      categories, bookFavorites, authorFavorites, bookRatingStats,
       followUser, unfollowUser, isFollowing, toggleSavedPost,
       toggleFavoriteBook, isFavoriteBook,
       toggleFavoriteAuthor, isFavoriteAuthor,
+      rateBook, myBookRating,
       isBookReleased, getReleaseStatus, getUserMetrics,
       addBook, updateBook, deleteBook, markBookCompleted, updateReadingProgress,
       addAuthor, updateAuthor, deleteAuthor,

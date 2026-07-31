@@ -217,9 +217,6 @@ export function SettingsPage() {
       setAccountMessage(error.message);
       return;
     }
-    if (user?.id) {
-      await updateProfilePreferences(user.id, { email: newEmail.trim() });
-    }
     setAccountMessage("Confira seu email para confirmar a alteração.");
   }
 

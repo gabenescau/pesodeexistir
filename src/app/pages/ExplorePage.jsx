@@ -38,10 +38,12 @@ const BookCard = memo(function BookCard({ book }) {
       </div>
       <div className="mt-2 flex items-start gap-1.5">
         <h3 className="min-w-0 flex-1 truncate text-xs font-semibold text-[var(--text-primary)]">{book.title}</h3>
-        <span className="flex shrink-0 items-center gap-0.5 text-[11px] font-medium text-[var(--text-secondary)]">
-          <StarIcon className="size-3 text-amber-500" weight="fill" />
-          {book.nota.toFixed(1)}
-        </span>
+        {book.ratingCount > 0 ? (
+          <span className="flex shrink-0 items-center gap-0.5 text-[11px] font-medium text-[var(--text-secondary)]">
+            <StarIcon className="size-3 text-amber-500" weight="fill" />
+            {book.nota.toFixed(1)}
+          </span>
+        ) : null}
       </div>
       <p className="truncate text-[11px] text-[var(--text-muted)]">{book.autorNome || book.authorName}</p>
     </Link>
@@ -89,7 +91,6 @@ export function ExplorePage() {
       ...book,
       plano: h % 2 === 0 ? "gratis" : "premium",
       destaque: h % 7 === 0,
-      nota: 3.8 + (h % 13) / 10,
       autorNome: authorsMap.get(book.authorId)?.name || book.authorName || "",
     };
   }), [books, authorsMap]);
