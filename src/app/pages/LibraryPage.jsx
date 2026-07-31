@@ -31,17 +31,21 @@ const BookCard = memo(function BookCard({ book }) {
           {meta.label}
         </span>
       </div>
-      <h3 className="mt-1.5 truncate text-[11px] font-semibold text-[var(--text-primary)]">{book.title}</h3>
-      <p className="truncate text-[10px] text-[var(--text-muted)]">{book.autorNome || book.authorName}</p>
+      <h3 className="mt-1.5 truncate text-[11px] font-semibold text-[var(--text-primary)] sm:text-xs">
+        {book.title}
+      </h3>
+      <p className="truncate text-[10px] text-[var(--text-muted)] sm:text-[11px]">
+        {book.autorNome || book.authorName}
+      </p>
       {book.ratingCount > 0 ? (
-        <div className="mt-0.5 flex items-center gap-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
-          <StarIcon className="size-2.5 text-amber-500" weight="fill" />
+        <div className="mt-0.5 flex items-center gap-0.5 text-[10px] font-medium text-[var(--text-secondary)] sm:text-[11px]">
+          <StarIcon className="size-2.5 text-amber-500 sm:size-3" weight="fill" />
           <span>{book.nota.toFixed(1)}</span>
           <span className="text-[var(--text-muted)]">({book.ratingCount})</span>
         </div>
       ) : (
-        <div className="mt-0.5 flex items-center gap-0.5 text-[10px] text-[var(--text-muted)]">
-          <StarIcon className="size-2.5" />
+        <div className="mt-0.5 flex items-center gap-0.5 text-[10px] text-[var(--text-muted)] sm:text-[11px]">
+          <StarIcon className="size-2.5 sm:size-3" />
           <span>Sem avaliacoes</span>
         </div>
       )}
@@ -53,7 +57,7 @@ const ContinueCard = memo(function ContinueCard({ book }) {
   return (
     <Link
       to={`/app/livro/${book.id}`}
-      className="flex w-[220px] shrink-0 items-center gap-3 rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-2.5 transition-colors hover:bg-[var(--hover-overlay)]"
+      className="flex w-[200px] shrink-0 items-center gap-3 rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-2.5 transition-colors hover:bg-[var(--hover-overlay)] sm:w-[220px]"
     >
       <div className="w-12 shrink-0 overflow-hidden rounded-[6px] border border-[var(--border)]">
         <div className="aspect-[2/3]">
@@ -89,14 +93,14 @@ function PopularCarousel({ books }) {
       <div
         ref={ref}
         onScroll={handleScroll}
-        className="flex gap-2 overflow-x-auto pb-1"
+        className="flex gap-2 overflow-x-auto pb-1 sm:gap-3"
         style={{ scrollbarWidth: "none", scrollSnapType: "x mandatory" }}
       >
         {books.map((book) => (
           <Link
             key={book.id}
             to={`/app/livro/${book.id}`}
-            className="w-[68px] shrink-0"
+            className="w-[68px] shrink-0 sm:w-[88px] md:w-[100px]"
             style={{ scrollSnapAlign: "start" }}
           >
             <div className="aspect-[2/3] overflow-hidden rounded-[8px] border border-[var(--border)] bg-[var(--bg-card)]">
@@ -119,14 +123,43 @@ function PopularCarousel({ books }) {
   );
 }
 
+function FeaturedBook({ book }) {
+  return (
+    <Link
+      to={`/app/livro/${book.id}`}
+      className="block w-full shrink-0 rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-3 transition-colors hover:bg-[var(--hover-overlay)] sm:p-4 md:w-[44%]"
+    >
+      <div className="flex gap-3 sm:gap-4">
+        <div className="w-[100px] shrink-0 sm:w-[120px]">
+          <div className="aspect-[2/3] overflow-hidden rounded-[8px]">
+            <img src={book.image} alt="" loading="lazy" className="h-full w-full object-cover" />
+          </div>
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3 className="line-clamp-2 text-sm font-semibold text-[var(--text-primary)] sm:text-base">
+            {book.title}
+          </h3>
+          <p className="mt-1 truncate text-[11px] text-[var(--text-muted)] sm:text-xs">
+            {book.autorNome || book.authorName} (2024)
+          </p>
+          <p className="mt-1.5 text-[11px] text-[var(--text-secondary)] sm:text-xs">
+            {book.bio || "Descubra uma nova leitura selecionada pela nossa equipe."}
+          </p>
+          <span className="mt-3 inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600 sm:text-xs">
+            Read More <ArrowRight className="size-3" weight="bold" />
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 export function LibraryPage() {
-  const { books, authors, categories } = useData();
+  const { books, authors } = useData();
   const [searchParams] = useSearchParams();
   const urlCategoria = searchParams.get("categoria");
   const [genero, setGenero] = useState(urlCategoria || "Todas");
 
-  // Categoria vinda do menu superior (?categoria=...): mantem a filtragem
-  // sincronizada quando o usuario troca de categoria sem sair da pagina.
   useEffect(() => {
     setGenero(urlCategoria || "Todas");
   }, [urlCategoria]);
@@ -144,7 +177,6 @@ export function LibraryPage() {
     };
   }), [books, autoresMap]);
 
-  // "Popular": livros com mais avaliacoes em primeiro (nota real).
   const popular = useMemo(() => {
     const comNota = [...livrosComMeta].sort(
       (a, b) => (b.ratingCount || 0) - (a.ratingCount || 0) || (b.nota || 0) - (a.nota || 0)
@@ -172,31 +204,15 @@ export function LibraryPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 sm:space-y-8">
       {destaque ? (
         <section>
           <div className="mb-3 flex items-center gap-2">
             <Sparkles className="size-4 text-amber-500" weight="fill" />
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Popular</h2>
+            <h2 className="text-sm font-semibold text-[var(--text-primary)] sm:text-base">Popular</h2>
           </div>
-          <div className="flex items-stretch gap-3">
-            <Link
-              to={`/app/livro/${destaque.id}`}
-              className="w-[40%] shrink-0 rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-3 transition-colors hover:bg-[var(--hover-overlay)]"
-            >
-              <div className="aspect-[2/3] overflow-hidden rounded-[8px]">
-                <img src={destaque.image} alt="" loading="lazy" className="h-full w-full object-cover" />
-              </div>
-              <h3 className="mt-2 truncate text-xs font-semibold text-[var(--text-primary)]">
-                {destaque.title}
-              </h3>
-              <p className="truncate text-[10px] text-[var(--text-muted)]">
-                {destaque.autorNome || destaque.authorName} (2024)
-              </p>
-              <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600">
-                Read More <ArrowRight className="size-3" weight="bold" />
-              </span>
-            </Link>
+          <div className="flex flex-col gap-3 md:flex-row md:items-stretch md:gap-4">
+            <FeaturedBook book={destaque} />
             {carouselBooks.length > 0 ? <PopularCarousel books={carouselBooks} /> : null}
           </div>
         </section>
@@ -223,7 +239,7 @@ export function LibraryPage() {
       </div>
 
       {grid.length > 0 ? (
-        <section className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+        <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {grid.map((book) => (
             <BookCard key={book.id} book={book} />
           ))}
@@ -234,7 +250,7 @@ export function LibraryPage() {
 
       {continueReading.length > 0 ? (
         <section>
-          <h2 className="mb-3 text-base font-semibold text-[var(--text-primary)]">Continue Reading</h2>
+          <h2 className="mb-3 text-base font-semibold text-[var(--text-primary)] sm:text-lg">Continue Reading</h2>
           <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0" style={{ scrollbarWidth: "none" }}>
             {continueReading.map((book) => (
               <ContinueCard key={book.id} book={book} />

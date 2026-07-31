@@ -1,17 +1,46 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { BookOpen, CheckCircle2, ChevronLeft, Lock, MoreHorizontal } from "@/lib/icons";
+import { BookOpen, Bookmark as BookmarkIcon, ChevronLeft, Lock, Share2, StarIcon, Globe as GlobeIcon } from "@/lib/icons";
 import { useData } from "../data/DataContext";
 import { contagemRegressiva, formatarData } from "@/lib/releases";
 import { relatedBooks as recomendarLivros } from "@/lib/recommendations";
 
+const DEFAULT_LANGUAGE = "Portugues";
+
+function StarButton({ value, active, onRate }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onRate(value)}
+      aria-label={`Avaliar com ${value} estrela${value > 1 ? "s" : ""}`}
+      className="p-0.5"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        className={`size-6 transition-colors ${
+          active ? "fill-amber-400 text-amber-400" : "fill-none text-[var(--border-strong)]"
+        }`}
+      >
+        <path
+          d="M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.7l-5.8 3-1.1-6.5L.4 9.3l6.5-.9L12 2.5z"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </button>
+  );
+}
+
 export function BookDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getBookById, getAuthorById, getReleaseStatus, toggleFavoriteBook, isFavoriteBook, books, authors, rateBook, myBookRating, bookRatingStats } = useData();
+  const {
+    getBookById, getAuthorById, getReleaseStatus, toggleFavoriteBook,
+    isFavoriteBook, books, authors, rateBook, myBookRating, bookRatingStats,
+  } = useData();
   const book = getBookById(id);
   const release = getReleaseStatus(id);
-  const [menuOpen, setMenuOpen] = useState(false);
 
   if (!book) {
     return (
@@ -30,6 +59,8 @@ export function BookDetailPage() {
   const progresso = Number(book.progress || 0);
   const isCompleted = progresso >= 100;
   const status = isCompleted ? "Concluido" : progresso > 0 ? "Em leitura" : "Nao iniciado";
+  const language = book.language || DEFAULT_LANGUAGE;
+  const totalPages = book.totalPages || book.total_pages;
 
   // Livros com a nota reativa (para os cards relacionados atualizarem na hora).
   const livrosComNotaViva = useMemo(() => {
@@ -44,26 +75,23 @@ export function BookDetailPage() {
     });
   }, [books, bookRatingStats]);
 
-  // Livros relacionados: pontuados por categoria, autor, tags e popularidade
-  // (nota real + numero de avaliacoes), excluindo este livro.
   const relatedBooks = recomendarLivros(livrosComNotaViva, book);
 
-  // Autores relacionados: o proprio autor do livro + autores com obras na
-  // mesma categoria (a quem o leitor tambem poderia se interessar).
-  const relatedAuthors = [
-    ...(author ? [author] : []),
-    ...authors.filter(
-      (a) => a.id !== author?.id && books.some((b) => b.category === book.category && b.authorId === a.id)
-    ),
-  ].slice(0, 6);
+  const relatedAuthors = useMemo(() => {
+    return [
+      ...(author ? [author] : []),
+      ...authors.filter(
+        (a) => a.id !== author?.id && books.some((b) => b.category === book.category && b.authorId === a.id)
+      ),
+    ].slice(0, 6);
+  }, [author, authors, books, book.category]);
 
   const minhaNota = myBookRating(book.id);
-  // Nota media reativa: vem das avaliacoes em memoria (bookRatingStats) para
-  // que o numero e a contagem atualizem na hora apos o usuario avaliar.
   const statsDesteLivro = bookRatingStats[book.id];
   const notaMedia = statsDesteLivro && statsDesteLivro.count > 0
     ? Math.round((statsDesteLivro.sum / statsDesteLivro.count) * 10) / 10
     : 0;
+  const totalAvaliacoes = statsDesteLivro?.count || 0;
 
   function handleStartReading() {
     if (hasPdf && release.liberado) {
@@ -75,10 +103,29 @@ export function BookDetailPage() {
     rateBook(book.id, valor).catch(() => {});
   }
 
+  async function handleShare() {
+    const shareData = {
+      title: book.title,
+      text: author ? `${book.title} — ${author.name}` : book.title,
+      url: window.location.href,
+    };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareData.url);
+      }
+    } catch {}
+  }
+
+  const ctaLabel = !hasPdf || !release.liberado
+    ? "Indisponivel"
+    : progresso > 0 ? "Continuar lendo" : "Comecar a ler";
+
   return (
     <div className="flex min-h-dvh flex-col">
-      {/* Header */}
-      <div className="sticky top-0 z-30 flex items-center justify-between bg-[var(--bg-page)] px-4 py-3">
+      {/* Header sticky com botoes voltar / mais opcoes */}
+      <div className="sticky top-0 z-30 flex items-center justify-between bg-[var(--bg-page)] px-4 py-3 sm:px-0">
         <button
           onClick={() => navigate(-1)}
           className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-[var(--hover-overlay)]"
@@ -87,63 +134,58 @@ export function BookDetailPage() {
           <ChevronLeft className="size-5 text-[var(--text-primary)]" />
         </button>
         <button
-          onClick={() => setMenuOpen((v) => !v)}
+          onClick={handleShare}
           className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-[var(--hover-overlay)]"
-          aria-label="Mais opcoes"
+          aria-label="Compartilhar"
         >
-          <MoreHorizontal className="size-5 text-[var(--text-primary)]" />
+          <Share2 className="size-5 text-[var(--text-primary)]" />
         </button>
       </div>
 
-      {/* Hero: capa + info */}
-      <div className="flex gap-4 px-4 pb-4 sm:gap-5">
-        {/* Capa */}
-        <div className="w-[32%] shrink-0 sm:w-[36%] md:w-[30%]">
-          <div className="aspect-[2/3] overflow-hidden rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)]">
-            <img
-              src={book.image}
-              alt={book.title}
-              className="h-full w-full object-cover"
-            />
-          </div>
-        </div>
-
-        {/* Info */}
-        <div className="min-w-0 flex-1 pt-1">
-          <h1 className="text-[16px] font-[700] leading-[22px] tracking-[-0.32px] text-[var(--text-primary)] sm:text-[18px] sm:leading-[24px] sm:tracking-[-0.36px]">
+      {/* Hero centralizado: capa grande, titulo e autor */}
+      <div className="mx-auto w-full max-w-md px-4 pb-5 sm:max-w-lg sm:px-6">
+        <div className="flex flex-col items-center text-center">
+          <h1 className="text-balance text-[20px] font-bold leading-tight tracking-tight text-[var(--text-primary)] sm:text-[22px]">
             {book.title}
           </h1>
-
           {author && (
-            <Link to={`/app/autor/${author.id}`} className="mt-2 flex items-center gap-2 text-[13px] text-[var(--text-secondary)] hover:underline sm:text-sm">
-              {author.image ? (
-                <img src={author.image} alt="" className="size-5 rounded-full object-cover" />
-              ) : (
-                <span className="flex size-5 items-center justify-center rounded-full bg-[var(--hover-overlay)] text-[10px] font-bold text-[var(--text-muted)]">
-                  {author.name?.charAt(0)}
-                </span>
-              )}
+            <Link
+              to={`/app/autor/${author.id}`}
+              className="mt-1.5 text-sm text-[var(--text-secondary)] hover:underline"
+            >
               {author.name}
             </Link>
           )}
 
-          {/* Status + categoria */}
-          <div className="mt-3 space-y-1.5 sm:mt-4 sm:space-y-2">
-            <div className="flex items-center gap-2 text-[13px] text-[var(--text-secondary)] sm:text-sm">
+          {/* Capa do livro (centralizada, com sombra) */}
+          <div className="mt-6 w-[58%] max-w-[260px] sm:mt-8 sm:w-[52%] sm:max-w-[300px]">
+            <div className="overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)] shadow-[0_24px_60px_rgba(0,0,0,.35)]">
+              <div className="aspect-[2/3]">
+                <img
+                  src={book.image}
+                  alt={book.title}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Metadados do livro (status, categoria, tags) */}
+          <div className="mt-5 flex flex-col items-center gap-1.5 text-[13px] text-[var(--text-secondary)] sm:text-sm">
+            <div className="flex items-center gap-2">
               <BookOpen className="size-4 shrink-0 text-[var(--text-muted)]" />
               {status}
             </div>
             {book.category && (
-              <div className="flex items-center gap-2 text-[13px] text-[var(--text-secondary)] sm:text-sm">
+              <div className="flex items-center gap-2">
                 <span className="size-1.5 rounded-full bg-[var(--text-muted)]" />
                 {book.category}
               </div>
             )}
           </div>
 
-          {/* Tags */}
           {book.tag && (
-            <div className="mt-3 flex flex-wrap gap-1.5">
+            <div className="mt-3 flex flex-wrap justify-center gap-1.5">
               {book.tag.split(",").map((t) => t.trim()).filter(Boolean).slice(0, 3).map((tag) => (
                 <span
                   key={tag}
@@ -157,19 +199,56 @@ export function BookDetailPage() {
         </div>
       </div>
 
-      {/* Botoes de acao - inline, antes das tabs */}
-      <div className="flex items-center gap-2.5 px-4 pb-4 sm:gap-3">
-        <button
-          onClick={handleStartReading}
-          disabled={!hasPdf || !release.liberado}
-          className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-[var(--text-primary)] text-[13px] font-medium text-[var(--bg-card)] transition-colors hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed sm:h-12 sm:text-sm"
-        >
-          <BookOpen className="size-4" />
-          {hasPdf && release.liberado ? "Comecar a ler" : "Indisponivel"}
-        </button>
+      {/* Bloco de estatisticas: Rating / Language / Pages */}
+      <div className="mx-auto grid w-full max-w-md grid-cols-3 gap-3 px-4 sm:max-w-lg sm:px-6">
+        <div className="flex flex-col items-center gap-1 rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] py-3">
+          <StarIcon className="size-4 text-amber-500" weight="fill" />
+          <p className="text-sm font-semibold text-[var(--text-primary)]">
+            {notaMedia > 0 ? notaMedia.toFixed(1) : "—"}
+          </p>
+          <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">Rating</p>
+        </div>
+        <div className="flex flex-col items-center gap-1 rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] py-3">
+          <GlobeIcon className="size-4 text-[var(--text-muted)]" />
+          <p className="truncate px-1 text-sm font-semibold text-[var(--text-primary)]">{language}</p>
+          <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">Idioma</p>
+        </div>
+        <div className="flex flex-col items-center gap-1 rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] py-3">
+          <BookOpen className="size-4 text-[var(--text-muted)]" />
+          <p className="text-sm font-semibold text-[var(--text-primary)]">
+            {totalPages || "—"}
+          </p>
+          <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">Paginas</p>
+        </div>
+      </div>
+
+      {/* Avaliacao interativa: 5 estrelas + contagem */}
+      <div className="mx-auto mt-5 flex w-full max-w-md items-center justify-center gap-3 px-4 sm:max-w-lg sm:px-6">
+        <div className="flex items-center gap-1">
+          {[1, 2, 3, 4, 5].map((value) => (
+            <StarButton
+              key={value}
+              value={value}
+              active={value <= minhaNota}
+              onRate={handleRate}
+            />
+          ))}
+        </div>
+        {totalAvaliacoes > 0 ? (
+          <p className="text-xs text-[var(--text-muted)]">
+            <span className="font-semibold text-[var(--text-primary)]">{notaMedia.toFixed(1)}</span>
+            {" "}· {totalAvaliacoes} {totalAvaliacoes === 1 ? "avaliacao" : "avaliacoes"}
+          </p>
+        ) : (
+          <p className="text-xs text-[var(--text-muted)]">Seja o primeiro a avaliar</p>
+        )}
+      </div>
+
+      {/* Botoes de acao: bookmark + CTA principal */}
+      <div className="mx-auto mt-6 flex w-full max-w-md items-center gap-3 px-4 sm:max-w-lg sm:px-6">
         <button
           onClick={() => toggleFavoriteBook(book.id)}
-          className={`flex size-11 items-center justify-center rounded-full border transition-colors sm:size-12 ${
+          className={`flex size-12 shrink-0 items-center justify-center rounded-full border transition-colors ${
             favoritado
               ? "border-[var(--accent-mint)] bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]"
               : "border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] hover:bg-[var(--hover-overlay)]"
@@ -177,69 +256,39 @@ export function BookDetailPage() {
           aria-label={favoritado ? "Remover dos favoritos" : "Adicionar aos favoritos"}
         >
           {favoritado ? (
-            <CheckCircle2 className="size-5" />
+            <BookmarkIcon className="size-5" weight="fill" />
           ) : (
-            <span className="text-xl leading-none">+</span>
+            <BookmarkIcon className="size-5" />
           )}
+        </button>
+        <button
+          onClick={handleStartReading}
+          disabled={!hasPdf || !release.liberado}
+          className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-amber-500 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(245,158,11,.35)] transition-colors hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-amber-500/40 disabled:shadow-none"
+        >
+          <BookOpen className="size-4" weight="bold" />
+          {ctaLabel}
         </button>
       </div>
 
-      {/* Avaliacao: nota media real + estrelas para o usuario avaliar */}
-      <div className="flex items-center gap-3 px-4 pb-4">
-        <div className="flex items-center gap-1">
-          {[1, 2, 3, 4, 5].map((value) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => handleRate(value)}
-              aria-label={`Avaliar com ${value} estrela${value > 1 ? "s" : ""}`}
-              className="p-0.5"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                className={`size-6 transition-colors ${
-                  value <= minhaNota
-                    ? "fill-amber-400 text-amber-400"
-                    : "fill-none text-[var(--border-strong)]"
-                }`}
-              >
-                <path
-                  d="M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.7l-5.8 3-1.1-6.5L.4 9.3l6.5-.9L12 2.5z"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
-          ))}
-        </div>
-        {statsDesteLivro && statsDesteLivro.count > 0 ? (
-          <p className="text-xs text-[var(--text-muted)]">
-            <span className="font-semibold text-[var(--text-primary)]">{notaMedia.toFixed(1)}</span> · {statsDesteLivro.count}{" "}
-            {statsDesteLivro.count === 1 ? "avaliacao" : "avaliacoes"}
-          </p>
-        ) : (
-          <p className="text-xs text-[var(--text-muted)]">Seja o primeiro a avaliar</p>
-        )}
-      </div>
-
-      {/* Conteudo */}
-      <div className="flex-1 px-4 pt-5">
+      {/* Conteudo: Overview, progresso, livros e autores relacionados */}
+      <div className="mx-auto w-full max-w-md flex-1 px-4 pt-7 sm:max-w-lg sm:px-6">
         <div className="space-y-6">
-          {/* Sinopse / bio */}
-          {book.bio ? (
-            <div>
-              <p className="whitespace-pre-line text-sm leading-relaxed text-[var(--text-secondary)]">
+          {/* Overview */}
+          <section>
+            <h2 className="text-base font-semibold text-[var(--text-primary)]">Overview</h2>
+            {book.bio ? (
+              <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-[var(--text-secondary)]">
                 {book.bio}
               </p>
-            </div>
-          ) : (
-            <p className="text-sm text-[var(--text-muted)]">Sinopse indisponivel.</p>
-          )}
+            ) : (
+              <p className="mt-2 text-sm text-[var(--text-muted)]">Sinopse indisponivel.</p>
+            )}
+          </section>
 
           {/* Progresso */}
           {progresso > 0 && (
-            <div>
+            <section>
               <div className="mb-1.5 flex items-center justify-between text-xs text-[var(--text-muted)]">
                 <span>Progresso</span>
                 <span>{progresso}%</span>
@@ -247,27 +296,27 @@ export function BookDetailPage() {
               <div className="h-1.5 overflow-hidden rounded-full bg-[var(--border)]">
                 <div className="h-full rounded-full bg-[var(--accent-mint)]" style={{ width: `${progresso}%` }} />
               </div>
-            </div>
+            </section>
           )}
 
-          {/* Liberacao */}
+          {/* Liberacao futura */}
           {hasPdf && !release.liberado && (
-            <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4 text-center">
+            <section className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4 text-center">
               <Lock className="mx-auto mb-1.5 size-4 text-[var(--text-muted)]" />
               <p className="text-sm font-medium text-[var(--text-primary)]">
                 Libera em {formatarData(release.data)}
               </p>
               <p className="mt-0.5 text-xs text-[var(--text-muted)]">{contagemRegressiva(release.diasRestantes)}</p>
-            </div>
+            </section>
           )}
 
           {/* Livros e autores relacionados */}
           {(relatedBooks.length > 0 || relatedAuthors.length > 0) && (
-            <div>
-              <h3 className="mb-3 text-sm font-semibold text-[var(--text-primary)]">Talvez você também goste</h3>
+            <section>
+              <h3 className="mb-3 text-sm font-semibold text-[var(--text-primary)]">Talvez voce tambem goste</h3>
 
               {relatedBooks.length > 0 && (
-                <div className="flex gap-3 overflow-x-auto pb-2">
+                <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0" style={{ scrollbarWidth: "none" }}>
                   {relatedBooks.map((rb) => (
                     <button
                       key={rb.id}
@@ -292,7 +341,7 @@ export function BookDetailPage() {
               )}
 
               {relatedAuthors.length > 0 && (
-                <div className="mt-2 flex gap-4 overflow-x-auto pb-2">
+                <div className="-mx-4 mt-2 flex gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0" style={{ scrollbarWidth: "none" }}>
                   {relatedAuthors.map((ra) => (
                     <button
                       key={ra.id}
@@ -313,14 +362,14 @@ export function BookDetailPage() {
                   ))}
                 </div>
               )}
-            </div>
+            </section>
           )}
 
           {!hasPdf && (
-            <div className="rounded-[12px] border border-dashed border-[var(--border)] p-8 text-center">
+            <section className="rounded-[12px] border border-dashed border-[var(--border)] p-8 text-center">
               <BookOpen className="mx-auto mb-3 size-8 text-[var(--text-muted)]" />
               <p className="text-sm text-[var(--text-secondary)]">Nenhum PDF disponivel para este livro ainda.</p>
-            </div>
+            </section>
           )}
         </div>
       </div>
