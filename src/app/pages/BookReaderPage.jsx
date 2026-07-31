@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   CheckCircle2, ChevronLeft, ChevronRight, Hand, Info, Keyboard, Lock, Maximize2,
-  MessageCircle, Minus, MousePointerClick, NotebookPen, Plus, X,
+  Minus, MousePointerClick, Plus, X,
 } from "@/lib/icons";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
@@ -94,11 +94,6 @@ export function BookReaderPage() {
   const [zoom, setZoom] = useState(100);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [notesOpen, setNotesOpen] = useState(false);
-  const [notes, setNotes] = useState([]);
-  const [noteText, setNoteText] = useState("");
-  const [savingNote, setSavingNote] = useState(false);
-  const [noteError, setNoteError] = useState("");
   const [pdfUrl, setPdfUrl] = useState(null);
   const [dicaVisivel, setDicaVisivel] = useState(false);
 
@@ -313,35 +308,6 @@ export function BookReaderPage() {
     };
   }, [book?.id, page, totalPages, updateReadingProgress]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadNotes() {
-      if (!isSupabaseReady() || !book?.id) {
-        setNotes([]);
-        return;
-      }
-
-      const { data: authData } = await supabase.auth.getUser();
-      const userId = authData?.user?.id;
-      if (!userId) return;
-
-      const { data, error: notesError } = await supabase
-        .from("book_notes")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("book_id", book.id)
-        .order("created_at", { ascending: false });
-
-      if (!cancelled && !notesError) setNotes(data || []);
-    }
-
-    loadNotes();
-    return () => {
-      cancelled = true;
-    };
-  }, [book?.id]);
-
   const goNextPage = useCallback(() => {
     setPage((value) => Math.min(totalPages || value + 1, value + 1));
   }, [totalPages]);
@@ -375,33 +341,6 @@ export function BookReaderPage() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [goNextPage, goPrevPage, navigate, id]);
-
-  async function saveNote() {
-    if (!noteText.trim() || !book?.id || savingNote) return;
-    setSavingNote(true);
-    setNoteError("");
-
-    try {
-      if (!isSupabaseReady()) throw new Error("Supabase não configurado.");
-      const { data: authData } = await supabase.auth.getUser();
-      const userId = authData?.user?.id;
-      if (!userId) throw new Error("Você precisa estar logado.");
-
-      const { data, error: insertError } = await supabase
-        .from("book_notes")
-        .insert({ user_id: userId, book_id: book.id, page_number: page, note: noteText.trim() })
-        .select()
-        .single();
-
-      if (insertError) throw insertError;
-      setNotes((current) => [data, ...current]);
-      setNoteText("");
-    } catch (err) {
-      setNoteError(err?.message || "Não foi possível salvar a anotação.");
-    } finally {
-      setSavingNote(false);
-    }
-  }
 
   function handleTouchStart(event) {
     const touch = event.touches?.[0];
@@ -521,13 +460,6 @@ export function BookReaderPage() {
             <CheckCircle2 className="size-4" />
             <span className="hidden md:inline">{Number(book.progress || 0) >= 100 ? "Concluído" : "Concluir"}</span>
           </button>
-          <button
-            onClick={() => { setNotesOpen((value) => !value); setCommentsOpen(false); }}
-            className="flex h-9 items-center gap-1 rounded-full border border-[var(--border)] px-3 text-xs text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"
-          >
-            <NotebookPen className="size-4" />
-            <span className="hidden md:inline">Notas</span>
-          </button>
         </div>
       </header>
 
@@ -539,65 +471,6 @@ export function BookReaderPage() {
           onPointerUp={handlePointerUp}
           className="relative flex min-h-0 flex-1 touch-pan-y select-none items-center justify-center overflow-auto bg-[var(--bg-canvas)] p-3 sm:p-6"
         >
-          {notesOpen && (
-            <aside
-              onPointerUp={(event) => event.stopPropagation()}
-              className="absolute inset-x-3 top-3 z-20 max-h-[60vh] overflow-y-auto rounded-xl border border-[#e4d8bf] shadow-[0_18px_50px_rgba(0,0,0,.28)] sm:inset-x-6 sm:top-6"
-              style={{
-                // Caderno: papel creme, pauta horizontal e uma margem vermelha
-                // à esquerda. Fica igual nos dois temas — é papel, não UI.
-                backgroundColor: "#faf3e0",
-                backgroundImage:
-                  "repeating-linear-gradient(#faf3e0, #faf3e0 27px, #d9c9a3 27px, #d9c9a3 28px)",
-              }}
-            >
-              <div className="flex items-center justify-between border-b border-[#e4d8bf] bg-[#f3e8cc] px-4 py-2">
-                <p className="flex items-center gap-2 text-sm font-semibold text-[#5b4a2e]">
-                  <NotebookPen className="size-4" />
-                  Minhas anotações
-                </p>
-                <span className="rounded-full bg-[#e4d3a8] px-2 py-0.5 text-[11px] font-medium text-[#5b4a2e]">Página {page}</span>
-              </div>
-
-              <div className="pl-10 pr-4 pt-3 pb-4" style={{ boxShadow: "inset 26px 0 0 -25px #c98b7a" }}>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <textarea
-                    value={noteText}
-                    onChange={(event) => setNoteText(event.target.value)}
-                    rows={2}
-                    placeholder="Escreva uma anotação sobre esta página..."
-                    className="min-w-0 flex-1 resize-none bg-transparent px-1 py-1 text-[15px] leading-7 text-[#3f3320] outline-none placeholder:text-[#a3946f]"
-                    style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
-                  />
-                  <button
-                    onClick={saveNote}
-                    disabled={!noteText.trim() || savingNote}
-                    className="shrink-0 self-end rounded-full bg-[#5b4a2e] px-4 py-2 text-sm font-medium text-[#faf3e0] transition-opacity hover:opacity-90 disabled:opacity-50"
-                  >
-                    {savingNote ? "Salvando..." : "Salvar"}
-                  </button>
-                </div>
-                {noteError && <p className="mt-2 text-xs text-red-600">{noteError}</p>}
-
-                {notes.length > 0 && (
-                  <div className="mt-3 max-h-44 space-y-3 overflow-y-auto pr-1">
-                    {notes.map((note) => (
-                      <div key={note.id} className="border-l-2 border-[#c98b7a] pl-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.4px] text-[#a3946f]">Página {note.page_number}</p>
-                        <p
-                          className="mt-0.5 text-[15px] leading-7 text-[#3f3320]"
-                          style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
-                        >
-                          {note.note}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </aside>
-          )}
-
           {loading && (
             <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
               Carregando livro...
@@ -659,12 +532,6 @@ export function BookReaderPage() {
                       <b className="font-medium text-[var(--text-primary)]">Teclado:</b>{" "}
                       <kbd className="rounded bg-[var(--hover-overlay)] px-1">←</kbd> <kbd className="rounded bg-[var(--hover-overlay)] px-1">→</kbd> viram a página, <kbd className="rounded bg-[var(--hover-overlay)] px-1">+</kbd> / <kbd className="rounded bg-[var(--hover-overlay)] px-1">−</kbd> ajustam o zoom.
                     </span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--hover-overlay)] text-[var(--text-primary)]">
-                      <MessageCircle className="size-4" />
-                    </span>
-                    <span className="pt-1"><b className="font-medium text-[var(--text-primary)]">Discussão:</b> cada página tem comentários — toque em “Comentários” na barra de baixo.</span>
                   </li>
                 </ul>
                 <button
