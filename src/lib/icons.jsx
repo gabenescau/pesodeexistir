@@ -21,10 +21,14 @@ const ICONS = {
   BookOpen: Phosphor.BookOpen,
   BookOpenIcon: Phosphor.BookOpen,
   Calendar: Phosphor.CalendarBlank,
+  CalendarBlank: Phosphor.CalendarBlank,
   CalendarDays: Phosphor.Calendar,
   Camera: Phosphor.Camera,
+  CaretLeft: Phosphor.CaretLeft,
+  CaretRight: Phosphor.CaretRight,
   Check: Phosphor.Check,
   CheckCircle: Phosphor.CheckCircle,
+  ChartLine: Phosphor.ChartLine,
   CheckCircle2: Phosphor.CheckCircle,
   CheckCircleIcon: Phosphor.CheckCircle,
   CheckIcon: Phosphor.Check,
@@ -131,10 +135,14 @@ export const Bookmark = Phosphor.Bookmark;
 export const BookOpen = Phosphor.BookOpen;
 export const BookOpenIcon = Phosphor.BookOpen;
 export const Calendar = Phosphor.CalendarBlank;
+export const CalendarBlank = Phosphor.CalendarBlank;
 export const CalendarDays = Phosphor.Calendar;
 export const Camera = Phosphor.Camera;
+export const CaretLeft = Phosphor.CaretLeft;
+export const CaretRight = Phosphor.CaretRight;
 export const Check = Phosphor.Check;
 export const CheckCircle = Phosphor.CheckCircle;
+export const ChartLine = Phosphor.ChartLine;
 export const CheckCircle2 = Phosphor.CheckCircle;
 export const CheckCircleIcon = Phosphor.CheckCircle;
 export const CheckIcon = Phosphor.Check;

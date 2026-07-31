@@ -2,6 +2,18 @@ import { useState } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogClose,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   InputGroup,
   InputGroupAddon,
@@ -12,6 +24,7 @@ import { ChevronLeftIcon, AtSignIcon, LockIcon, UserIcon } from "@/lib/icons";
 import { useAuth } from "@/app/data/AuthContext";
 import { supabase, isSupabaseReady } from "@/app/data/supabase";
 import { getSupabaseErrorMessage } from "@/lib/supabase-error";
+import { toast } from "@/lib/toast";
 import {
   normalizeEmail,
   PASSWORD_MIN_LENGTH,
@@ -34,6 +47,8 @@ export function AuthPage() {
   const [error, setError] = useState("");
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [lockedUntil, setLockedUntil] = useState(0);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -64,16 +79,27 @@ export function AuthPage() {
           throw new Error("Digite sua senha.");
         }
         await login(cleanEmail, password);
+        toast.success("Login realizado. Bem-vindo de volta.");
         navigate(location.state?.from?.pathname || "/app/inicio", { replace: true });
       } else {
         validateStrongPassword(password);
         if (!cleanName) {
           throw new Error("Digite seu nome");
         }
+        if (!termsAccepted) {
+          throw new Error("Para criar a conta voce precisa aceitar os Termos de Servico e a Politica de Privacidade (LGPD).");
+        }
         const { data, error: signUpError } = await supabase.auth.signUp({
           email: cleanEmail,
           password,
-          options: { data: { name: cleanName } },
+          options: {
+            data: {
+              name: cleanName,
+              lgpd_consent: true,
+              lgpd_consent_at: new Date().toISOString(),
+              marketing_opt_in: marketingOptIn,
+            },
+          },
         });
         if (signUpError) throw signUpError;
 
@@ -244,6 +270,8 @@ export function AuthPage() {
               onClick={() => {
                 setMode(mode === "login" ? "signup" : "login");
                 setError("");
+                setTermsAccepted(false);
+                setMarketingOptIn(false);
               }}
               className="text-sm text-[#b8aca0] underline underline-offset-4 transition-colors hover:text-[#c78359]"
             >
@@ -253,18 +281,123 @@ export function AuthPage() {
             </button>
           </div>
 
-          <p className="mt-8 text-center text-sm text-[#9f9083]">
-            Ao continuar, você concorda com nossos{" "}
-            <a className="underline underline-offset-4 hover:text-[#c78359]" href="#">
-              Termos de Serviço
-            </a>{" "}
-            e{" "}
-            <a className="underline underline-offset-4 hover:text-[#c78359]" href="#">
-              Política de Privacidade
+          {mode === "signup" && (
+            <div className="space-y-3 pt-2">
+              <label className="flex items-start gap-3 text-left text-xs text-[#9f9083]">
+                <Checkbox
+                  checked={termsAccepted}
+                  onCheckedChange={(value) => setTermsAccepted(value === true)}
+                  className="mt-0.5"
+                  required
+                />
+                <span>
+                  Li e aceito os{" "}
+                  <TermsDialog
+                    trigger={
+                      <span className="cursor-pointer underline underline-offset-4 hover:text-[#c78359]">
+                        Termos de Servico
+                      </span>
+                    }
+                  />
+                  {" "}e a{" "}
+                  <PrivacyDialog
+                    trigger={
+                      <span className="cursor-pointer underline underline-offset-4 hover:text-[#c78359]">
+                        Politica de Privacidade
+                      </span>
+                    }
+                  />
+                  {" "}do OPE Club, em conformidade com a Lei Geral de Protecao de Dados (LGPD - Lei 13.709/2018).
+                </span>
+              </label>
+              <label className="flex items-start gap-3 text-left text-xs text-[#9f9083]">
+                <Checkbox
+                  checked={marketingOptIn}
+                  onCheckedChange={(value) => setMarketingOptIn(value === true)}
+                  className="mt-0.5"
+                />
+                <span>
+                  Quero receber novidades, lancamentos e recomendacoes por email. (Opcional - posso cancelar a qualquer momento.)
+                </span>
+              </label>
+            </div>
+          )}
+
+          <p className="mt-6 text-center text-[11px] leading-relaxed text-[#6b5d52]">
+            OPE Club respeita sua privacidade. Os dados coletados (nome, email, atividades de leitura)
+            sao usados para operacao do clube, personalizacao de conteudo e cumprimento de obrigacoes legais.
+            Voce pode exercer os direitos previstos no art. 18 da LGPD (confirmacao, acesso, correcao,
+            anonimizacao, portabilidade e eliminacao) pelo email{" "}
+            <a className="underline underline-offset-4 hover:text-[#c78359]" href="mailto:privacidade@pesodeexistir.online">
+              privacidade@pesodeexistir.online
             </a>.
           </p>
         </div>
       </div>
     </main>
+  );
+}
+
+function TermsDialog({ trigger }) {
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger render={<button type="button" className="inline" />}>
+        {trigger}
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Termos de Servico</AlertDialogTitle>
+          <AlertDialogDescription>
+            Estes termos regem o uso da plataforma OPE Club. Ao criar uma conta voce declara estar de acordo.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div className="max-h-[55vh] space-y-3 overflow-y-auto pr-1 text-xs leading-relaxed text-[var(--text-secondary)]">
+          <p><strong>1. Aceitacao.</strong> O uso do OPE Club implica concordancia com estes Termos e com a Politica de Privacidade. Se voce nao concordar, nao crie conta.</p>
+          <p><strong>2. Cadastro.</strong> Voce deve fornecer informacoes verdadeiras e manter sua senha em sigilo. E de sua responsabilidade toda atividade feita na sua conta.</p>
+          <p><strong>3. Pagamento.</strong> Os planos sao cobrados via AbacatePay. Cancelamentos podem ser feitos a qualquer momento e o acesso permanece ate o fim do ciclo vigente.</p>
+          <p><strong>4. Conteudo.</strong> O acervo de livros e o conteudo da comunidade sao para uso pessoal. E proibido redistribuir, reproduzir ou explorar comercialmente sem autorizacao.</p>
+          <p><strong>5. Conduta.</strong> Publique apenas conteudo que voce tenha direito de compartilhar. Discurso de odio, spam e assedio nao sao tolerados e podem resultar em banimento.</p>
+          <p><strong>6. Suspensao.</strong> Podemos suspender contas que violem estes termos ou apresentem atividade suspeita.</p>
+          <p><strong>7. Alteracoes.</strong> Estes termos podem ser atualizados. Avisaremos sobre mudancas relevantes por email ou aviso no app.</p>
+          <p><strong>8. Foro.</strong> Estes Termos sao regidos pela legislacao brasileira, em especial pela LGPD e pelo Codigo de Defesa do Consumidor.</p>
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogClose>Entendi</AlertDialogClose>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+function PrivacyDialog({ trigger }) {
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger render={<button type="button" className="inline" />}>
+        {trigger}
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Politica de Privacidade (LGPD)</AlertDialogTitle>
+          <AlertDialogDescription>
+            Como coletamos, usamos e protegemos seus dados pessoais - Lei 13.709/2018.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div className="max-h-[55vh] space-y-3 overflow-y-auto pr-1 text-xs leading-relaxed text-[var(--text-secondary)]">
+          <p><strong>Controlador.</strong> OPE Club (pesodeexistir.online), contato: privacidade@pesodeexistir.online.</p>
+          <p><strong>Dados coletados.</strong> Nome, email, foto de perfil, atividades de leitura, publicacoes na comunidade, preferencias de notificacao e dados de pagamento (processados diretamente pela AbacatePay - nao armazenamos numeros de cartao).</p>
+          <p><strong>Finalidades.</strong> Operacao da conta, personalizacao de conteudo, envio de lancamentos e novidades (somente se autorizado), suporte ao usuario, cumprimento de obrigacoes legais e prevencao a fraudes.</p>
+          <p><strong>Base legal.</strong> Executamos o tratamento com base no seu consentimento (art. 7o, I) e na execucao de contrato (art. 7o, V) para operacao do servico.</p>
+          <p><strong>Compartilhamento.</strong> Nao vendemos seus dados. Compartilhamos apenas com prestadores essenciais (Supabase para banco, AbacatePay para pagamentos) sob contratos de confidencialidade.</p>
+          <p><strong>Cookies.</strong> Usamos cookies essenciais para autenticacao e preferencias. Cookies de marketing sao opcionais.</p>
+          <p><strong>Retencao.</strong> Mantemos seus dados enquanto a conta estiver ativa. Apos o cancelamento, dados pessoais sao anonimizados em ate 90 dias, salvo obrigacao legal de retencao.</p>
+          <p><strong>Seus direitos (art. 18 LGPD).</strong> Confirmacao, acesso, correcao, anonimizacao, portabilidade, eliminacao, revogacao do consentimento e revisao de decisoes automatizadas. Solicite pelo email acima.</p>
+          <p><strong>Seguranca.</strong> Aplicamos criptografia em transito (HTTPS), controle de acesso por funcao (RLS no Supabase) e monitoramento contra acessos nao autorizados.</p>
+          <p><strong>Encarregado (DPO).</strong> privacidade@pesodeexistir.online.</p>
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogClose>Entendi</AlertDialogClose>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

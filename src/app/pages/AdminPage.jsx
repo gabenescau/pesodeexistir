@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../data/AuthContext";
 import { useData } from "../data/DataContext";
 import { isSupabaseReady } from "../data/supabase";
-import { Plus, Trash2, Edit3, Check, Crown, BookOpen, Users, MessageSquare, ShieldAlert, Sparkles, FolderOpen, RefreshCw, ArrowUpDown } from "@/lib/icons";
+import { Plus, Trash2, Edit3, Check, Crown, BookOpen, Users, MessageSquare, ShieldAlert, Sparkles, FolderOpen, RefreshCw, ArrowUpDown, ChartLine } from "@/lib/icons";
 import { isActiveSubscription, pickCurrentSubscription } from "@/lib/subscription";
 import {
   LIBRARY_BUCKETS,
@@ -10,8 +10,13 @@ import {
   uploadLibraryFile,
   validateLibraryFile,
 } from "@/lib/library-media";
+import { Pagination } from "@/components/ui/pagination";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DatePicker } from "@/components/ui/date-picker";
+import { BarChart, DonutChart, LineChart } from "@/components/ui/chart";
 
 const tabs = [
+  { id: "dashboard", label: "Dashboard", icon: ChartLine },
   { id: "users", label: "Usuários", icon: Users },
   { id: "subscriptions", label: "Assinaturas", icon: Crown },
   { id: "posts", label: "Posts", icon: MessageSquare },
@@ -20,6 +25,199 @@ const tabs = [
   { id: "books", label: "Livros", icon: BookOpen },
   { id: "authors", label: "Autores", icon: Users },
 ];
+
+function StatCard({ label, value, hint, icon: Icon }) {
+  return (
+    <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs uppercase tracking-wider text-[var(--text-muted)]">{label}</p>
+          <p className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">{value}</p>
+          {hint ? <p className="mt-1 text-[11px] text-[var(--text-muted)]">{hint}</p> : null}
+        </div>
+        {Icon ? (
+          <span className="flex size-9 items-center justify-center rounded-[8px] bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]">
+            <Icon className="size-4" weight="bold" />
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function DashboardTab() {
+  const { books, authors, posts, profiles, subscriptions, weeklyReleases, categories, bookFavorites, authorFavorites, savedPostIds, myCounts } = useData();
+
+  const totalUsers = profiles.length;
+  const totalBooks = books.length;
+  const totalAuthors = authors.length;
+  const totalPosts = posts.length;
+  const totalSubs = subscriptions.length;
+  const monthlySubs = subscriptions.filter((sub) => sub.plan === "ope_club_monthly").length;
+  const annualSubs = subscriptions.filter((sub) => sub.plan === "ope_club_annual").length;
+  const activeSubs = subscriptions.filter((sub) => isActiveSubscription(sub)).length;
+  const totalFavorites = bookFavorites.length;
+  const totalSaved = savedPostIds.length;
+
+  const postsPerTag = useMemo(() => {
+    const map = new Map();
+    for (const post of posts) {
+      const tag = post.tag || "Outros";
+      map.set(tag, (map.get(tag) || 0) + 1);
+    }
+    return [...map.entries()].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, 8);
+  }, [posts]);
+
+  const booksPerCategory = useMemo(() => {
+    const map = new Map();
+    for (const book of books) {
+      const cat = book.category || "Outros";
+      map.set(cat, (map.get(cat) || 0) + 1);
+    }
+    return [...map.entries()].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, 6);
+  }, [books]);
+
+  const engagement = useMemo(() => {
+    const totalLikes = posts.reduce((sum, post) => sum + (post.likes || 0), 0);
+    const totalReplies = posts.reduce((sum, post) => sum + (post.replies || 0), 0);
+    return { totalLikes, totalReplies, myComments: myCounts?.comments || 0, myReactions: myCounts?.reactions || 0 };
+  }, [posts, myCounts]);
+
+  const postsLast7Days = useMemo(() => {
+    const days = [];
+    for (let offset = 6; offset >= 0; offset -= 1) {
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
+      start.setDate(start.getDate() - offset);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 1);
+      const count = posts.filter((post) => {
+        const date = new Date(post.created_at || post.time || 0);
+        return !Number.isNaN(date.getTime()) && date >= start && date < end;
+      }).length;
+      days.push({ label: start.toLocaleDateString("pt-BR", { weekday: "short" }), value: count });
+    }
+    return days;
+  }, [posts]);
+
+  const topAuthors = useMemo(() => {
+    return [...authors]
+      .sort((a, b) => (b.bookCount || 0) - (a.bookCount || 0))
+      .slice(0, 5)
+      .map((author) => ({ label: author.name, value: author.bookCount || 0 }));
+  }, [authors]);
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard label="Usuarios" value={totalUsers} hint={`${activeSubs} com assinatura ativa`} icon={Users} />
+        <StatCard label="Livros" value={totalBooks} hint={`${totalAuthors} autores`} icon={BookOpen} />
+        <StatCard label="Posts" value={totalPosts} hint={`${engagement.totalLikes} curtidas · ${engagement.totalReplies} respostas`} icon={MessageSquare} />
+        <StatCard label="Assinaturas" value={totalSubs} hint={`${monthlySubs} mensal · ${annualSubs} anual`} icon={Crown} />
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-3">
+        <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4 lg:col-span-2">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-[var(--text-primary)]">Posts nos ultimos 7 dias</p>
+              <p className="text-xs text-[var(--text-muted)]">Engajamento diario da comunidade</p>
+            </div>
+            <span className="text-xs text-[var(--text-muted)]">{engagement.totalLikes} curtidas totais</span>
+          </div>
+          <LineChart data={postsLast7Days} />
+        </div>
+
+        <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
+          <p className="text-sm font-semibold text-[var(--text-primary)]">Assinaturas por plano</p>
+          <p className="text-xs text-[var(--text-muted)]">Distribuicao atual</p>
+          <div className="mt-4 flex justify-center">
+            <DonutChart
+              data={[
+                { label: "Mensal", value: monthlySubs },
+                { label: "Anual", value: annualSubs },
+              ]}
+              label="ativas"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-2">
+        <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
+          <p className="text-sm font-semibold text-[var(--text-primary)]">Posts por categoria</p>
+          <p className="text-xs text-[var(--text-muted)]">Quais temas dao mais movimento na comunidade</p>
+          <div className="mt-3">
+            {postsPerTag.length ? <BarChart data={postsPerTag} /> : <p className="py-8 text-center text-xs text-[var(--text-muted)]">Sem dados ainda.</p>}
+          </div>
+        </div>
+        <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
+          <p className="text-sm font-semibold text-[var(--text-primary)]">Livros por categoria</p>
+          <p className="text-xs text-[var(--text-muted)]">Acervo catalogado</p>
+          <div className="mt-3">
+            {booksPerCategory.length ? <BarChart data={booksPerCategory} /> : <p className="py-8 text-center text-xs text-[var(--text-muted)]">Sem dados ainda.</p>}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-3">
+        <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4 lg:col-span-1">
+          <p className="text-sm font-semibold text-[var(--text-primary)]">Top autores</p>
+          <p className="text-xs text-[var(--text-muted)]">Por numero de livros no acervo</p>
+          <ul className="mt-3 space-y-2">
+            {topAuthors.length ? topAuthors.map((author, index) => (
+              <li key={author.label} className="flex items-center justify-between gap-3 text-xs">
+                <span className="flex min-w-0 items-center gap-2 text-[var(--text-secondary)]">
+                  <span className="flex size-6 items-center justify-center rounded-full bg-[var(--accent-mint)]/10 text-[10px] font-bold text-[var(--accent-mint)]">{index + 1}</span>
+                  <span className="truncate">{author.label}</span>
+                </span>
+                <span className="font-medium text-[var(--text-primary)]">{author.value}</span>
+              </li>
+            )) : <li className="py-4 text-center text-xs text-[var(--text-muted)]">Sem dados ainda.</li>}
+          </ul>
+        </div>
+
+        <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
+          <p className="text-sm font-semibold text-[var(--text-primary)]">Engajamento</p>
+          <p className="text-xs text-[var(--text-muted)]">Soma de reacoes e comentarios</p>
+          <div className="mt-4 grid grid-cols-2 gap-3 text-center">
+            <div className="rounded-[10px] bg-[var(--hover-overlay)] py-4">
+              <p className="text-2xl font-semibold text-[var(--text-primary)]">{engagement.totalLikes}</p>
+              <p className="mt-1 text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Curtidas</p>
+            </div>
+            <div className="rounded-[10px] bg-[var(--hover-overlay)] py-4">
+              <p className="text-2xl font-semibold text-[var(--text-primary)]">{engagement.totalReplies}</p>
+              <p className="mt-1 text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Respostas</p>
+            </div>
+            <div className="rounded-[10px] bg-[var(--hover-overlay)] py-4">
+              <p className="text-2xl font-semibold text-[var(--text-primary)]">{totalFavorites}</p>
+              <p className="mt-1 text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Livros favoritados</p>
+            </div>
+            <div className="rounded-[10px] bg-[var(--hover-overlay)] py-4">
+              <p className="text-2xl font-semibold text-[var(--text-primary)]">{totalSaved}</p>
+              <p className="mt-1 text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Posts salvos</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
+          <p className="text-sm font-semibold text-[var(--text-primary)]">Lancamentos</p>
+          <p className="text-xs text-[var(--text-muted)]">Novidades programadas e publicadas</p>
+          <div className="mt-4 grid grid-cols-2 gap-3 text-center">
+            <div className="rounded-[10px] bg-[var(--hover-overlay)] py-4">
+              <p className="text-2xl font-semibold text-[var(--text-primary)]">{weeklyReleases.length}</p>
+              <p className="mt-1 text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Agendados</p>
+            </div>
+            <div className="rounded-[10px] bg-[var(--hover-overlay)] py-4">
+              <p className="text-2xl font-semibold text-[var(--text-primary)]">{categories.length}</p>
+              <p className="mt-1 text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Categorias ativas</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function FormField({ label, value, onChange, placeholder, type = "text", className }) {
   return (
@@ -147,6 +345,10 @@ function UsersTab() {
   const [planByUser, setPlanByUser] = useState({});
   const [savingUser, setSavingUser] = useState(null);
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 8;
+  const totalPages = Math.max(1, Math.ceil(profiles.length / pageSize));
+  const visibleProfiles = profiles.slice((page - 1) * pageSize, page * pageSize);
 
   const getSub = (userId) => pickCurrentSubscription(subscriptions, userId);
 
@@ -197,31 +399,31 @@ function UsersTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-[var(--text-secondary)]">{profiles.length} usuários cadastrados</p>
+        <p className="text-sm text-[var(--text-secondary)]">{profiles.length} usuarios cadastrados</p>
+        <span className="text-xs text-[var(--text-muted)]">Pagina {page} de {totalPages}</span>
       </div>
       {error && <p className="text-sm text-red-400">{error}</p>}
 
-      <div className="overflow-x-auto rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)]">
-        <table className="w-full min-w-[940px] text-sm">
-          <thead>
-            <tr className="border-b border-[var(--border)] text-left text-xs uppercase tracking-wider text-[var(--text-muted)]">
-              <th className="px-4 py-3 font-medium">Usuário</th>
-              <th className="px-4 py-3 font-medium">Email</th>
-              <th className="px-4 py-3 font-medium">Cargo</th>
-              <th className="px-4 py-3 font-medium">Plano</th>
-              <th className="px-4 py-3 font-medium">Expira em</th>
-              <th className="px-4 py-3 font-medium">Plano manual</th>
-              <th className="px-4 py-3 font-medium">Dias</th>
-              <th className="px-4 py-3 font-medium"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {profiles.map((profile) => {
+      <Table variant="card" className="min-w-[940px]">
+        <TableHeader>
+          <TableRow>
+            <TableHead>Usuario</TableHead>
+            <TableHead>Email</TableHead>
+            <TableHead>Cargo</TableHead>
+            <TableHead>Plano</TableHead>
+            <TableHead>Expira em</TableHead>
+            <TableHead>Plano manual</TableHead>
+            <TableHead>Dias</TableHead>
+            <TableHead className="w-0 text-right">Acoes</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {visibleProfiles.map((profile) => {
               const sub = getSub(profile.id);
               const active = isActiveSubscription(sub);
               return (
-                <tr key={profile.id} className="border-b border-[var(--border)] last:border-b-0">
-                  <td className="px-4 py-3">
+                <TableRow key={profile.id}>
+                  <TableCell>
                     <div className="flex items-center gap-3">
                       <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--hover-overlay)] text-xs font-bold text-[var(--text-primary)]">
                         {profile.avatar?.startsWith("data:") || profile.avatar?.startsWith("http") ? (
@@ -232,18 +434,18 @@ function UsersTab() {
                       </div>
                       <span className="font-medium text-[var(--text-primary)]">{profile.name || "Sem nome"}</span>
                     </div>
-                  </td>
-                  <td className="px-4 py-3 text-[var(--text-secondary)]">{profile.email || "Sem email"}</td>
-                  <td className="px-4 py-3 text-[var(--text-secondary)]">{profile.role || "user"}</td>
-                  <td className="px-4 py-3">
+                  </TableCell>
+                  <TableCell>{profile.email || "Sem email"}</TableCell>
+                  <TableCell>{profile.role || "user"}</TableCell>
+                  <TableCell>
                     <span className={`rounded-full px-2 py-0.5 text-xs ${active ? "bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]" : "bg-[var(--hover-overlay)] text-[var(--text-muted)]"}`}>
                       {active ? "Ativo" : sub?.status || "Sem plano"}
                     </span>
-                  </td>
-                  <td className="px-4 py-3 text-[var(--text-secondary)]">
+                  </TableCell>
+                  <TableCell>
                     {sub?.current_period_end ? new Date(sub.current_period_end).toLocaleDateString("pt-BR") : "-"}
-                  </td>
-                  <td className="px-4 py-3">
+                  </TableCell>
+                  <TableCell>
                     <select
                       value={planByUser[profile.id] || "ope_club_monthly"}
                       onChange={(e) => setPlanByUser((prev) => ({ ...prev, [profile.id]: e.target.value }))}
@@ -253,8 +455,8 @@ function UsersTab() {
                       <option value="ope_club_monthly">Mensal</option>
                       <option value="ope_club_annual">Anual</option>
                     </select>
-                  </td>
-                  <td className="px-4 py-3">
+                  </TableCell>
+                  <TableCell>
                     <div className="flex items-center gap-1">
                     <select
                       value={durationByUser[profile.id] || 30}
@@ -279,9 +481,9 @@ function UsersTab() {
                       </button>
                     )}
                     </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-2">
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
                       {!(sub?.provider === "abacatepay" && active) && <button
                         onClick={() => activate(profile)}
                         disabled={savingUser === profile.id}
@@ -299,44 +501,64 @@ function UsersTab() {
                         </button>
                       )}
                     </div>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               );
             })}
-          </tbody>
-        </table>
-      </div>
+        </TableBody>
+      </Table>
+      {totalPages > 1 ? (
+        <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
+      ) : null}
     </div>
   );
 }
 
 function PostsTab() {
   const { posts, deletePost } = useData();
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(posts.length / pageSize));
+  const start = (page - 1) * pageSize;
+  const visible = posts.slice(start, start + pageSize);
+
   return (
     <div className="space-y-4">
-      <p className="text-sm text-[var(--text-secondary)]">{posts.length} posts na comunidade</p>
-      {posts.map(p => (
-        <div key={p.id} className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-sm font-semibold text-[var(--text-primary)]">{p.author}</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--hover-overlay)] text-[var(--text-muted)] border border-[var(--border)]">{p.tag}</span>
-                <span className="text-xs text-[var(--text-muted)]">{p.time}</span>
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-[var(--text-secondary)]">{posts.length} posts na comunidade</p>
+        <span className="text-xs text-[var(--text-muted)]">Pagina {page} de {totalPages}</span>
+      </div>
+      <div className="space-y-3">
+        {visible.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-[var(--border)] p-10 text-center text-sm text-[var(--text-muted)]">
+            Nenhum post por aqui ainda.
+          </p>
+        ) : visible.map(p => (
+          <div key={p.id} className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-sm font-semibold text-[var(--text-primary)]">{p.author}</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--hover-overlay)] text-[var(--text-muted)] border border-[var(--border)]">{p.tag}</span>
+                  <span className="text-xs text-[var(--text-muted)]">{p.time}</span>
+                </div>
+                <p className="text-sm text-[var(--text-secondary)] line-clamp-2">{p.text}</p>
+                <div className="flex items-center gap-3 mt-2 text-xs text-[var(--text-muted)]">
+                  <span>{p.likes} curtidas</span>
+                  <span>{p.replies} respostas</span>
+                </div>
               </div>
-              <p className="text-sm text-[var(--text-secondary)] line-clamp-2">{p.text}</p>
-              <div className="flex items-center gap-3 mt-2 text-xs text-[var(--text-muted)]">
-                <span>{p.likes} curtidas</span>
-                <span>{p.replies} respostas</span>
-              </div>
+              <button onClick={() => deletePost(p.id)}
+                className="shrink-0 size-8 rounded-full flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-colors">
+                <Trash2 className="size-4" />
+              </button>
             </div>
-            <button onClick={() => deletePost(p.id)}
-              className="shrink-0 size-8 rounded-full flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-colors">
-              <Trash2 className="size-4" />
-            </button>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
+      {totalPages > 1 ? (
+        <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} className="pt-2" />
+      ) : null}
     </div>
   );
 }
@@ -346,6 +568,10 @@ function WeeklyReleasesTab() {
   const [form, setForm] = useState({ bookId: "", releaseDate: "", note: "", visible: true });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 6;
+  const totalPages = Math.max(1, Math.ceil(weeklyReleases.length / pageSize));
+  const visibleReleases = weeklyReleases.slice((page - 1) * pageSize, page * pageSize);
 
   async function handleSave() {
     if (!form.bookId || !form.releaseDate || saving) return;
@@ -384,7 +610,14 @@ function WeeklyReleasesTab() {
               ))}
             </select>
           </div>
-          <FormField label="Data de liberação" type="date" value={form.releaseDate} onChange={(value) => setForm((prev) => ({ ...prev, releaseDate: value }))} />
+          <div>
+            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Data de liberacao</label>
+            <DatePicker
+              value={form.releaseDate}
+              onChange={(value) => setForm((prev) => ({ ...prev, releaseDate: value }))}
+              placeholder="Escolher data"
+            />
+          </div>
           <FormField label="Observação" value={form.note} onChange={(value) => setForm((prev) => ({ ...prev, note: value }))} placeholder="Ex: estreia de sexta" />
         </div>
         <button
@@ -398,7 +631,7 @@ function WeeklyReleasesTab() {
       </div>
 
       <div className="space-y-3">
-        {weeklyReleases.map((release) => {
+        {visibleReleases.map((release) => {
           const book = release.books || books.find((item) => item.id === release.book_id);
           return (
             <div key={release.id} className="flex items-center gap-3 rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
@@ -430,6 +663,9 @@ function WeeklyReleasesTab() {
           );
         })}
       </div>
+      {totalPages > 1 ? (
+        <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
+      ) : null}
     </div>
   );
 }
@@ -446,6 +682,10 @@ function BooksTab() {
   const [imagePreview, setImagePreview] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 12;
+  const totalPages = Math.max(1, Math.ceil(books.length / pageSize));
+  const visibleBooks = books.slice((page - 1) * pageSize, page * pageSize);
 
   function openNew() {
     setEditId(null);
@@ -657,7 +897,7 @@ function BooksTab() {
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {books.map(book => {
+        {visibleBooks.map(book => {
           const author = authors.find(a => a.id === (book.author_id || book.authorId));
           return (
             <div key={book.id} className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4 flex gap-3">
@@ -684,6 +924,9 @@ function BooksTab() {
           );
         })}
       </div>
+      {totalPages > 1 ? (
+        <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
+      ) : null}
     </div>
   );
 }
@@ -697,6 +940,10 @@ function AuthorsTab() {
   const [imagePreview, setImagePreview] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 8;
+  const totalPages = Math.max(1, Math.ceil(authors.length / pageSize));
+  const visibleAuthors = authors.slice((page - 1) * pageSize, page * pageSize);
 
   function openNew() {
     setEditId(null);
@@ -847,7 +1094,7 @@ function AuthorsTab() {
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {authors.map(author => {
+        {visibleAuthors.map(author => {
           const authorBooks = getBooksByAuthor(author.id);
           return (
             <div key={author.id} className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
@@ -885,6 +1132,9 @@ function AuthorsTab() {
           );
         })}
       </div>
+      {totalPages > 1 ? (
+        <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
+      ) : null}
     </div>
   );
 }
@@ -975,7 +1225,7 @@ export function AdminPage() {
     () => isAdmin ? tabs : tabs.filter((tab) => !["users", "subscriptions"].includes(tab.id)),
     [isAdmin]
   );
-  const [activeTab, setActiveTab] = useState(isAdmin ? "users" : "posts");
+  const [activeTab, setActiveTab] = useState(isAdmin ? "dashboard" : "posts");
 
   useEffect(() => {
     if (!allowedTabs.some((tab) => tab.id === activeTab)) {
@@ -1019,6 +1269,7 @@ export function AdminPage() {
       </div>
 
       <div>
+        {activeTab === "dashboard" && <DashboardTab />}
         {activeTab === "users" && <UsersTab />}
         {activeTab === "subscriptions" && <SubscriptionsTab />}
         {activeTab === "posts" && <PostsTab />}
