@@ -1,272 +1,233 @@
-import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { SlidersHorizontal, X, Check } from "@/lib/icons";
-import { BookRow } from "../components/BookRow";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { ArrowRight, Bookmark, Crown, Sparkles, StarIcon } from "@/lib/icons";
 import { useData } from "../data/DataContext";
-import { CATEGORIES, groupByCategory } from "@/lib/categories";
-import { AutocompleteSearch, buildSearchItems } from "@/components/ui/autocomplete";
 
-function LibrarySkeleton() {
+function hashCode(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+const PLAN_BADGE = {
+  destaque: { label: "Destaque", Icon: Sparkles, cls: "bg-amber-100 text-amber-700" },
+  gratis: { label: "Gratis", Icon: Bookmark, cls: "bg-emerald-100 text-emerald-700" },
+  premium: { label: "Premium", Icon: Crown, cls: "bg-violet-100 text-violet-700" },
+};
+
+const BookCard = memo(function BookCard({ book }) {
+  const meta = book.destaque ? PLAN_BADGE.destaque : PLAN_BADGE[book.plano] || PLAN_BADGE.premium;
   return (
-    <div className="space-y-9" aria-busy="true" aria-label="Carregando biblioteca">
-      {[0, 1, 2].map((row) => (
-        <section key={row}>
-          <div className="mb-3 h-4 w-32 rounded bg-[var(--hover-overlay)]" />
-          <div className="-mx-4 flex gap-3 overflow-hidden px-4 sm:mx-0 sm:px-0">
-            {[0, 1, 2, 3, 4].map((card) => (
-              <div
-                key={card}
-                className="w-28 shrink-0 animate-pulse sm:w-32"
-              >
-                <div className="aspect-[2/3] w-full rounded-[8px] bg-[var(--hover-overlay)] sm:rounded-[12px]" />
-                <div className="mt-2 h-3 w-3/4 rounded bg-[var(--hover-overlay)]" />
-                <div className="mt-1 h-2 w-1/2 rounded bg-[var(--hover-overlay)]" />
-              </div>
-            ))}
-          </div>
-        </section>
-      ))}
+    <Link to={`/app/livro/${book.id}`} className="group block">
+      <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] border border-[var(--border)] bg-[var(--bg-card)]">
+        <img
+          src={book.image}
+          alt=""
+          loading="lazy"
+          className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
+        />
+        <span className={`absolute left-1.5 top-1.5 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${meta.cls}`}>
+          <meta.Icon className="size-2.5" weight="fill" />
+          {meta.label}
+        </span>
+      </div>
+      <h3 className="mt-1.5 truncate text-[11px] font-semibold text-[var(--text-primary)]">{book.title}</h3>
+      <p className="truncate text-[10px] text-[var(--text-muted)]">{book.autorNome || book.authorName}</p>
+      <div className="mt-0.5 flex items-center gap-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
+        <StarIcon className="size-2.5 text-amber-500" weight="fill" />
+        <span>{book.nota.toFixed(1)}</span>
+      </div>
+    </Link>
+  );
+});
+
+const ContinueCard = memo(function ContinueCard({ book }) {
+  return (
+    <Link
+      to={`/app/livro/${book.id}`}
+      className="flex w-[220px] shrink-0 items-center gap-3 rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-2.5 transition-colors hover:bg-[var(--hover-overlay)]"
+    >
+      <div className="w-12 shrink-0 overflow-hidden rounded-[6px] border border-[var(--border)]">
+        <div className="aspect-[2/3]">
+          <img src={book.image} alt="" loading="lazy" className="h-full w-full object-cover" />
+        </div>
+      </div>
+      <div className="min-w-0 flex-1">
+        <h3 className="truncate text-xs font-semibold text-[var(--text-primary)]">{book.title}</h3>
+        <p className="truncate text-[10px] text-[var(--text-muted)]">{book.autorNome || book.authorName}</p>
+        <div className="mt-1 flex items-center gap-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
+          <StarIcon className="size-3 text-amber-500" weight="fill" />
+          <span>{book.nota.toFixed(1)}</span>
+        </div>
+      </div>
+    </Link>
+  );
+});
+
+function PopularCarousel({ books }) {
+  const ref = useRef(null);
+  const [page, setPage] = useState(0);
+
+  function handleScroll() {
+    const el = ref.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    if (max <= 0) return;
+    setPage(Math.min(3, Math.max(0, Math.round((el.scrollLeft / max) * 3))));
+  }
+
+  return (
+    <div className="min-w-0 flex-1">
+      <div
+        ref={ref}
+        onScroll={handleScroll}
+        className="flex gap-2 overflow-x-auto pb-1"
+        style={{ scrollbarWidth: "none", scrollSnapType: "x mandatory" }}
+      >
+        {books.map((book) => (
+          <Link
+            key={book.id}
+            to={`/app/livro/${book.id}`}
+            className="w-[68px] shrink-0"
+            style={{ scrollSnapAlign: "start" }}
+          >
+            <div className="aspect-[2/3] overflow-hidden rounded-[8px] border border-[var(--border)] bg-[var(--bg-card)]">
+              <img src={book.image} alt="" loading="lazy" className="h-full w-full object-cover" />
+            </div>
+          </Link>
+        ))}
+      </div>
+      <div className="mt-2 flex items-center justify-center gap-1">
+        {[0, 1, 2, 3].map((index) => (
+          <span
+            key={index}
+            className={`size-1.5 rounded-full transition-colors ${
+              index === page ? "bg-[var(--text-primary)]" : "bg-[var(--border-strong)]"
+            }`}
+          />
+        ))}
+      </div>
     </div>
   );
 }
 
 export function LibraryPage() {
-  const { books, authors, categories, bookFavorites, loading } = useData();
+  const { books, authors, categories } = useData();
   const [searchParams] = useSearchParams();
   const urlCategoria = searchParams.get("categoria");
-  const [query, setQuery] = useState("");
-  const [categoriaAtiva, setCategoriaAtiva] = useState(urlCategoria || "Todas");
-  const [autorAtivo, setAutorAtivo] = useState(null);
-  const [abaAtiva, setAbaAtiva] = useState("todos"); // todos | favoritos | lendo
-  const [filtroAberto, setFiltroAberto] = useState(false);
+  const [genero, setGenero] = useState(urlCategoria || "Todas");
 
   // Categoria vinda do menu superior (?categoria=...): mantem a filtragem
   // sincronizada quando o usuario troca de categoria sem sair da pagina.
   useEffect(() => {
-    setCategoriaAtiva(urlCategoria || "Todas");
+    setGenero(urlCategoria || "Todas");
   }, [urlCategoria]);
 
-  const searchItems = useMemo(
-    () => buildSearchItems({ books, authors, categories }),
-    [books, authors, categories]
+  const autoresMap = useMemo(() => new Map(authors.map((a) => [a.id, a])), [authors]);
+
+  const livrosComMeta = useMemo(() => books.map((book) => {
+    const h = hashCode(book.id || book.title || "");
+    return {
+      ...book,
+      autorNome: autoresMap.get(book.authorId)?.name || book.authorName || "",
+      plano: h % 2 === 0 ? "gratis" : "premium",
+      destaque: h % 7 === 0,
+      nota: 3.8 + (h % 13) / 10,
+      progress: Number(book.progress || 0),
+    };
+  }), [books, autoresMap]);
+
+  const categorias = useMemo(() => {
+    const nomes = new Set();
+    for (const book of books) if (book.category) nomes.add(book.category);
+    return ["Todas", ...[...nomes].sort((a, b) => a.localeCompare(b, "pt"))];
+  }, [books]);
+
+  const popular = useMemo(() => livrosComMeta.slice(0, 6), [livrosComMeta]);
+  const destaque = popular[0];
+  const carouselBooks = useMemo(() => popular.slice(1, 6), [popular]);
+
+  const grid = useMemo(() => {
+    if (genero === "Todas") return livrosComMeta;
+    return livrosComMeta.filter((b) => b.category === genero);
+  }, [livrosComMeta, genero]);
+
+  const continueReading = useMemo(
+    () => livrosComMeta.filter((b) => b.progress > 0 && b.progress < 100).slice(0, 8),
+    [livrosComMeta]
   );
-
-  const allBooks = useMemo(() => books.map((b) => ({
-    ...b,
-    authorName: authors.find((a) => a.id === b.authorId)?.name || b.authorName || "",
-    author: authors.find((a) => a.id === b.authorId)?.name || b.authorName || "",
-    authorId: b.authorId || authors.find((a) => a.name === (b.authorName || b.author))?.id || null,
-  })), [books, authors]);
-
-  const readingBooks = useMemo(() => allBooks.filter((b) => Number(b.progress || 0) > 0), [allBooks]);
-  const favoriteBooks = useMemo(() => allBooks.filter((b) => bookFavorites.includes(b.id)), [allBooks, bookFavorites]);
-
-  const categoriasDisponiveis = useMemo(() => {
-    const presentes = new Set(allBooks.map((b) => b.category).filter(Boolean));
-    return CATEGORIES.filter((c) => presentes.has(c));
-  }, [allBooks]);
-
-  const autoresDisponiveis = useMemo(() => {
-    const ids = new Set(allBooks.map((b) => b.authorId).filter(Boolean));
-    return authors
-      .filter((a) => ids.has(a.id))
-      .sort((a, b) => a.name.localeCompare(b.name, "pt"));
-  }, [allBooks, authors]);
-
-  const termo = query.trim().toLowerCase();
-  const buscaAtiva = termo.length > 0;
-
-  const resultadosBusca = useMemo(() => {
-    if (!buscaAtiva) return [];
-    return allBooks.filter((b) =>
-      b.title.toLowerCase().includes(termo) ||
-      b.authorName.toLowerCase().includes(termo) ||
-      (b.category || "").toLowerCase().includes(termo)
-    );
-  }, [allBooks, termo, buscaAtiva]);
-
-  const livrosParaPrateleiras = useMemo(() => {
-    if (abaAtiva === "favoritos") return favoriteBooks;
-    if (abaAtiva === "lendo") return readingBooks;
-    let base = categoriaAtiva === "Todas" ? allBooks : allBooks.filter((b) => b.category === categoriaAtiva);
-    if (autorAtivo) base = base.filter((b) => b.authorId === autorAtivo);
-    return base;
-  }, [abaAtiva, categoriaAtiva, autorAtivo, allBooks, favoriteBooks, readingBooks]);
-
-  const prateleiras = useMemo(() => groupByCategory(livrosParaPrateleiras), [livrosParaPrateleiras]);
-
-  const totalResultados = resultadosBusca.length;
-  const filtroAtivo = categoriaAtiva !== "Todas" || autorAtivo;
-
-  const limparFiltros = () => {
-    setCategoriaAtiva("Todas");
-    setAutorAtivo(null);
-  };
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Biblioteca</h1>
-        <p className="mt-1 text-sm text-[var(--text-muted)]">{books.length} livros em nossa coleção de filosofia e literatura.</p>
-      </div>
-
-      {/* Abas: Todos / Lendo / Favoritos */}
-      <div className="flex gap-2">
-        {[
-          { key: "todos", label: `Todos (${allBooks.length})` },
-          { key: "lendo", label: `Lendo (${readingBooks.length})` },
-          { key: "favoritos", label: `Favoritos (${favoriteBooks.length})` },
-        ].map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setAbaAtiva(tab.key)}
-            className={`shrink-0 rounded-full border px-4 py-1.5 text-xs font-medium transition-colors ${
-              abaAtiva === tab.key
-                ? "border-transparent bg-[var(--text-primary)] text-[var(--bg-card)]"
-                : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Pesquisa + botão de filtro (categorias/autores) */}
-      <div className="flex gap-2">
-        <AutocompleteSearch
-          className="flex-1"
-          placeholder="Pesquisar livros, autores ou categorias..."
-          items={searchItems}
-          onSelect={(item) => {
-            if (item.kind === "category") setCategoriaAtiva(item.label);
-            if (item.kind === "author") setAutorAtivo(item.id?.replace("author-", ""));
-          }}
-        />
-        <button
-          onClick={() => setFiltroAberto((v) => !v)}
-          aria-label="Abrir filtros"
-          aria-expanded={filtroAberto}
-          className={`flex h-10 shrink-0 items-center gap-2 rounded-[6px] border px-4 text-sm font-medium transition-colors sm:h-12 ${
-            filtroAberto || filtroAtivo
-              ? "border-transparent bg-[var(--text-primary)] text-[var(--bg-card)]"
-              : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"
-          }`}
-        >
-          <SlidersHorizontal className="size-[18px]" />
-          <span className="hidden sm:inline">Filtros{filtroAtivo ? " *" : ""}</span>
-        </button>
-      </div>
-
-      {/* Painel de filtros: categoria + autor — some durante a busca */}
-      {filtroAberto && !buscaAtiva && abaAtiva === "todos" && (categoriasDisponiveis.length > 0 || autoresDisponiveis.length > 0) && (
-        <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4 space-y-4">
-          {filtroAtivo && (
-            <div className="flex justify-end">
-              <button
-                onClick={limparFiltros}
-                className="flex items-center gap-1 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-              >
-                <X className="size-3" /> Limpar filtros
-              </button>
-            </div>
-          )}
-
-          {categoriasDisponiveis.length > 0 && (
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">Categorias</p>
-              <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0" style={{ scrollbarWidth: "none" }}>
-                {["Todas", ...categoriasDisponiveis].map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => setCategoriaAtiva(cat)}
-                    className={`shrink-0 rounded-full border px-4 py-1.5 text-xs font-medium transition-colors ${
-                      categoriaAtiva === cat
-                        ? "border-transparent bg-[var(--text-primary)] text-[var(--bg-card)]"
-                        : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"
-                    }`}
-                  >
-                    {categoriaAtiva === cat && cat !== "Todas" && <Check className="mr-1 inline size-3" />}
-                    {cat}
-                  </button>
-                ))}
+      {destaque ? (
+        <section>
+          <div className="mb-3 flex items-center gap-2">
+            <Sparkles className="size-4 text-amber-500" weight="fill" />
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Popular</h2>
+          </div>
+          <div className="flex items-stretch gap-3">
+            <Link
+              to={`/app/livro/${destaque.id}`}
+              className="w-[40%] shrink-0 rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-3 transition-colors hover:bg-[var(--hover-overlay)]"
+            >
+              <div className="aspect-[2/3] overflow-hidden rounded-[8px]">
+                <img src={destaque.image} alt="" loading="lazy" className="h-full w-full object-cover" />
               </div>
-            </div>
-          )}
+              <h3 className="mt-2 truncate text-xs font-semibold text-[var(--text-primary)]">
+                {destaque.title}
+              </h3>
+              <p className="truncate text-[10px] text-[var(--text-muted)]">
+                {destaque.autorNome || destaque.authorName} (2024)
+              </p>
+              <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600">
+                Read More <ArrowRight className="size-3" weight="bold" />
+              </span>
+            </Link>
+            {carouselBooks.length > 0 ? <PopularCarousel books={carouselBooks} /> : null}
+          </div>
+        </section>
+      ) : null}
 
-          {autoresDisponiveis.length > 0 && (
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">Autores</p>
-              <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0" style={{ scrollbarWidth: "none" }}>
-                <button
-                  onClick={() => setAutorAtivo(null)}
-                  className={`shrink-0 rounded-full border px-4 py-1.5 text-xs font-medium transition-colors ${
-                    autorAtivo === null
-                      ? "border-transparent bg-[var(--text-primary)] text-[var(--bg-card)]"
-                      : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"
-                  }`}
-                >
-                  Todos
-                </button>
-                {autoresDisponiveis.map((autor) => (
-                  <button
-                    key={autor.id}
-                    onClick={() => setAutorAtivo((prev) => (prev === autor.id ? null : autor.id))}
-                    className={`shrink-0 rounded-full border px-4 py-1.5 text-xs font-medium transition-colors ${
-                      autorAtivo === autor.id
-                        ? "border-transparent bg-[var(--text-primary)] text-[var(--bg-card)]"
-                        : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"
-                    }`}
-                  >
-                    {autorAtivo === autor.id && <Check className="mr-1 inline size-3" />}
-                    {autor.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0" style={{ scrollbarWidth: "none" }}>
+        {categorias.map((categoria) => {
+          const active = genero === categoria;
+          return (
+            <button
+              key={categoria}
+              type="button"
+              onClick={() => setGenero(categoria)}
+              className={`shrink-0 rounded-full px-4 py-2 text-xs font-medium transition-colors ${
+                active
+                  ? "bg-[var(--text-primary)] text-[var(--bg-card)]"
+                  : "border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"
+              }`}
+            >
+              {categoria === "Todas" ? "Todos" : categoria}
+            </button>
+          );
+        })}
+      </div>
 
-      {/* Conteúdo */}
-      {buscaAtiva ? (
-        totalResultados > 0 ? (
-          <BookRow title={`Resultados (${totalResultados})`} books={resultadosBusca} defaultOpen />
-        ) : (
-          <p className="rounded-xl border border-dashed border-[var(--border)] p-10 text-center text-sm text-[var(--text-muted)]">
-            Nenhum livro encontrado para "{query}".
-          </p>
-        )
-      ) : abaAtiva === "lendo" ? (
-        readingBooks.length > 0 ? (
-          <BookRow title="Continue lendo" books={readingBooks} defaultOpen />
-        ) : (
-          <p className="rounded-xl border border-dashed border-[var(--border)] p-10 text-center text-sm text-[var(--text-muted)]">
-            Você ainda não começou nenhuma leitura. Explore a biblioteca e comece um livro.
-          </p>
-        )
-      ) : abaAtiva === "favoritos" ? (
-        favoriteBooks.length > 0 ? (
-          <BookRow title="Meus favoritos" books={favoriteBooks} defaultOpen />
-        ) : (
-          <p className="rounded-xl border border-dashed border-[var(--border)] p-10 text-center text-sm text-[var(--text-muted)]">
-            Nenhum livro favoritado ainda. Toque no coração de um livro para salvá-lo aqui.
-          </p>
-        )
+      {grid.length > 0 ? (
+        <section className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+          {grid.map((book) => (
+            <BookCard key={book.id} book={book} />
+          ))}
+        </section>
       ) : (
-        <div className="space-y-9">
-          {loading && books.length === 0 ? (
-            <LibrarySkeleton />
-          ) : prateleiras.length > 0 ? (
-            prateleiras.map(({ categoria, livros }) => (
-              <BookRow key={categoria} title={categoria} books={livros} defaultOpen />
-            ))
-          ) : (
-            <p className="rounded-xl border border-dashed border-[var(--border)] p-10 text-center text-sm text-[var(--text-muted)]">
-              Nenhum livro encontrado com esses filtros.
-            </p>
-          )}
-        </div>
+        <p className="py-12 text-center text-sm text-[var(--text-muted)]">Nenhum livro encontrado.</p>
       )}
+
+      {continueReading.length > 0 ? (
+        <section>
+          <h2 className="mb-3 text-base font-semibold text-[var(--text-primary)]">Continue Reading</h2>
+          <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0" style={{ scrollbarWidth: "none" }}>
+            {continueReading.map((book) => (
+              <ContinueCard key={book.id} book={book} />
+            ))}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

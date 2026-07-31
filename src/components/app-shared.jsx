@@ -4,7 +4,6 @@ import {
   CompassIcon,
   HomeIcon,
   LightbulbIcon,
-  SettingsIcon,
   ShieldIcon,
   Sparkles,
   UserIcon,
@@ -72,8 +71,8 @@ export const navLinks = [
 ];
 
 export const bottomNavItems = [
-  { label: "Inicio", path: "/app/inicio", icon: HomeIcon },
+  { label: "Comunidade", path: "/app/inicio", icon: HomeIcon },
+  { label: "Explorar", path: "/app/explorar", icon: CompassIcon },
   { label: "Biblioteca", path: "/app/biblioteca", icon: BookOpenIcon },
-  { label: "Sugestoes", path: "/app/sugestoes", icon: LightbulbIcon },
-  { label: "Conta", path: "/app/configuracoes", icon: SettingsIcon },
+  { label: "Conta", path: "/app/configuracoes", icon: UserIcon },
 ];
