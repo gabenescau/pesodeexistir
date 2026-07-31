@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Search } from "@/lib/icons";
 import { isSupabaseReady, supabase } from "../data/supabase";
 import { CreatePost } from "../components/CreatePost";
-import { FilterPills } from "../components/FilterPills";
 import { PostCard } from "../components/PostCard";
 import { RightSidebar } from "../components/RightSidebar";
 import { useData } from "../data/DataContext";
@@ -91,9 +90,10 @@ export function CommunityPage() {
           <CreatePost />
         </div>
 
-        <div className="overflow-x-auto -mx-5 sm:mx-0 px-5 sm:px-0">
-          <FilterPills active={filter} onChange={setFilter} />
-        </div>
+        {/* Filtros por categoria ocultos: ainda nao ha posts suficientes
+            marcados com essas tags e a UI exibia "Nada encontrado por aqui"
+            para todas as opcoes. Quando o volume voltar, reintroduzir o
+            <FilterPills /> aqui com filtro opcional. */}
 
         <div className="space-y-4 sm:space-y-5">
           {loading && (

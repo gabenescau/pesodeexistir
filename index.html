@@ -36,12 +36,42 @@
         "@context": "https://schema.org",
         "@type": "WebSite",
         "name": "OPE Club",
+        "alternateName": "OPE Club - Peso de Existir",
         "url": "https://pesodeexistir.online",
         "description": "Biblioteca digital e comunidade para leitores de filosofia e literatura.",
         "inLanguage": "pt-BR",
         "publisher": {
           "@type": "Organization",
-          "name": "OPE Club"
+          "name": "OPE Club",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://pesodeexistir.online/favicon.svg"
+          },
+          "sameAs": [
+            "https://www.instagram.com/ope.club"
+          ]
+        },
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "https://pesodeexistir.online/app/biblioteca?q={search_term_string}",
+          "query-input": "required name=search_term_string"
+        }
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "OPE Club",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "Web",
+        "description": "Aplicativo de leitura e comunidade para filosofia e literatura. Acesso a biblioteca curada, discussoes e lancamentos semanais.",
+        "url": "https://pesodeexistir.online",
+        "offers": {
+          "@type": "Offer",
+          "price": "14.00",
+          "priceCurrency": "BRL",
+          "category": "subscription"
         }
       }
     </script>

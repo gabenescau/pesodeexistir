@@ -129,16 +129,17 @@ export function ProfilePage() {
       const nextProfile = { ...profile, ...validated, avatar: avatarUrl };
 
       // email nao entra mais aqui: mora em user_emails, preenchido pelo trigger
-      // de cadastro. profiles ficou sem coluna sensivel.
-      const { error: profileError } = await supabase.from("profiles").upsert({
-        id: user.id,
+      // de cadastro. profiles ficou sem coluna sensivel. Usamos update (e nao
+      // upsert) porque a policy de INSERT exige service role: o trigger
+      // handle_new_user garante que a linha ja existe para todo auth.uid().
+      const { error: profileError } = await supabase.from("profiles").update({
         name: nextProfile.name,
         username: nextProfile.handle,
         bio: nextProfile.bio,
         avatar: nextProfile.avatar,
         avatar_url: nextProfile.avatar,
         updated_at: new Date().toISOString(),
-      });
+      }).eq("id", user.id);
 
       // 23505 = o @ escolhido ja pertence a outra pessoa.
       if (profileError?.code === "23505") {
