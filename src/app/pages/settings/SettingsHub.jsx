@@ -1,7 +1,7 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Bell, Camera, ChevronRight, CreditCard, Eye, Hash, HelpCircleIcon,
-  Info, LogOut, Moon, PenLine, Shield, Smartphone, Trash2, User, Wallet,
+  Info, LogOut, Moon, PenLine, Shield, Smartphone, Sun, Trash2, User, Wallet,
 } from "@/lib/icons";
 import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "../../data/AuthContext";
