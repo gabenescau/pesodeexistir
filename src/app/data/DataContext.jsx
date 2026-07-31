@@ -62,6 +62,10 @@ export function DataProvider({ children }) {
   const [authorFavorites, setAuthorFavorites] = useState([]);
   const [bookRatingStats, setBookRatingStats] = useState({});
   const [myBookRatings, setMyBookRatings] = useState([]);
+  // Colecoes publicas (visiveis para todos) + as do proprio usuario. RLS faz o
+  // filtro no servidor; aqui e so cache em memoria + CRUD otimista.
+  const [collections, setCollections] = useState([]);
+  const [collectionItems, setCollectionItems] = useState([]);
   // Contagens do proprio usuario que nao vem nas listas ja carregadas
   // (comentarios e reacoes que ele escreveu). Alimentam as conquistas.
   const [myCounts, setMyCounts] = useState({ comments: 0, reactions: 0 });
@@ -95,6 +99,8 @@ export function DataProvider({ children }) {
       setCategories([]);
       setBookFavorites([]);
       setAuthorFavorites([]);
+      setCollections([]);
+      setCollectionItems([]);
       setMyCounts({ comments: 0, reactions: 0 });
       setLoading(false);
       return;
@@ -256,6 +262,26 @@ export function DataProvider({ children }) {
             "carregar votos das enquetes"
           )
         : emptyResult;
+
+      // Colecoes + itens. RLS ja filtra (publicas + proprias). Fetched so
+      // quando o usuario esta logado; sem usuario, cache fica vazio.
+      const collectionsRes = currentUserId
+        ? await runSupabaseQuery(
+            () => supabase.from("collections").select("*").order("created_at", { ascending: false }),
+            "carregar colecoes"
+          )
+        : emptyResult;
+      const collectionItemIds = collectionsRes.error
+        ? []
+        : (collectionsRes.data || []).map((c) => c.id);
+      const collectionItemsRes = collectionItemIds.length > 0
+        ? await runSupabaseQuery(
+            () => supabase.from("collection_items").select("*").in("collection_id", collectionItemIds),
+            "carregar itens das colecoes"
+          )
+        : emptyResult;
+      if (!collectionsRes.error) setCollections(collectionsRes.data || []);
+      if (!collectionItemsRes.error) setCollectionItems(collectionItemsRes.data || []);
 
       const localBookById = new Map((content.books || []).map((book) => [book.id, book]));
       const localBookByTitle = new Map((content.books || []).map((book) => [book.title, book]));
@@ -1123,6 +1149,123 @@ export function DataProvider({ children }) {
     }
   }, [isSupabase, user?.id, savedPostIds]);
 
+  // COLECOES ---------------------------------------------------------------
+  // CRUD basico com atualizacao otimista. O RLS do banco garante que so o
+  // dono altera; a UI confia no user?.id.
+  const createCollection = useCallback(async ({ name, description, isPublic = true }) => {
+    const currentUserId = user?.id;
+    if (!isSupabase || !currentUserId) throw new Error("Faca login para criar uma colecao.");
+
+    const trimmedName = String(name || "").trim();
+    if (!trimmedName) throw new Error("Dê um nome para a colecao.");
+
+    const insertPayload = {
+      user_id: currentUserId,
+      name: trimmedName,
+      description: String(description || "").trim() || null,
+      is_public: Boolean(isPublic),
+    };
+
+    const { data, error } = await supabase
+      .from("collections")
+      .insert(insertPayload)
+      .select("*")
+      .single();
+    if (error) throw error;
+    if (data) setCollections((prev) => [data, ...prev]);
+    return data;
+  }, [isSupabase, user?.id]);
+
+  const updateCollection = useCallback(async (id, patch) => {
+    const currentUserId = user?.id;
+    if (!isSupabase || !currentUserId || !id) return;
+    const allowed = {};
+    if (typeof patch.name === "string") allowed.name = patch.name.trim();
+    if ("description" in patch) allowed.description = patch.description ? String(patch.description).trim() : null;
+    if (typeof patch.isPublic === "boolean") allowed.is_public = patch.isPublic;
+    if (Object.keys(allowed).length === 0) return;
+
+    const anterior = collections.find((c) => c.id === id);
+    setCollections((prev) => prev.map((c) => c.id === id ? { ...c, ...allowed, is_public: allowed.is_public ?? c.is_public } : c));
+
+    const { error } = await supabase.from("collections").update(allowed).eq("id", id);
+    if (error) {
+      if (anterior) setCollections((prev) => prev.map((c) => c.id === id ? anterior : c));
+      throw error;
+    }
+  }, [isSupabase, user?.id, collections]);
+
+  const deleteCollection = useCallback(async (id) => {
+    const currentUserId = user?.id;
+    if (!isSupabase || !currentUserId || !id) return;
+    const anterior = collections;
+    setCollections((prev) => prev.filter((c) => c.id !== id));
+    setCollectionItems((prev) => prev.filter((item) => item.collection_id !== id));
+
+    const { error } = await supabase.from("collections").delete().eq("id", id);
+    if (error) {
+      setCollections(anterior);
+      throw error;
+    }
+  }, [isSupabase, user?.id, collections]);
+
+  const addCollectionItem = useCallback(async (collectionId, itemType, itemId) => {
+    const currentUserId = user?.id;
+    if (!isSupabase || !currentUserId || !collectionId) throw new Error("Colecao invalida.");
+    if (itemType !== "book" && itemType !== "author") throw new Error("Tipo invalido.");
+
+    // Ja existe? retorna sem inserir (constraint UNIQUE no banco).
+    const jaExiste = collectionItems.some(
+      (i) => i.collection_id === collectionId && i.item_type === itemType && i.item_id === itemId
+    );
+    if (jaExiste) return null;
+
+    const position = collectionItems.filter((i) => i.collection_id === collectionId).length;
+
+    const insertPayload = { collection_id: collectionId, item_type: itemType, item_id: itemId, position };
+    const { data, error } = await supabase
+      .from("collection_items")
+      .insert(insertPayload)
+      .select("*")
+      .single();
+    if (error) throw error;
+    if (data) setCollectionItems((prev) => [...prev, data]);
+    return data;
+  }, [isSupabase, user?.id, collectionItems]);
+
+  const removeCollectionItem = useCallback(async (itemId) => {
+    const currentUserId = user?.id;
+    if (!isSupabase || !currentUserId || !itemId) return;
+    const anterior = collectionItems;
+    setCollectionItems((prev) => prev.filter((i) => i.id !== itemId));
+
+    const { error } = await supabase.from("collection_items").delete().eq("id", itemId);
+    if (error) {
+      setCollectionItems(anterior);
+      throw error;
+    }
+  }, [isSupabase, user?.id, collectionItems]);
+
+  // Colecoes de um usuario especifico (para o perfil publico).
+  const collectionsByUser = useCallback(
+    (userId) => collections.filter((c) => c.user_id === userId),
+    [collections]
+  );
+
+  // Itens de uma colecao, ordenados pela posicao.
+  const getCollectionItems = useCallback(
+    (collectionId) => collectionItems
+      .filter((i) => i.collection_id === collectionId)
+      .sort((a, b) => (a.position || 0) - (b.position || 0)),
+    [collectionItems]
+  );
+
+  // Contagem de itens por colecao (para o card no perfil).
+  const collectionItemCount = useCallback(
+    (collectionId) => collectionItems.filter((i) => i.collection_id === collectionId).length,
+    [collectionItems]
+  );
+
   // HELPERS
   const getBooksByAuthor = useCallback((authorId) => {
     return books.filter(b => (b.author_id || b.authorId) === authorId);
@@ -1170,6 +1313,7 @@ export function DataProvider({ children }) {
       books, authors, posts, subscription, subscriptions, profiles, profile, weeklyReleases, loading,
       follows, following, followerCounts, followingCounts, savedPostIds,
       categories, bookFavorites, authorFavorites, bookRatingStats,
+      collections, collectionItems,
       followUser, unfollowUser, isFollowing, toggleSavedPost,
       toggleFavoriteBook, isFavoriteBook,
       toggleFavoriteAuthor, isFavoriteAuthor,
@@ -1183,6 +1327,9 @@ export function DataProvider({ children }) {
       addWeeklyRelease, deleteWeeklyRelease, toggleWeeklyReleaseVisibility,
       addCategory, updateCategory, deleteCategory,
       updateProfilePreferences,
+      createCollection, updateCollection, deleteCollection,
+      addCollectionItem, removeCollectionItem,
+      collectionsByUser, getCollectionItems, collectionItemCount,
       getBooksByAuthor, getAuthorById, getBookById,
     }}>
       {children}

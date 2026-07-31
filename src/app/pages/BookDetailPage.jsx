@@ -120,7 +120,9 @@ export function BookDetailPage() {
 
   const ctaLabel = !hasPdf || !release.liberado
     ? "Indisponivel"
-    : progresso > 0 ? "Continuar lendo" : "Comecar a ler";
+    : isCompleted ? "Continuar lendo"
+    : progresso > 0 ? "Lendo agora"
+    : "Comecar a ler";
 
   return (
     <div className="flex min-h-dvh flex-col">

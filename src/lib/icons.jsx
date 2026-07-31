@@ -11,6 +11,7 @@ const ICONS = {
   ArrowRight: Phosphor.ArrowRight,
   ArrowRightIcon: Phosphor.ArrowRight,
   ArrowUpDown: Phosphor.ArrowsDownUp,
+  ArrowUpRight: Phosphor.ArrowUpRight,
   AtSign: Phosphor.At,
   AtSignIcon: Phosphor.At,
   BarChart3: Phosphor.ChartBar,
@@ -54,6 +55,7 @@ const ICONS = {
   Globe: Phosphor.Globe,
   GraduationCap: Phosphor.GraduationCap,
   Hand: Phosphor.Hand,
+  Hash: Phosphor.Hash,
   HelpCircleIcon: Phosphor.Question,
   Heart: Phosphor.Heart,
   Home: Phosphor.House,
@@ -61,6 +63,7 @@ const ICONS = {
   Image: Phosphor.Image,
   Info: Phosphor.Info,
   Keyboard: Phosphor.Keyboard,
+  LayoutGrid: Phosphor.SquaresFour,
   Library: Phosphor.Books,
   Lightbulb: Phosphor.Lightbulb,
   LightbulbIcon: Phosphor.Lightbulb,
@@ -129,6 +132,7 @@ export const ArrowLeft = Phosphor.ArrowLeft;
 export const ArrowRight = Phosphor.ArrowRight;
 export const ArrowRightIcon = Phosphor.ArrowRight;
 export const ArrowUpDown = Phosphor.ArrowsDownUp;
+export const ArrowUpRight = Phosphor.ArrowUpRight;
 export const AtSign = Phosphor.At;
 export const AtSignIcon = Phosphor.At;
 export const BarChart3 = Phosphor.ChartBar;
@@ -172,6 +176,7 @@ export const MagnifyingGlass = Phosphor.MagnifyingGlass;
 export const Globe = Phosphor.Globe;
 export const GraduationCap = Phosphor.GraduationCap;
 export const Hand = Phosphor.Hand;
+export const Hash = Phosphor.Hash;
 export const HelpCircleIcon = Phosphor.Question;
 export const Heart = Phosphor.Heart;
 export const Home = Phosphor.House;
@@ -179,6 +184,7 @@ export const HomeIcon = Phosphor.House;
 export const Image = Phosphor.Image;
 export const Info = Phosphor.Info;
 export const Keyboard = Phosphor.Keyboard;
+export const LayoutGrid = Phosphor.SquaresFour;
 export const Library = Phosphor.Books;
 export const Lightbulb = Phosphor.Lightbulb;
 export const LightbulbIcon = Phosphor.Lightbulb;
