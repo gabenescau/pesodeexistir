@@ -7,6 +7,7 @@ import { isSupabaseReady, supabase } from "@/app/data/supabase";
 import { handleDoPerfil } from "@/lib/mentions";
 import { sanitizePlainText } from "@/lib/sanitize";
 import { toast } from "@/lib/toast";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const LIMITE_TEXTO = 1000;
 
@@ -47,6 +48,7 @@ function Avatar({ src, fallback }) {
 export function EntityComments({ targetType, targetId, emptyMessage = "Seja o primeiro a comentar." }) {
   const { user, isAdmin } = useAuth();
   const { profiles } = useData();
+  const confirm = useConfirmDialog();
   const [threadPostId, setThreadPostId] = useState(null);
   const [comentarios, setComentarios] = useState([]);
   const [texto, setTexto] = useState("");
@@ -164,6 +166,13 @@ export function EntityComments({ targetType, targetId, emptyMessage = "Seja o pr
   }
 
   async function apagar(id) {
+    const ok = await confirm.ask({
+      title: "Apagar comentario?",
+      description: "Este comentario sera removido permanentemente.",
+      confirmLabel: "Apagar",
+      danger: true,
+    });
+    if (!ok) return;
     const anterior = comentarios;
     setComentarios((atual) => atual.filter((item) => item.id !== id));
     const { error } = await supabase
@@ -265,6 +274,7 @@ export function EntityComments({ targetType, targetId, emptyMessage = "Seja o pr
           })}
         </ul>
       )}
+      {confirm.dialog}
     </div>
   );
 }

@@ -9,6 +9,8 @@ import { EmojiReactions } from "./EmojiReactions";
 import { RichText } from "./RichText";
 import { UserTitlePill } from "./UserTitlePill";
 import { sanitizePlainText } from "@/lib/sanitize";
+import { toast } from "@/lib/toast";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const LIMITE_TEXTO = 2000;
 
@@ -44,6 +46,7 @@ function Avatar({ src, fallback }) {
 export function PageComments({ bookId, pageNumber }) {
   const { user, isAdmin } = useAuth();
   const { profiles } = useData();
+  const confirm = useConfirmDialog();
   const [comentarios, setComentarios] = useState([]);
   const [reacoesPorComentario, setReacoesPorComentario] = useState({});
   const [texto, setTexto] = useState("");
@@ -131,6 +134,13 @@ export function PageComments({ bookId, pageNumber }) {
   }
 
   async function apagar(id) {
+    const ok = await confirm.ask({
+      title: "Apagar comentario?",
+      description: "Este comentario sera removido permanentemente.",
+      confirmLabel: "Apagar",
+      danger: true,
+    });
+    if (!ok) return;
     const anterior = comentarios;
     setComentarios((atual) => atual.filter((item) => item.id !== id));
     const { error } = await supabase.from("book_page_comments").delete().eq("id", id);
@@ -235,6 +245,7 @@ export function PageComments({ bookId, pageNumber }) {
           );
         })}
       </div>
+      {confirm.dialog}
     </section>
   );
 }

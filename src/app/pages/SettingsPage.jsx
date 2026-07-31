@@ -20,10 +20,13 @@ import {
 import { useTheme } from "@/components/theme-provider";
 import { useData } from "@/app/data/DataContext";
 import { useAuth } from "@/app/data/AuthContext";
+import { useCancelSurvey } from "@/components/ui/cancel-survey";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { supabase, isSupabaseReady } from "@/app/data/supabase";
 import { validateStrongPassword } from "@/lib/sanitize";
 import { isActiveSubscription } from "@/lib/subscription";
 import { PLANS } from "@/lib/abacatepay";
+import { toast } from "@/lib/toast";
 import { PlanBenefitList } from "@/components/plan-benefit";
 import { ProfilePage } from "./ProfilePage";
 
@@ -104,6 +107,8 @@ export function SettingsPage() {
   const { theme, toggle: toggleTheme } = useTheme();
   const { user, logout, isAdmin } = useAuth();
   const { subscription, profile, cancelSubscription, updateProfilePreferences } = useData();
+  const cancelSurvey = useCancelSurvey();
+  const confirm = useConfirmDialog();
   const [privacy, setPrivacy] = useState({
     private_profile: false,
     reading_activity: true,
@@ -141,6 +146,8 @@ export function SettingsPage() {
 
   async function handleCancel() {
     if (!subscription || cancelling) return;
+    const resultado = await cancelSurvey.perguntar();
+    if (!resultado?.confirmado) return;
     setCancelling(true);
     setCancelError("");
     try {
@@ -153,8 +160,35 @@ export function SettingsPage() {
   }
 
   async function handleLogout() {
+    const ok = await confirm.ask({
+      title: "Sair da conta?",
+      description: "Voce precisara fazer login novamente para acessar o OPE Club.",
+      confirmLabel: "Sair",
+      danger: false,
+    });
+    if (!ok) return;
     await logout();
     navigate("/");
+  }
+
+  async function handleDeleteAccount() {
+    const ok = await confirm.ask({
+      title: "Excluir sua conta?",
+      description: "Esta acao e irreversivel. Seus dados, publicacoes e leituras serao apagados permanentemente.",
+      confirmLabel: "Excluir permanentemente",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      if (isSupabaseReady()) {
+        await supabase.auth.admin.deleteUser(user.id);
+      }
+      await logout();
+      toast.success("Conta excluida com sucesso.");
+      navigate("/");
+    } catch (err) {
+      toast.error(err?.message || "Nao foi possivel excluir a conta.");
+    }
   }
 
   async function togglePreference(key) {
@@ -434,7 +468,7 @@ export function SettingsPage() {
             Excluir sua conta removerá permanentemente seu perfil, publicações e dados. Esta ação não pode ser desfeita.
           </p>
           <div className="flex flex-wrap gap-3">
-            <button className="flex items-center gap-2 rounded-[100px] border border-red-900/30 px-5 py-[10px] text-[14px] font-[500] leading-[20px] text-red-400 transition-all hover:border-red-700/50 hover:bg-red-950/20">
+            <button onClick={handleDeleteAccount} className="flex items-center gap-2 rounded-[100px] border border-red-900/30 px-5 py-[10px] text-[14px] font-[500] leading-[20px] text-red-400 transition-all hover:border-red-700/50 hover:bg-red-950/20">
               <Trash2 className="size-4" />
               Excluir conta
             </button>
@@ -445,6 +479,8 @@ export function SettingsPage() {
         </div>
       </div>
       </div>
+      {confirm.dialog}
+      {cancelSurvey.dialog}
     </div>
   );
 }

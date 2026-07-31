@@ -4,6 +4,7 @@ import { useAuth } from "@/app/data/AuthContext";
 import { supabase, isSupabaseReady } from "../data/supabase";
 import { sanitizePlainText, sanitizeSingleLine } from "@/lib/sanitize";
 import { toast } from "@/lib/toast";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const columns = [
   { id: "ideas", title: "Ideias da comunidade", accent: "#9ca3af" },
@@ -241,6 +242,7 @@ function SuggestionForm({ open, onClose, onCreated }) {
 
 export function SuggestionsPage() {
   const { canManageContent } = useAuth();
+  const confirm = useConfirmDialog();
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -319,10 +321,13 @@ export function SuggestionsPage() {
 
   async function deleteSuggestion(suggestion) {
     if (!canManageContent) return;
-    const confirmar = typeof window !== "undefined" && window.confirm
-      ? window.confirm(`Excluir a sugestao "${suggestion.title}"? Essa acao nao pode ser desfeita.`)
-      : true;
-    if (!confirmar) return;
+    const ok = await confirm.ask({
+      title: "Excluir sugestao?",
+      description: `Excluir a sugestao "${suggestion.title}"? Essa acao nao pode ser desfeita.`,
+      confirmLabel: "Excluir",
+      danger: true,
+    });
+    if (!ok) return;
     setMovingId(suggestion.id);
     setError("");
     try {
@@ -404,6 +409,7 @@ export function SuggestionsPage() {
         onClose={() => setModalOpen(false)}
         onCreated={(suggestion) => setSuggestions((current) => [suggestion, ...current])}
       />
+      {confirm.dialog}
     </div>
   );
 }

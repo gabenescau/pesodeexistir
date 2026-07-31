@@ -8,12 +8,14 @@ import { useEffect } from "react";
 import { CreditCard, Loader2, QrCode } from "@/lib/icons";
 import { PlanBenefitList } from "@/components/plan-benefit";
 import { toast } from "@/lib/toast";
+import { useCancelSurvey } from "@/components/ui/cancel-survey";
 
 export function SubscribePage() {
   const { user, isAdmin } = useAuth();
   const { subscription, cancelSubscription, changeSubscriptionPlan } = useData();
   const navigate = useNavigate();
   const location = useLocation();
+  const cancelSurvey = useCancelSurvey();
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(null);
   const [error, setError] = useState(null);
@@ -81,6 +83,8 @@ export function SubscribePage() {
 
   async function handleCancel() {
     if (!visibleSubscription || cancelling) return;
+    const resultado = await cancelSurvey.perguntar();
+    if (!resultado?.confirmado) return;
     setCancelling(true);
     setCancelError("");
     try {
@@ -327,6 +331,7 @@ export function SubscribePage() {
           Acesso liberado apos a confirmacao do pagamento.
         </p>
       </div>
+      {cancelSurvey.dialog}
     </div>
   );
 }

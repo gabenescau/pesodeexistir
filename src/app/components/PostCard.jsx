@@ -15,6 +15,7 @@ import { UserTitlePill } from "./UserTitlePill";
 import { VerifiedBadge } from "./VerifiedBadge";
 import { sanitizePlainText } from "@/lib/sanitize";
 import { toast } from "@/lib/toast";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 
 function Avatar({ src, fallback, className = "size-11" }) {
   const [broken, setBroken] = useState(false);
@@ -93,6 +94,7 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
   const navigate = useNavigate();
   const { user, isAdmin } = useAuth();
   const { profiles, savedPostIds, toggleSavedPost, subscription } = useData();
+  const confirm = useConfirmDialog();
   const [liked, setLiked] = useState(Boolean(post.likedByMe));
   const [likes, setLikes] = useState(post.likes || 0);
   const [showComment, setShowComment] = useState(expanded);
@@ -190,6 +192,13 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
   }
 
   async function deleteComment(id) {
+    const ok = await confirm.ask({
+      title: "Apagar comentario?",
+      description: "Este comentario sera removido permanentemente.",
+      confirmLabel: "Apagar",
+      danger: true,
+    });
+    if (!ok) return;
     const previous = comments;
     setComments((current) => current.filter((item) => item.id !== id));
     const { error } = await supabase.from("post_replies").delete().eq("id", id);
@@ -198,6 +207,13 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
 
   async function handleDelete() {
     if (!canDelete || !onDelete) return;
+    const ok = await confirm.ask({
+      title: "Apagar post?",
+      description: "Este post sera removido permanentemente. Todos os comentarios tambem serao apagados.",
+      confirmLabel: "Apagar",
+      danger: true,
+    });
+    if (!ok) return;
     setDeleteError("");
     setBusy(true);
     try {
@@ -367,6 +383,7 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
         ]}
       />
       {deleteError && <p className="text-xs text-red-400">{deleteError}</p>}
+      {confirm.dialog}
     </article>
   );
 }

@@ -14,6 +14,7 @@ import { Pagination } from "@/components/ui/pagination";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DatePicker } from "@/components/ui/date-picker";
 import { BarChart, DonutChart, LineChart } from "@/components/ui/chart";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const tabs = [
   { id: "dashboard", label: "Dashboard", icon: ChartLine },
@@ -557,8 +558,9 @@ function PostsTab() {
         ))}
       </div>
       {totalPages > 1 ? (
-        <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} className="pt-2" />
+        <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
       ) : null}
+      {confirm.dialog}
     </div>
   );
 }
@@ -672,6 +674,7 @@ function WeeklyReleasesTab() {
 
 function BooksTab() {
   const { books, authors, addBook, updateBook, deleteBook, categories } = useData();
+  const confirm = useConfirmDialog();
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({
@@ -802,7 +805,13 @@ function BooksTab() {
   }
 
   async function handleDelete(book) {
-    if (!window.confirm(`Remover "${book.title}" e seus arquivos do banco?`)) return;
+    const ok = await confirm.ask({
+      title: "Remover livro?",
+      description: `Remover "${book.title}" e seus arquivos do banco?`,
+      confirmLabel: "Remover",
+      danger: true,
+    });
+    if (!ok) return;
     setError("");
     try {
       await deleteBook(book.id);
@@ -935,12 +944,15 @@ function BooksTab() {
       {totalPages > 1 ? (
         <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
       ) : null}
+      {confirm.dialog}
     </div>
   );
 }
 
+
 function AuthorsTab() {
   const { authors, addAuthor, updateAuthor, deleteAuthor, getBooksByAuthor } = useData();
+  const confirm = useConfirmDialog();
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ name: "", theme: "", era: "", image: "", imagePath: "", bio: "" });
@@ -1034,7 +1046,13 @@ function AuthorsTab() {
   }
 
   async function handleDelete(author) {
-    if (!window.confirm(`Remover "${author.name}" do banco? Os livros continuarão cadastrados sem autor.`)) return;
+    const ok = await confirm.ask({
+      title: "Remover autor?",
+      description: `Remover "${author.name}" do banco? Os livros continuarão cadastrados sem autor.`,
+      confirmLabel: "Remover",
+      danger: true,
+    });
+    if (!ok) return;
     setError("");
     try {
       await deleteAuthor(author.id);
@@ -1149,6 +1167,7 @@ function AuthorsTab() {
 
 function CategoriesTab() {
   const { categories, addCategory, updateCategory, deleteCategory } = useData();
+  const confirm = useConfirmDialog();
   const [nome, setNome] = useState("");
   const [editando, setEditando] = useState(null);
   const [editNome, setEditNome] = useState("");
@@ -1169,7 +1188,13 @@ function CategoriesTab() {
   }
 
   async function handleExcluir(id) {
-    if (!confirm("Remover esta categoria? Livros que a usam ficam sem categoria.")) return;
+    const ok = await confirm.ask({
+      title: "Remover categoria?",
+      description: "Livros que a usam ficam sem categoria.",
+      confirmLabel: "Remover",
+      danger: true,
+    });
+    if (!ok) return;
     setErro("");
     try { await deleteCategory(id); }
     catch (err) { setErro(err?.message || "Erro ao remover categoria."); }
@@ -1223,6 +1248,7 @@ function CategoriesTab() {
       {categories.length === 0 && (
         <p className="text-sm text-[var(--text-muted)] text-center py-8">Nenhuma categoria cadastrada. Crie a primeira acima.</p>
       )}
+      {confirm.dialog}
     </div>
   );
 }
