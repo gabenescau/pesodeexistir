@@ -88,6 +88,10 @@ export function BookReaderPage() {
   const [pdf, setPdf] = useState(null);
   const [page, setPage] = useState(Number(book?.currentPage || 1));
   const [totalPages, setTotalPages] = useState(Number(book?.totalPages || 0));
+  // Guarda a pagina em que o usuario entrou no livro. Quando o PDF carrega,
+  // so usamos este valor se a pagina local ainda nao for valida. Evita
+  // pular de pagina 5 para pagina 1 quando o DataContext atualiza o livro.
+  const initialPageRef = useRef(Number(book?.currentPage || 1));
   const [zoom, setZoom] = useState(100);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -163,10 +167,18 @@ export function BookReaderPage() {
           disableStream: false,
         }).promise;
         if (cancelled) return;
-        const lastPage = Math.min(Math.max(1, Number(book?.currentPage || 1)), doc.numPages);
+        // A pagina inicial so e usada na PRIMEIRA carga do documento. Em
+        // chamadas subsequentes do effect (que nao deveria acontecer, mas
+        // acontecia quando o DataContext atualizava `book.currentPage` apos
+        // cada salvamento), o `page` local ja reflete a pagina atual do
+        // usuario e nao deve ser sobrescrito.
+        const initialPage = Math.min(
+          Math.max(1, Number(initialPageRef.current || 1)),
+          doc.numPages
+        );
         setPdf(doc);
         setTotalPages(doc.numPages);
-        setPage(lastPage);
+        setPage((atual) => (atual >= 1 && atual <= doc.numPages ? atual : initialPage));
       } catch (err) {
         if (!cancelled) setError(err?.message || "Não foi possível abrir o PDF dentro do app.");
       } finally {
@@ -180,11 +192,16 @@ export function BookReaderPage() {
       cancelled = true;
       renderTaskRef.current?.cancel?.();
     };
-  }, [pdfUrl, book?.currentPage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pdfUrl]);
 
   // Renderiza a pagina no tamanho do container. Refaz ao girar o celular ou
   // redimensionar a janela — antes o canvas ficava com a largura da orientacao
   // anterior e a pagina saia cortada.
+  // O medidor roda uma unica vez e usa ResizeObserver; so atualiza o state
+  // quando o tamanho muda de verdade, para evitar loop de re-render
+  // (canvas muda tamanho -> observer dispara -> state novo -> render ->
+  // canvas muda tamanho -> ...).
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
@@ -192,7 +209,9 @@ export function BookReaderPage() {
     if (!elemento) return undefined;
 
     function medir() {
-      setContainerSize({ width: elemento.clientWidth, height: elemento.clientHeight });
+      const w = elemento.clientWidth;
+      const h = elemento.clientHeight;
+      setContainerSize((atual) => (atual.width === w && atual.height === h ? atual : { width: w, height: h }));
     }
 
     medir();
@@ -205,7 +224,7 @@ export function BookReaderPage() {
     const observer = new ResizeObserver(medir);
     observer.observe(elemento);
     return () => observer.disconnect();
-  }, [loading, error, pdf]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

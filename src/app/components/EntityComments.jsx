@@ -38,12 +38,16 @@ function Avatar({ src, fallback }) {
   );
 }
 
-// Comentarios de uma entidade (livro ou autor). Espera uma tabela Supabase
-// `book_author_comments` com as colunas: id, user_id, target_type ('book' |
-// 'author'), target_id, text, parent_id, created_at.
+// Comentarios de uma entidade (livro ou autor). Reaproveita a tabela
+// `post_replies` (que ja existe) criando um "post ancora" lazy por entidade,
+// com tag `entity-thread:book:UUID` ou `entity-thread:author:UUID`. A politica
+// de SELECT do feed ja filtra `tag LIKE 'entity-thread:%'` para que o post
+// nao apareca na comunidade. Isso evita precisar de migration nova no
+// Supabase: usa so tabelas e policies que ja existem.
 export function EntityComments({ targetType, targetId, emptyMessage = "Seja o primeiro a comentar." }) {
   const { user, isAdmin } = useAuth();
   const { profiles } = useData();
+  const [threadPostId, setThreadPostId] = useState(null);
   const [comentarios, setComentarios] = useState([]);
   const [texto, setTexto] = useState("");
   const [carregando, setCarregando] = useState(true);
@@ -52,30 +56,78 @@ export function EntityComments({ targetType, targetId, emptyMessage = "Seja o pr
 
   const perfil = (userId) => profiles.find((p) => p.id === userId);
 
+  // Busca (ou cria) o post ancora desta entidade. Cacheia em localStorage
+  // para nao re-checar o banco em toda navegacao.
+  const ensureThread = useCallback(async () => {
+    if (!isSupabaseReady() || !user?.id || !targetId) return null;
+    const tag = `entity-thread:${targetType}:${targetId}`;
+    const cacheKey = `ope:thread:${tag}`;
+
+    try {
+      const cached = window.localStorage.getItem(cacheKey);
+      if (cached) {
+        setThreadPostId(cached);
+        return cached;
+      }
+    } catch {
+      // localStorage bloqueado: segue para a busca no banco.
+    }
+
+    const { data: existente, error: errBusca } = await supabase
+      .from("posts")
+      .select("id")
+      .eq("tag", tag)
+      .eq("user_id", user.id)
+      .limit(1)
+      .maybeSingle();
+    if (errBusca) throw errBusca;
+    if (existente?.id) {
+      try { window.localStorage.setItem(cacheKey, existente.id); } catch { /* ignore */ }
+      setThreadPostId(existente.id);
+      return existente.id;
+    }
+
+    const { data: criado, error: errCria } = await supabase
+      .from("posts")
+      .insert({
+        user_id: user.id,
+        text: `[thread] Discussao sobre ${targetType === "book" ? "este livro" : "este autor"}`,
+        tag,
+      })
+      .select("id")
+      .single();
+    if (errCria) throw errCria;
+    try { window.localStorage.setItem(cacheKey, criado.id); } catch { /* ignore */ }
+    setThreadPostId(criado.id);
+    return criado.id;
+  }, [user?.id, targetId, targetType]);
+
   const carregar = useCallback(async () => {
-    if (!isSupabaseReady() || !targetId) {
+    if (!isSupabaseReady() || !user?.id) {
       setComentarios([]);
       setCarregando(false);
       return;
     }
     setCarregando(true);
+    const id = await ensureThread();
+    if (!id) {
+      setComentarios([]);
+      setCarregando(false);
+      return;
+    }
     const { data, error } = await supabase
-      .from("book_author_comments")
+      .from("post_replies")
       .select("*")
-      .eq("target_type", targetType)
-      .eq("target_id", targetId)
+      .eq("post_id", id)
       .order("created_at", { ascending: true });
-
     if (error) {
-      // Tabela ausente ou sem permissao: mantemos silencio para nao assustar
-      // o usuario. O componente simplesmente aparece como "sem comentarios".
       setComentarios([]);
     } else {
       setComentarios(data || []);
     }
     setErro("");
     setCarregando(false);
-  }, [targetType, targetId]);
+  }, [ensureThread, user?.id]);
 
   useEffect(() => {
     carregar();
@@ -91,15 +143,11 @@ export function EntityComments({ targetType, targetId, emptyMessage = "Seja o pr
     setEnviando(true);
     setErro("");
     try {
+      const id = threadPostId || (await ensureThread());
+      if (!id) throw new Error("Nao foi possivel abrir a discussao desta entidade.");
       const { data, error } = await supabase
-        .from("book_author_comments")
-        .insert({
-          user_id: user.id,
-          target_type: targetType,
-          target_id: targetId,
-          text: conteudo,
-          parent_id: null,
-        })
+        .from("post_replies")
+        .insert({ post_id: id, user_id: user.id, text: conteudo, parent_id: null })
         .select()
         .single();
       if (error) throw error;
@@ -119,7 +167,7 @@ export function EntityComments({ targetType, targetId, emptyMessage = "Seja o pr
     const anterior = comentarios;
     setComentarios((atual) => atual.filter((item) => item.id !== id));
     const { error } = await supabase
-      .from("book_author_comments")
+      .from("post_replies")
       .delete()
       .eq("id", id);
     if (error) {

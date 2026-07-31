@@ -4,8 +4,32 @@ import { BookRow } from "../components/BookRow";
 import { useData } from "../data/DataContext";
 import { CATEGORIES, groupByCategory } from "@/lib/categories";
 
+function LibrarySkeleton() {
+  return (
+    <div className="space-y-9" aria-busy="true" aria-label="Carregando biblioteca">
+      {[0, 1, 2].map((row) => (
+        <section key={row}>
+          <div className="mb-3 h-4 w-32 rounded bg-[var(--hover-overlay)]" />
+          <div className="-mx-4 flex gap-3 overflow-hidden px-4 sm:mx-0 sm:px-0">
+            {[0, 1, 2, 3, 4].map((card) => (
+              <div
+                key={card}
+                className="w-28 shrink-0 animate-pulse sm:w-32"
+              >
+                <div className="aspect-[2/3] w-full rounded-[8px] bg-[var(--hover-overlay)] sm:rounded-[12px]" />
+                <div className="mt-2 h-3 w-3/4 rounded bg-[var(--hover-overlay)]" />
+                <div className="mt-1 h-2 w-1/2 rounded bg-[var(--hover-overlay)]" />
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 export function LibraryPage() {
-  const { books, authors, bookFavorites } = useData();
+  const { books, authors, bookFavorites, loading } = useData();
   const [query, setQuery] = useState("");
   const [categoriaAtiva, setCategoriaAtiva] = useState("Todas");
   const [autorAtivo, setAutorAtivo] = useState(null);
@@ -216,9 +240,11 @@ export function LibraryPage() {
         )
       ) : (
         <div className="space-y-9">
-          {prateleiras.length > 0 ? (
+          {loading && books.length === 0 ? (
+            <LibrarySkeleton />
+          ) : prateleiras.length > 0 ? (
             prateleiras.map(({ categoria, livros }) => (
-              <BookRow key={categoria} title={categoria} books={livros} />
+              <BookRow key={categoria} title={categoria} books={livros} defaultOpen />
             ))
           ) : (
             <p className="rounded-xl border border-dashed border-[var(--border)] p-10 text-center text-sm text-[var(--text-muted)]">

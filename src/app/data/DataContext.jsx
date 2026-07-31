@@ -176,7 +176,12 @@ export function DataProvider({ children }) {
           : Promise.resolve(emptyResult),
         currentUserId
           ? runSupabaseQuery(
-              () => supabase.from("posts").select("*").order("created_at", { ascending: false }).limit(100),
+              () => supabase
+                .from("posts")
+                .select("*")
+                .not("tag", "like", "entity-thread:%")
+                .order("created_at", { ascending: false })
+                .limit(100),
               "carregar posts"
             )
           : Promise.resolve(emptyResult),
