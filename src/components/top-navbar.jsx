@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/logo";
@@ -7,7 +7,6 @@ import { BellIcon, ChevronRightIcon, MoonIcon, SunIcon } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/app/data/AuthContext";
-import { useData } from "@/app/data/DataContext";
 import { useNavGroups, adminGroup } from "@/components/app-shared";
 
 function NavDropdown({ label, to, active, subItems, verTudo = true }) {
@@ -87,39 +86,16 @@ export function TopNavbar() {
   const location = useLocation();
   const { theme, toggle } = useTheme();
   const { canManageContent } = useAuth();
-  const { books, categories } = useData();
   const [notifOpen, setNotifOpen] = useState(false);
   const dynamicNavGroups = useNavGroups();
   const groups = canManageContent ? [...dynamicNavGroups, adminGroup] : dynamicNavGroups;
   const items = groups.flatMap((group) => group.items);
-
-  const categorias = useMemo(() => {
-    const setNomes = new Set(categories.map((c) => c.name));
-    books.forEach((b) => { if (b.category) setNomes.add(b.category); });
-    return [...setNomes].sort((a, b) => a.localeCompare(b, "pt"));
-  }, [categories, books]);
 
   function isActive(item) {
     return location.pathname === item.match || location.pathname.startsWith(item.match + "/");
   }
 
   function renderItem(item) {
-    if (item.title === "Explorar") {
-      const subItems = categorias.map((cat) => ({
-        title: cat,
-        to: `${item.path}?categoria=${encodeURIComponent(cat)}`,
-      }));
-      return (
-        <NavDropdown
-          key={item.title}
-          label={item.title}
-          to={item.path}
-          active={isActive(item)}
-          subItems={subItems}
-        />
-      );
-    }
-
     if (item.subItems?.length) {
       const subItems = item.subItems.map((sub) => ({ title: sub.title, to: sub.path }));
       return (
