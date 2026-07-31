@@ -4,6 +4,7 @@ import {
   CompassIcon,
   HomeIcon,
   LightbulbIcon,
+  SettingsIcon,
   ShieldIcon,
   Sparkles,
   UserIcon,
