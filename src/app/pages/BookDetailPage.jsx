@@ -47,7 +47,7 @@ export function BookDetailPage() {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col pb-20">
+    <div className="flex min-h-dvh flex-col">
       {/* Header */}
       <div className="sticky top-0 z-30 flex items-center justify-between bg-[var(--bg-page)] px-4 py-3">
         <button
@@ -67,9 +67,9 @@ export function BookDetailPage() {
       </div>
 
       {/* Hero: capa + info */}
-      <div className="flex gap-5 px-4 pb-4">
+      <div className="flex gap-4 px-4 pb-4 sm:gap-5">
         {/* Capa */}
-        <div className="w-[38%] shrink-0">
+        <div className="w-[32%] shrink-0 sm:w-[36%] md:w-[30%]">
           <div className="aspect-[2/3] overflow-hidden rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)]">
             <img
               src={book.image}
@@ -81,12 +81,12 @@ export function BookDetailPage() {
 
         {/* Info */}
         <div className="min-w-0 flex-1 pt-1">
-          <h1 className="text-[18px] font-[700] leading-[24px] tracking-[-0.36px] text-[var(--text-primary)]">
+          <h1 className="text-[16px] font-[700] leading-[22px] tracking-[-0.32px] text-[var(--text-primary)] sm:text-[18px] sm:leading-[24px] sm:tracking-[-0.36px]">
             {book.title}
           </h1>
 
           {author && (
-            <Link to={`/app/autor/${author.id}`} className="mt-2 flex items-center gap-2 text-sm text-[var(--text-secondary)] hover:underline">
+            <Link to={`/app/autor/${author.id}`} className="mt-2 flex items-center gap-2 text-[13px] text-[var(--text-secondary)] hover:underline sm:text-sm">
               {author.image ? (
                 <img src={author.image} alt="" className="size-5 rounded-full object-cover" />
               ) : (
@@ -99,13 +99,13 @@ export function BookDetailPage() {
           )}
 
           {/* Status + categoria */}
-          <div className="mt-4 space-y-2">
-            <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+          <div className="mt-3 space-y-1.5 sm:mt-4 sm:space-y-2">
+            <div className="flex items-center gap-2 text-[13px] text-[var(--text-secondary)] sm:text-sm">
               <BookOpen className="size-4 shrink-0 text-[var(--text-muted)]" />
               {status}
             </div>
             {book.category && (
-              <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+              <div className="flex items-center gap-2 text-[13px] text-[var(--text-secondary)] sm:text-sm">
                 <span className="size-1.5 rounded-full bg-[var(--text-muted)]" />
                 {book.category}
               </div>
@@ -126,6 +126,33 @@ export function BookDetailPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Botoes de acao - inline, antes das tabs */}
+      <div className="flex items-center gap-2.5 px-4 pb-4 sm:gap-3">
+        <button
+          onClick={handleStartReading}
+          disabled={!hasPdf || !release.liberado}
+          className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-[var(--text-primary)] text-[13px] font-medium text-[var(--bg-card)] transition-colors hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed sm:h-12 sm:text-sm"
+        >
+          <BookOpen className="size-4" />
+          {hasPdf && release.liberado ? "Comecar a ler" : "Indisponivel"}
+        </button>
+        <button
+          onClick={() => toggleFavoriteBook(book.id)}
+          className={`flex size-11 items-center justify-center rounded-full border transition-colors sm:size-12 ${
+            favoritado
+              ? "border-[var(--accent-mint)] bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]"
+              : "border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] hover:bg-[var(--hover-overlay)]"
+          }`}
+          aria-label={favoritado ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+        >
+          {favoritado ? (
+            <CheckCircle2 className="size-5" />
+          ) : (
+            <span className="text-xl leading-none">+</span>
+          )}
+        </button>
       </div>
 
       {/* Tabs */}
@@ -227,34 +254,6 @@ export function BookDetailPage() {
             </p>
           </div>
         )}
-      </div>
-
-      {/* Bottom bar fixo */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border)] bg-[var(--bg-page)] px-4 py-2.5 sm:py-3">
-        <div className="mx-auto flex max-w-2xl items-center gap-2.5 sm:gap-3">
-          <button
-            onClick={handleStartReading}
-            disabled={!hasPdf || !release.liberado}
-            className="flex h-10 flex-1 items-center justify-center gap-2 rounded-full border border-[var(--border-strong)] bg-[var(--bg-card)] text-[13px] font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--hover-overlay)] disabled:opacity-50 disabled:cursor-not-allowed sm:h-11 sm:text-sm"
-          >
-            {hasPdf && release.liberado ? "Comecar a ler" : "Indisponivel"}
-          </button>
-          <button
-            onClick={() => toggleFavoriteBook(book.id)}
-            className={`flex size-10 items-center justify-center rounded-full border transition-colors sm:size-11 ${
-              favoritado
-                ? "border-[var(--accent-mint)] bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]"
-                : "border-[var(--border-strong)] bg-[var(--bg-card)] text-[var(--text-primary)] hover:bg-[var(--hover-overlay)]"
-            }`}
-            aria-label={favoritado ? "Remover dos favoritos" : "Adicionar aos favoritos"}
-          >
-            {favoritado ? (
-              <CheckCircle2 className="size-4 sm:size-5" />
-            ) : (
-              <span className="text-lg leading-none sm:text-xl">+</span>
-            )}
-          </button>
-        </div>
       </div>
     </div>
   );
