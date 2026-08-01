@@ -201,7 +201,7 @@ export function BookReaderPage() {
     async function renderCurrent() {
       if (!pdf || !textContainerRef.current) return;
       renderTaskRef.current?.cancel?.();
-      const currentPage = await pdf.getPage(page);
+      await pdf.getPage(page);
       if (cancelled) return;
       try {
         const texto = await getPageText(pdf, page);
@@ -214,17 +214,33 @@ export function BookReaderPage() {
       } catch { /* cai para canvas */ }
       if (cancelled) return;
       setPageText(null);
+      // Mantem o canvas sempre montado no DOM, so troca a flag. A pintura
+      // acontece em um effect separado que observa canvasFallback para
+      // garantir que o <canvas> ja esteja disponivel quando desenharmos.
       setCanvasFallback(true);
-      const viewport = currentPage.getViewport({ scale: 1 });
+    }
+    renderCurrent();
+    return () => { cancelled = true; renderTaskRef.current?.cancel?.(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pdf, page, canvasSize.width, canvasSize.height]);
+
+  // Pinta o canvas sempre que a flag de fallback estiver ativa e a pagina
+  // mudar. Separado do effect acima para que o <canvas> ja esteja no DOM.
+  useEffect(() => {
+    if (!canvasFallback || !pdf) return;
+    let cancelled = false;
+    async function paint() {
+      const currentPage = await pdf.getPage(page);
+      if (cancelled) return;
+      const canvas = canvasRef.current;
       const container = textContainerRef.current;
-      if (!container) return;
+      if (!canvas || !container) return;
+      const viewport = currentPage.getViewport({ scale: 1 });
       const largura = Math.max(240, container.clientWidth - 16);
       const altura = Math.max(320, container.clientHeight - 16);
       const fit = Math.min(largura / viewport.width, altura / viewport.height);
       const scale = Math.max(0.3, fit);
       const scaled = currentPage.getViewport({ scale });
-      const canvas = canvasRef.current;
-      if (!canvas) return;
       const context = canvas.getContext("2d");
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       canvas.width = Math.floor(scaled.width * dpr);
@@ -233,14 +249,15 @@ export function BookReaderPage() {
       canvas.style.height = `${Math.floor(scaled.height)}px`;
       context.setTransform(dpr, 0, 0, dpr, 0, 0);
       context.clearRect(0, 0, scaled.width, scaled.height);
+      renderTaskRef.current?.cancel?.();
       const task = currentPage.render({ canvasContext: context, viewport: scaled });
       renderTaskRef.current = task;
       try { await task.promise; } catch (err) { if (err?.name !== "RenderingCancelledException" && !cancelled) setError("Não foi possível renderizar esta página."); }
     }
-    renderCurrent();
+    paint();
     return () => { cancelled = true; renderTaskRef.current?.cancel?.(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pdf, page, canvasSize.width, canvasSize.height]);
+  }, [canvasFallback, pdf, page, canvasSize.width, canvasSize.height]);
 
   useEffect(() => {
     if (!book?.id || !totalPages || loading || error) return undefined;
@@ -497,12 +514,12 @@ export function BookReaderPage() {
             if (dx < 0) goNextPage(); else goPrevPage();
           }}
           onPointerUp={(event) => {
-            if (event.pointerType !== "touch") return;
+            if (event.pointerType === "mouse" && event.button !== 0) return;
             const rect = event.currentTarget.getBoundingClientRect();
             const x = event.clientX - rect.left;
             if (window.getSelection()?.toString()) return;
-            if (x > rect.width * 0.78) goNextPage();
-            else if (x < rect.width * 0.22) goPrevPage();
+            if (x > rect.width * 0.62) goNextPage();
+            else if (x < rect.width * 0.38) goPrevPage();
           }}
           className="relative flex min-h-0 flex-1 touch-pan-y select-text items-start justify-center overflow-y-auto bg-[var(--bg-canvas)] px-4 py-6 sm:px-8 sm:py-10"
         >
@@ -516,60 +533,66 @@ export function BookReaderPage() {
               </div>
             </div>
           ) : pageText ? (
-            <article className="mx-auto w-full max-w-[680px] select-text">
-              {pageText.split(/\n\n+/).map((paragraph, index) => {
-                const trimmed = paragraph.trim();
-                if (!trimmed) return null;
-                const semPonto = !/[.!?]\s*$/.test(trimmed);
-                const curta = trimmed.length <= 60;
-                const maiscula = /^[A-Z0-9IVXLCDM \-'".:,()&]+$/.test(trimmed) && /[A-Z]/.test(trimmed);
-                const isChapterHeading = semPonto && curta && maiscula;
-                const isSubheading = semPonto && curta && !maiscula && trimmed.length >= 2;
-                const text = paragraph.replace(/[ \t]+\n/g, "\n").replace(/\n+/g, " ");
-                if (isChapterHeading) {
+            <>
+              <article className="mx-auto w-full max-w-[680px] select-text">
+                {pageText.split(/\n\n+/).map((paragraph, index) => {
+                  const trimmed = paragraph.trim();
+                  if (!trimmed) return null;
+                  const semPonto = !/[.!?]\s*$/.test(trimmed);
+                  const curta = trimmed.length <= 60;
+                  const maiscula = /^[A-Z0-9IVXLCDM \-'".:,()&]+$/.test(trimmed) && /[A-Z]/.test(trimmed);
+                  const isChapterHeading = semPonto && curta && maiscula;
+                  const isSubheading = semPonto && curta && !maiscula && trimmed.length >= 2;
+                  const text = paragraph.replace(/[ \t]+\n/g, "\n").replace(/\n+/g, " ");
+                  if (isChapterHeading) {
+                    return (
+                      <h2
+                        key={index}
+                        className="mt-6 mb-5 text-center font-bold uppercase tracking-[0.08em] text-[var(--text-primary)]"
+                        style={{ fontSize: `${Math.round(fontSize * 1.05)}px`, lineHeight: 1.4 }}
+                      >
+                        {trimmed}
+                      </h2>
+                    );
+                  }
+                  if (isSubheading) {
+                    return (
+                      <h3
+                        key={index}
+                        className="mt-5 mb-2 font-semibold text-[var(--text-primary)]"
+                        style={{ fontSize: `${fontSize}px`, lineHeight: 1.4 }}
+                      >
+                        {trimmed}
+                      </h3>
+                    );
+                  }
                   return (
-                    <h2
+                    <p
                       key={index}
-                      className="mt-6 mb-5 text-center font-bold uppercase tracking-[0.08em] text-[var(--text-primary)]"
-                      style={{ fontSize: `${Math.round(fontSize * 1.05)}px`, lineHeight: 1.4 }}
+                      className="mb-4 text-[var(--text-primary)]"
+                      style={{ fontSize: `${fontSize}px`, lineHeight: 1.75, letterSpacing: "0.005em", textAlign: "justify" }}
                     >
-                      {trimmed}
-                    </h2>
+                      {text}
+                    </p>
                   );
-                }
-                if (isSubheading) {
-                  return (
-                    <h3
-                      key={index}
-                      className="mt-5 mb-2 font-semibold text-[var(--text-primary)]"
-                      style={{ fontSize: `${fontSize}px`, lineHeight: 1.4 }}
-                    >
-                      {trimmed}
-                    </h3>
-                  );
-                }
-                return (
-                  <p
-                    key={index}
-                    className="mb-4 text-[var(--text-primary)]"
-                    style={{ fontSize: `${fontSize}px`, lineHeight: 1.75, letterSpacing: "0.005em", textAlign: "justify" }}
-                  >
-                    {text}
-                  </p>
-                );
-              })}
-            </article>
+                })}
+              </article>
+              <canvas ref={canvasRef} className="hidden" />
+            </>
           ) : canvasFallback ? (
             <div className="flex h-full w-full items-center justify-center">
               <canvas ref={canvasRef} className="max-h-full max-w-full rounded-[6px] bg-white shadow-[var(--shadow-sm)]" />
             </div>
           ) : (
-            <div className="flex h-full items-center justify-center p-6">
-              <div className="max-w-md rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-6 text-center">
-                <p className="text-sm font-medium text-[var(--text-primary)]">Este livro ainda não tem PDF.</p>
-                <p className="mt-2 text-xs text-[var(--text-muted)]">Envie o arquivo pelo painel admin em Livros.</p>
+            <>
+              <div className="flex h-full items-center justify-center p-6">
+                <div className="max-w-md rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-6 text-center">
+                  <p className="text-sm font-medium text-[var(--text-primary)]">Este livro ainda não tem PDF.</p>
+                  <p className="mt-2 text-xs text-[var(--text-muted)]">Envie o arquivo pelo painel admin em Livros.</p>
+                </div>
               </div>
-            </div>
+              <canvas ref={canvasRef} className="hidden" />
+            </>
           )}
 
           {/* Toolbar de selecao de texto */}
