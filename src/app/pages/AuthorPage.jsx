@@ -2,6 +2,8 @@ import { memo, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, BookOpen, MoreHorizontal, StarIcon, Users } from "@/lib/icons";
 import { useData } from "../data/DataContext";
+import { CreatePost } from "../components/CreatePost";
+import { PostCard } from "../components/PostCard";
 
 function formatStat(n) {
   if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k+`;
@@ -55,6 +57,7 @@ const TABS = [
   { key: "bookshelf", label: "ESTANTE" },
   { key: "updates", label: "ATUALIZACOES" },
   { key: "biography", label: "BIOGRAFIA" },
+  { key: "discussions", label: "DISCUSSOES" },
 ];
 
 export function AuthorPage() {
@@ -64,6 +67,7 @@ export function AuthorPage() {
     getAuthorById,
     getBooksByAuthor,
     posts,
+    deletePost,
     books,
     bookFavorites,
     toggleFavoriteAuthor,
@@ -74,13 +78,14 @@ export function AuthorPage() {
   const isFav = author ? isFavoriteAuthor(author.id) : false;
   const [abaAtiva, setAbaAtiva] = useState("bookshelf");
 
+  const authorPosts = useMemo(
+    () => posts.filter((p) => p.tag === `entity-thread:author:${id}`),
+    [posts, id]
+  );
+
   const livrosComMeta = useMemo(() => authorBooks, [authorBooks]);
 
   const authorBookIds = useMemo(() => new Set(authorBooks.map((b) => b.id)), [authorBooks]);
-  const authorPosts = useMemo(
-    () => posts.filter((p) => p.book_id && authorBookIds.has(p.book_id)),
-    [posts, authorBookIds]
-  );
 
   // Related books: same category as the author's books, best rated first,
   // excluding the author's own books.
@@ -243,19 +248,43 @@ export function AuthorPage() {
         authorPosts.length > 0 ? (
           <section className="space-y-3">
             {authorPosts.slice(0, 10).map((post) => (
-              <div key={post.id} className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
-                <p className="text-sm leading-relaxed text-[var(--text-primary)]">{post.text}</p>
-                {post.book?.title ? (
-                  <p className="mt-2 text-[11px] text-[var(--text-muted)]">Sobre: {post.book.title}</p>
-                ) : null}
-              </div>
+              <PostCard
+                key={post.id}
+                post={post}
+                onDelete={deletePost}
+              />
             ))}
           </section>
         ) : (
           <p className="py-10 text-center text-sm text-[var(--text-muted)]">
-            Nenhuma atualizacao sobre obras deste autor.
+            Nenhuma atualizacao sobre este autor ainda.
           </p>
         )
+      ) : abaAtiva === "discussions" ? (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-[var(--text-primary)]">Discussoes sobre o autor</h2>
+              <p className="text-xs text-[var(--text-muted)]">Postagens da comunidade sobre {author.name}.</p>
+            </div>
+            <CreatePost tag={`entity-thread:author:${author.id}`} />
+          </div>
+          {authorPosts.length > 0 ? (
+            <div className="space-y-4">
+              {authorPosts.map((post) => (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  onDelete={deletePost}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-[12px] border border-dashed border-[var(--border)] p-6 text-center text-sm text-[var(--text-muted)]">
+              Ainda nao ha discussoes sobre este autor. Seja a primeira pessoa a postar.
+            </p>
+          )}
+        </section>
       ) : (
         <section className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-5">
           {author.bio ? (

@@ -197,6 +197,25 @@ export function BookReaderPage() {
   // canvas muda tamanho -> ...).
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
+  const [pageText, setPageText] = useState(null);
+  const [textPage, setTextPage] = useState(null);
+  const pageTextCacheRef = useRef(new Map());
+  const [useTextMode, setUseTextMode] = useState(null);
+
+  async function getPageText(doc, pageNumber) {
+    const cached = pageTextCacheRef.current.get(pageNumber);
+    if (cached !== undefined) return cached;
+    const page = await doc.getPage(pageNumber);
+    const content = await page.getTextContent();
+    const text = content.items
+      .map((item) => (item.str !== undefined ? item.str : ""))
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+    pageTextCacheRef.current.set(pageNumber, text);
+    return text;
+  }
+
   useEffect(() => {
     const elemento = wrapperRef.current;
     if (!elemento) return undefined;
@@ -223,11 +242,30 @@ export function BookReaderPage() {
     let cancelled = false;
 
     async function renderPage() {
-      if (!pdf || !canvasRef.current || !containerSize.width) return;
+      if (!pdf || !containerSize.width) return;
 
       renderTaskRef.current?.cancel?.();
       const currentPage = await pdf.getPage(page);
       if (cancelled) return;
+
+      // Tenta exibir a pagina como texto extraido do PDF. Somente usa o
+      // canvas quando a pagina nao tem camada de texto (PDF escaneado).
+      try {
+        const texto = await getPageText(pdf, page);
+        if (cancelled) return;
+        if (texto) {
+          setPageText(texto);
+          setTextPage(page);
+          setUseTextMode(true);
+          return;
+        }
+      } catch {
+        // Fallback para canvas se a extracao de texto falhar.
+      }
+
+      setUseTextMode(false);
+      setPageText(null);
+      setTextPage(null);
 
       const baseViewport = currentPage.getViewport({ scale: 1 });
       const larguraDisponivel = Math.max(240, containerSize.width - 24);
@@ -273,6 +311,7 @@ export function BookReaderPage() {
       cancelled = true;
       renderTaskRef.current?.cancel?.();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pdf, page, zoom, containerSize.width, containerSize.height]);
 
   useEffect(() => {
@@ -486,7 +525,17 @@ export function BookReaderPage() {
             </div>
           )}
 
-          {!loading && !error && pdf && (
+          {!loading && !error && pdf && useTextMode && pageText && textPage === page && (
+            <div className="h-full w-full overflow-y-auto py-6">
+              <div className="mx-auto max-w-[680px] px-4" style={{ fontSize: `${zoom / 100 * 17}px`, lineHeight: 1.7 }}>
+                <p className="whitespace-pre-wrap break-words text-[var(--text-primary)] select-text">
+                  {pageText}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {!loading && !error && pdf && !(useTextMode && pageText && textPage === page) && (
             <div className="flex h-full w-full items-center justify-center">
               <canvas
                 ref={canvasRef}

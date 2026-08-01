@@ -942,7 +942,7 @@ function BooksTab() {
                   </button>
                 )}
               </div>
-              <p className="text-[10px] text-[var(--text-muted)] mt-1">O PDF será enviado ao Supabase Storage e aberto dentro do app.</p>
+              <p className="text-[10px] text-[var(--text-muted)] mt-1">O PDF será enviado ao Supabase Storage e o leitor extrai o texto automaticamente.</p>
             </div>
           </div>
           <FormField

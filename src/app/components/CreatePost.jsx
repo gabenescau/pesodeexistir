@@ -52,7 +52,7 @@ async function uploadPostImages(files, userId) {
   return uploaded;
 }
 
-export function CreatePost({ initialBookId = null }) {
+export function CreatePost({ initialBookId = null, tag = null }) {
   const { user, profile, isAdmin } = useAuth();
   const { addPost, books, authors, profiles, subscription } = useData();
   const fileInputRef = useRef(null);
@@ -198,7 +198,7 @@ export function CreatePost({ initialBookId = null }) {
       await addPost({
         userId: user?.id,
         text: cleanText || cleanPollQuestion,
-        tag: null,
+        tag,
         bookId,
         imagePaths: uploadedPaths,
         poll: pollEnabled ? { question: cleanPollQuestion, options: cleanPollOptions } : null,
@@ -222,7 +222,7 @@ export function CreatePost({ initialBookId = null }) {
       <button
         type="button"
         onClick={() => canPublish ? setOpen(true) : setSubscribeOpen(true)}
-        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-[10px] border border-[var(--border)] bg-[var(--bg-card)] px-4 text-sm font-medium text-[var(--text-primary)] shadow-[var(--shadow-sm)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-card-hover)] sm:w-auto"
+        className="flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--border)] bg-[var(--bg-card)] px-4 text-sm font-medium text-[var(--text-primary)] shadow-[var(--shadow-sm)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-card-hover)]"
       >
         <Plus className="size-4" />
         Criar post
@@ -346,9 +346,9 @@ export function CreatePost({ initialBookId = null }) {
               {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
             </div>
 
-            <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-3">
+            <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
               <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleImageSelect} className="hidden" />
-              <div className="flex items-center gap-1">
+              <div className="flex flex-wrap items-center gap-1">
                 <button type="button" onClick={() => fileInputRef.current?.click()} className="flex min-h-10 items-center gap-1.5 rounded-full px-3 text-xs text-[var(--text-muted)] hover:bg-[var(--hover-overlay)]">
                   <Image className="size-4" /> Imagem
                 </button>
@@ -360,7 +360,7 @@ export function CreatePost({ initialBookId = null }) {
                 </button>
                 <span className="hidden items-center gap-1 text-xs text-[var(--text-muted)] sm:flex"><BookOpen className="size-3.5" /> @ livro</span>
               </div>
-              <button type="button" disabled={publishing || (!text.trim() && !imageFiles.length && !pollEnabled)} onClick={handleSubmit} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[var(--text-primary)] px-5 text-sm font-medium text-[var(--bg-card)] disabled:opacity-40">
+              <button type="button" disabled={publishing || (!text.trim() && !imageFiles.length && !pollEnabled)} onClick={handleSubmit} className="inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 rounded-full bg-[var(--text-primary)] px-5 text-sm font-medium text-[var(--bg-card)] disabled:opacity-40 sm:w-auto">
                 <Send className="size-4" />
                 {publishing ? "Publicando..." : "Publicar"}
               </button>

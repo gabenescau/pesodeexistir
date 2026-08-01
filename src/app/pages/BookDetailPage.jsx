@@ -75,7 +75,7 @@ export function BookDetailPage() {
 
   const bookPosts = useMemo(() => {
     return posts.filter(
-      (p) => p.book_id === book.id && !(p.tag || "").startsWith("entity-thread:")
+      (p) => p.tag === `entity-thread:book:${book.id}`
     );
   }, [posts, book.id]);
 
@@ -340,7 +340,7 @@ export function BookDetailPage() {
                 <h3 className="text-sm font-semibold text-[var(--text-primary)]">Discussoes do livro</h3>
                 <p className="text-xs text-[var(--text-muted)]">Postagens da comunidade sobre este livro.</p>
               </div>
-              <CreatePost initialBookId={book.id} />
+              <CreatePost initialBookId={book.id} tag={`entity-thread:book:${book.id}`} />
             </div>
 
             {bookPosts.length > 0 ? (
