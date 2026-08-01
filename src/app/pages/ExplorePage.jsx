@@ -1,22 +1,9 @@
 import { memo, useDeferredValue, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowUpDown, Bookmark, Crown, Search, Sparkles, StarIcon } from "@/lib/icons";
+import { ArrowUpDown, Search, StarIcon } from "@/lib/icons";
 import { useData } from "../data/DataContext";
 
-function hashCode(str) {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
-
-const PLAN_BADGE = {
-  destaque: { label: "Destaque", Icon: Sparkles, cls: "bg-amber-100 text-amber-700" },
-  gratis: { label: "Gratis", Icon: Bookmark, cls: "bg-emerald-100 text-emerald-700" },
-  premium: { label: "Premium", Icon: Crown, cls: "bg-violet-100 text-violet-700" },
-};
-
 const BookCard = memo(function BookCard({ book }) {
-  const meta = book.destaque ? PLAN_BADGE.destaque : PLAN_BADGE[book.plano] || PLAN_BADGE.premium;
   return (
     <Link to={`/app/livro/${book.id}`} className="group block">
       <div className="relative aspect-[2/3] overflow-hidden rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)]">
@@ -26,10 +13,6 @@ const BookCard = memo(function BookCard({ book }) {
           loading="lazy"
           className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
         />
-        <span className={`absolute left-2 top-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${meta.cls}`}>
-          <meta.Icon className="size-3" weight="fill" />
-          {meta.label}
-        </span>
         {book.category ? (
           <span className="absolute right-2 top-2 rounded-full border border-[var(--border)] bg-[var(--bg-card)]/90 px-2 py-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
             {book.category}
@@ -52,8 +35,6 @@ const BookCard = memo(function BookCard({ book }) {
 
 const TABS = [
   { key: "tudo", label: "Tudo" },
-  { key: "gratis", label: "Gratis" },
-  { key: "premium", label: "Premium" },
   { key: "autor", label: "Autor" },
   { key: "genero", label: "Genero" },
 ];
@@ -85,21 +66,14 @@ export function ExplorePage() {
       .sort((a, b) => a.name.localeCompare(b.name, "pt"));
   }, [authors, books]);
 
-  const livrosComMeta = useMemo(() => books.map((book) => {
-    const h = hashCode(book.id || book.title || "");
-    return {
-      ...book,
-      plano: h % 2 === 0 ? "gratis" : "premium",
-      destaque: h % 7 === 0,
-      autorNome: authorsMap.get(book.authorId)?.name || book.authorName || "",
-    };
-  }), [books, authorsMap]);
+  const livrosComMeta = useMemo(() => books.map((book) => ({
+    ...book,
+    autorNome: authorsMap.get(book.authorId)?.name || book.authorName || "",
+  })), [books, authorsMap]);
 
   const filtrados = useMemo(() => {
     let lista = livrosComMeta;
-    if (tab === "gratis") lista = lista.filter((b) => b.plano === "gratis");
-    else if (tab === "premium") lista = lista.filter((b) => b.plano === "premium");
-    else if (tab === "autor" && autorSelecionado) {
+    if (tab === "autor" && autorSelecionado) {
       lista = lista.filter((b) => b.authorId === autorSelecionado);
     } else if (tab === "genero" && generoSelecionado) {
       lista = lista.filter((b) => b.category === generoSelecionado);

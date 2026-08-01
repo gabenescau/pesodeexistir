@@ -1,22 +1,9 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ArrowRight, Bookmark, Crown, Sparkles, StarIcon } from "@/lib/icons";
+import { ArrowRight, Sparkles, StarIcon } from "@/lib/icons";
 import { useData } from "../data/DataContext";
 
-function hashCode(str) {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
-
-const PLAN_BADGE = {
-  destaque: { label: "Destaque", Icon: Sparkles, cls: "bg-amber-100 text-amber-700" },
-  gratis: { label: "Gratis", Icon: Bookmark, cls: "bg-emerald-100 text-emerald-700" },
-  premium: { label: "Premium", Icon: Crown, cls: "bg-violet-100 text-violet-700" },
-};
-
 const BookCard = memo(function BookCard({ book }) {
-  const meta = book.destaque ? PLAN_BADGE.destaque : PLAN_BADGE[book.plano] || PLAN_BADGE.premium;
   return (
     <Link to={`/app/livro/${book.id}`} className="group block">
       <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] border border-[var(--border)] bg-[var(--bg-card)]">
@@ -26,10 +13,6 @@ const BookCard = memo(function BookCard({ book }) {
           loading="lazy"
           className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
         />
-        <span className={`absolute left-1.5 top-1.5 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${meta.cls}`}>
-          <meta.Icon className="size-2.5" weight="fill" />
-          {meta.label}
-        </span>
       </div>
       <h3 className="mt-1.5 truncate text-[11px] font-semibold text-[var(--text-primary)] sm:text-xs">
         {book.title}
@@ -166,16 +149,11 @@ export function LibraryPage() {
 
   const autoresMap = useMemo(() => new Map(authors.map((a) => [a.id, a])), [authors]);
 
-  const livrosComMeta = useMemo(() => books.map((book) => {
-    const h = hashCode(book.id || book.title || "");
-    return {
-      ...book,
-      autorNome: autoresMap.get(book.authorId)?.name || book.authorName || "",
-      plano: h % 2 === 0 ? "gratis" : "premium",
-      destaque: h % 7 === 0,
-      progress: Number(book.progress || 0),
-    };
-  }), [books, autoresMap]);
+  const livrosComMeta = useMemo(() => books.map((book) => ({
+    ...book,
+    autorNome: autoresMap.get(book.authorId)?.name || book.authorName || "",
+    progress: Number(book.progress || 0),
+  })), [books, autoresMap]);
 
   const popular = useMemo(() => {
     const comNota = [...livrosComMeta].sort(
