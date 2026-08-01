@@ -148,12 +148,20 @@ export function BookReaderPage() {
     // Colapsa espacos multiplos e excesso de linhas vazias.
     text = text.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
     // PDFs com fontes CMap/embedded complexas as vezes retornam o glifo de
-    // substituicao (caixa/FFFD) ou caracteres privados da fonte. Se a pagina
-    // for majoritariamente ilegivel, devolvemos string vazia para que o
-    // leitor caia automaticamente para o canvas em vez de mostrar lixo.
+    // substituicao (caixa/FFFD), caracteres privados da fonte ou simbolos
+    // sem sentido. Detectamos tres sinais de pagina ilegivel e devolvemos
+    // string vazia para cair automaticamente no canvas (PDF renderizado).
+    if (text.length === 0) {
+      pageTextCacheRef.current.set(pageNumber, "");
+      return "";
+    }
     const semControle = text.replace(/\uFFFD|[\uE000-\uF8FF]/g, "");
-    const ilegivelRatio = text.length > 0 ? (text.length - semControle.length) / text.length : 0;
-    if (ilegivelRatio > 0.3) {
+    const ilegivelRatio = (text.length - semControle.length) / text.length;
+    const letras = (text.match(/[\p{L}\p{N}]/gu) || []).length;
+    const proporcaoLetras = letras / text.length;
+    // Heuristica combinada: muito lixo OU pouquissimas letras normais
+    // (texto cheio de simbolos/controle) -> canvas.
+    if (ilegivelRatio > 0.2 || proporcaoLetras < 0.4) {
       pageTextCacheRef.current.set(pageNumber, "");
       return "";
     }
@@ -179,7 +187,18 @@ export function BookReaderPage() {
       setLoading(true);
       setError("");
       try {
-        const doc = await pdfjsLib.getDocument({ url: pdfUrl, withCredentials: false, disableAutoFetch: false, disableStream: false }).promise;
+        const doc = await pdfjsLib.getDocument({
+          url: pdfUrl,
+          withCredentials: false,
+          disableAutoFetch: false,
+          disableStream: false,
+          // Resolve fontes CMap faltantes direto do CDN do pdfjs-dist. Sem
+          // isso, PDFs com fontes CJK/embarcadas que nao incluem o cmap
+          // embarcado saem com glifos ilegiveis (caixas).
+          cMapUrl: "https://unpkg.com/pdfjs-dist@6.1.200/cmaps/",
+          cMapPacked: true,
+          standardFontDataUrl: "https://unpkg.com/pdfjs-dist@6.1.200/standard_fonts/",
+        }).promise;
         if (cancelled) return;
         const initialPage = Math.min(Math.max(1, Number(initialPageRef.current || 1)), doc.numPages);
         setPdf(doc);
