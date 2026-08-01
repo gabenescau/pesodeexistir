@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../data/AuthContext";
 import { useData } from "../data/DataContext";
 import { isSupabaseReady } from "../data/supabase";
@@ -10,7 +10,15 @@ import {
   uploadLibraryFile,
   validateLibraryFile,
 } from "@/lib/library-media";
-import { Pagination } from "@/components/ui/pagination";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DatePicker } from "@/components/ui/date-picker";
 import { BarChart, DonutChart, LineChart } from "@/components/ui/chart";
@@ -18,14 +26,67 @@ import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const tabs = [
   { id: "dashboard", label: "Dashboard", icon: ChartLine },
-  { id: "users", label: "Usuários", icon: Users },
+  { id: "users", label: "UsuÃ¡rios", icon: Users },
   { id: "subscriptions", label: "Assinaturas", icon: Crown },
   { id: "posts", label: "Posts", icon: MessageSquare },
-  { id: "releases", label: "Lançamentos", icon: Sparkles },
+  { id: "releases", label: "LanÃ§amentos", icon: Sparkles },
   { id: "categories", label: "Categorias", icon: FolderOpen },
   { id: "books", label: "Livros", icon: BookOpen },
   { id: "authors", label: "Autores", icon: Users },
 ];
+
+function getPageItems(current, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const items = [1];
+  for (let i = 2; i < total; i++) {
+    if (Math.abs(i - current) <= 1) items.push(i);
+    else if (items[items.length - 1] !== "ellipsis") items.push("ellipsis");
+  }
+  items.push(total);
+  return items;
+}
+
+function PaginationBar({ currentPage, totalPages, onPageChange }) {
+  const safePage = Math.min(currentPage, totalPages);
+  const pageItems = getPageItems(safePage, totalPages);
+  return (
+    <Pagination className="pt-1">
+      <PaginationContent>
+        <PaginationItem>
+          <PaginationPrevious
+            render={<button type="button" />}
+            disabled={safePage === 1}
+            onClick={() => onPageChange(Math.max(1, safePage - 1))}
+          />
+        </PaginationItem>
+        {pageItems.map((item, index) =>
+          item === "ellipsis" ? (
+            <PaginationItem key={`ellipsis-${index}`}>
+              <PaginationEllipsis />
+            </PaginationItem>
+          ) : (
+            <PaginationItem key={item}>
+              <PaginationLink
+                render={<button type="button" />}
+                isActive={item === safePage}
+                onClick={() => onPageChange(item)}
+              >
+                {item}
+              </PaginationLink>
+            </PaginationItem>
+          )
+        )}
+        <PaginationItem>
+          <PaginationNext
+            render={<button type="button" />}
+            disabled={safePage === totalPages}
+            onClick={() => onPageChange(Math.min(totalPages, safePage + 1))}
+          />
+        </PaginationItem>
+      </PaginationContent>
+    </Pagination>
+  );
+}
 
 function StatCard({ label, value, hint, icon: Icon }) {
   return (
@@ -113,8 +174,8 @@ function DashboardTab() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Usuarios" value={totalUsers} hint={`${activeSubs} com assinatura ativa`} icon={Users} />
         <StatCard label="Livros" value={totalBooks} hint={`${totalAuthors} autores`} icon={BookOpen} />
-        <StatCard label="Posts" value={totalPosts} hint={`${engagement.totalLikes} curtidas · ${engagement.totalReplies} respostas`} icon={MessageSquare} />
-        <StatCard label="Assinaturas" value={totalSubs} hint={`${monthlySubs} mensal · ${annualSubs} anual`} icon={Crown} />
+        <StatCard label="Posts" value={totalPosts} hint={`${engagement.totalLikes} curtidas Â· ${engagement.totalReplies} respostas`} icon={MessageSquare} />
+        <StatCard label="Assinaturas" value={totalSubs} hint={`${monthlySubs} mensal Â· ${annualSubs} anual`} icon={Crown} />
       </div>
 
       <div className="grid gap-3 lg:grid-cols-3">
@@ -509,7 +570,7 @@ function UsersTab() {
         </TableBody>
       </Table>
       {totalPages > 1 ? (
-        <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
+        <PaginationBar currentPage={page} totalPages={totalPages} onPageChange={setPage} />
       ) : null}
     </div>
   );
@@ -558,7 +619,7 @@ function PostsTab() {
         ))}
       </div>
       {totalPages > 1 ? (
-        <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
+        <PaginationBar currentPage={page} totalPages={totalPages} onPageChange={setPage} />
       ) : null}
       {confirm.dialog}
     </div>
@@ -588,7 +649,7 @@ function WeeklyReleasesTab() {
       });
       setForm({ bookId: "", releaseDate: "", note: "", visible: true });
     } catch (err) {
-      setError(err?.message || "Não foi possível salvar o lançamento.");
+      setError(err?.message || "NÃ£o foi possÃ­vel salvar o lanÃ§amento.");
     } finally {
       setSaving(false);
     }
@@ -597,7 +658,7 @@ function WeeklyReleasesTab() {
   return (
     <div className="space-y-4">
       <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-[var(--text-primary)]">Novo lançamento semanal</h3>
+        <h3 className="text-sm font-semibold text-[var(--text-primary)]">Novo lanÃ§amento semanal</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
             <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Livro</label>
@@ -620,14 +681,14 @@ function WeeklyReleasesTab() {
               placeholder="Escolher data"
             />
           </div>
-          <FormField label="Observação" value={form.note} onChange={(value) => setForm((prev) => ({ ...prev, note: value }))} placeholder="Ex: estreia de sexta" />
+          <FormField label="ObservaÃ§Ã£o" value={form.note} onChange={(value) => setForm((prev) => ({ ...prev, note: value }))} placeholder="Ex: estreia de sexta" />
         </div>
         <button
           onClick={handleSave}
           disabled={saving || !form.bookId || !form.releaseDate}
           className="inline-flex items-center gap-1.5 rounded-full bg-[var(--text-primary)] px-4 py-2 text-sm font-medium text-[var(--bg-card)] disabled:opacity-50"
         >
-          <Plus className="size-4" /> {saving ? "Salvando..." : "Adicionar lançamento"}
+          <Plus className="size-4" /> {saving ? "Salvando..." : "Adicionar lanÃ§amento"}
         </button>
         {error && <p className="text-xs text-red-400">{error}</p>}
       </div>
@@ -653,7 +714,7 @@ function WeeklyReleasesTab() {
                   release.visible !== false ? "bg-green-500/10 text-green-500 border border-green-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20"
                 }`}
               >
-                {release.visible === false ? "Oculto" : "Visível"}
+                {release.visible === false ? "Oculto" : "VisÃ­vel"}
               </button>
               <button
                 onClick={() => deleteWeeklyRelease(release.id)}
@@ -666,7 +727,7 @@ function WeeklyReleasesTab() {
         })}
       </div>
       {totalPages > 1 ? (
-        <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
+        <PaginationBar currentPage={page} totalPages={totalPages} onPageChange={setPage} />
       ) : null}
     </div>
   );
@@ -728,7 +789,7 @@ function BooksTab() {
       setForm((current) => ({ ...current, pdfFile: "", pdfPath: "" }));
       setError("");
     } catch (err) {
-      setError(err?.message || "PDF inválido.");
+      setError(err?.message || "PDF invÃ¡lido.");
       e.target.value = "";
     }
   }
@@ -743,7 +804,7 @@ function BooksTab() {
       setForm((current) => ({ ...current, image: "", imagePath: "" }));
       setError("");
     } catch (err) {
-      setError(err?.message || "Imagem inválida.");
+      setError(err?.message || "Imagem invÃ¡lida.");
       e.target.value = "";
     }
   }
@@ -756,7 +817,7 @@ function BooksTab() {
     let uploadedPdfPath = "";
 
     try {
-      if (!isSupabaseReady()) throw new Error("Supabase não configurado.");
+      if (!isSupabaseReady()) throw new Error("Supabase nÃ£o configurado.");
 
       if (imageFile) {
         uploadedImagePath = await uploadLibraryFile({
@@ -798,7 +859,7 @@ function BooksTab() {
         uploadedImagePath ? removeLibraryFile(LIBRARY_BUCKETS.covers, uploadedImagePath) : Promise.resolve(),
         uploadedPdfPath ? removeLibraryFile(LIBRARY_BUCKETS.pdfs, uploadedPdfPath) : Promise.resolve(),
       ]);
-      setError(err?.message || "Não foi possível salvar o livro. Confira as permissões no Supabase.");
+      setError(err?.message || "NÃ£o foi possÃ­vel salvar o livro. Confira as permissÃµes no Supabase.");
     } finally {
       setSaving(false);
     }
@@ -816,7 +877,7 @@ function BooksTab() {
     try {
       await deleteBook(book.id);
     } catch (err) {
-      setError(err?.message || "Não foi possível remover o livro.");
+      setError(err?.message || "NÃ£o foi possÃ­vel remover o livro.");
     }
   }
 
@@ -834,7 +895,7 @@ function BooksTab() {
         <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-5 space-y-4">
           <h3 className="text-sm font-semibold text-[var(--text-primary)]">{editId ? "Editar" : "Novo"} livro</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <FormField label="Título" value={form.title} onChange={v => setForm(p => ({ ...p, title: v }))} placeholder="Crime e Castigo" />
+            <FormField label="TÃ­tulo" value={form.title} onChange={v => setForm(p => ({ ...p, title: v }))} placeholder="Crime e Castigo" />
             <div>
               <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Autor</label>
               <select value={form.authorId} onChange={e => setForm(p => ({ ...p, authorId: e.target.value }))}
@@ -889,7 +950,7 @@ function BooksTab() {
                   </button>
                 )}
               </div>
-              <p className="text-[10px] text-[var(--text-muted)] mt-1">O PDF será enviado ao Supabase Storage e aberto dentro do app.</p>
+              <p className="text-[10px] text-[var(--text-muted)] mt-1">O PDF serÃ¡ enviado ao Supabase Storage e aberto dentro do app.</p>
             </div>
           </div>
           <FormField
@@ -942,7 +1003,7 @@ function BooksTab() {
         })}
       </div>
       {totalPages > 1 ? (
-        <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
+        <PaginationBar currentPage={page} totalPages={totalPages} onPageChange={setPage} />
       ) : null}
       {confirm.dialog}
     </div>
@@ -998,7 +1059,7 @@ function AuthorsTab() {
       setForm((current) => ({ ...current, image: "", imagePath: "" }));
       setError("");
     } catch (err) {
-      setError(err?.message || "Imagem inválida.");
+      setError(err?.message || "Imagem invÃ¡lida.");
       event.target.value = "";
     }
   }
@@ -1010,7 +1071,7 @@ function AuthorsTab() {
     let uploadedImagePath = "";
 
     try {
-      if (!isSupabaseReady()) throw new Error("Supabase não configurado.");
+      if (!isSupabaseReady()) throw new Error("Supabase nÃ£o configurado.");
       if (imageFile) {
         uploadedImagePath = await uploadLibraryFile({
           file: imageFile,
@@ -1039,7 +1100,7 @@ function AuthorsTab() {
       if (uploadedImagePath) {
         await removeLibraryFile(LIBRARY_BUCKETS.covers, uploadedImagePath).catch(() => {});
       }
-      setError(err?.message || "Não foi possível salvar o autor. Confira as permissões no Supabase.");
+      setError(err?.message || "NÃ£o foi possÃ­vel salvar o autor. Confira as permissÃµes no Supabase.");
     } finally {
       setSaving(false);
     }
@@ -1048,7 +1109,7 @@ function AuthorsTab() {
   async function handleDelete(author) {
     const ok = await confirm.ask({
       title: "Remover autor?",
-      description: `Remover "${author.name}" do banco? Os livros continuarão cadastrados sem autor.`,
+      description: `Remover "${author.name}" do banco? Os livros continuarÃ£o cadastrados sem autor.`,
       confirmLabel: "Remover",
       danger: true,
     });
@@ -1057,7 +1118,7 @@ function AuthorsTab() {
     try {
       await deleteAuthor(author.id);
     } catch (err) {
-      setError(err?.message || "Não foi possível remover o autor.");
+      setError(err?.message || "NÃ£o foi possÃ­vel remover o autor.");
     }
   }
 
@@ -1077,7 +1138,7 @@ function AuthorsTab() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label="Nome" value={form.name} onChange={v => setForm(p => ({ ...p, name: v }))} placeholder="Friedrich Nietzsche" />
             <FormField label="Corrente/Tema" value={form.theme} onChange={v => setForm(p => ({ ...p, theme: v }))} placeholder="Existencialismo" />
-            <FormField label="Época" value={form.era} onChange={v => setForm(p => ({ ...p, era: v }))} placeholder="século XIX" />
+            <FormField label="Ã‰poca" value={form.era} onChange={v => setForm(p => ({ ...p, era: v }))} placeholder="sÃ©culo XIX" />
             <div>
               <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Foto do autor</label>
               <div className="flex items-center gap-3">
@@ -1101,7 +1162,7 @@ function AuthorsTab() {
             </div>
             <div className="sm:col-span-2">
               <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Bio / frase famosa</label>
-              <textarea value={form.bio} onChange={e => setForm(p => ({ ...p, bio: e.target.value }))} placeholder="Frase ou biografia curta que aparece na página do autor..." rows={3}
+              <textarea value={form.bio} onChange={e => setForm(p => ({ ...p, bio: e.target.value }))} placeholder="Frase ou biografia curta que aparece na pÃ¡gina do autor..." rows={3}
                 className="w-full rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-none focus:border-[var(--border-strong)] resize-none" />
             </div>
           </div>
@@ -1131,7 +1192,7 @@ function AuthorsTab() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{author.name}</p>
-                    <p className="text-xs text-[var(--text-muted)]">{author.theme} · {author.era}</p>
+                    <p className="text-xs text-[var(--text-muted)]">{author.theme} Â· {author.era}</p>
                     <p className="text-[11px] text-[var(--text-muted)] mt-1">{authorBooks.length} livros</p>
                   </div>
                 </div>
@@ -1159,7 +1220,7 @@ function AuthorsTab() {
         })}
       </div>
       {totalPages > 1 ? (
-        <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
+        <PaginationBar currentPage={page} totalPages={totalPages} onPageChange={setPage} />
       ) : null}
     </div>
   );
@@ -1273,7 +1334,7 @@ export function AdminPage() {
         <ShieldAlert className="size-12 text-[var(--text-muted)]" />
         <h2 className="text-lg font-bold text-[var(--text-primary)]">Acesso restrito</h2>
         <p className="text-sm text-[var(--text-muted)] text-center max-w-sm">
-          Apenas administradores podem acessar o painel. Se você é admin, certifique-se de que sua conta tem a permissão correta.
+          Apenas administradores podem acessar o painel. Se vocÃª Ã© admin, certifique-se de que sua conta tem a permissÃ£o correta.
         </p>
       </div>
     );
@@ -1283,7 +1344,7 @@ export function AdminPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)]">Admin</h1>
-        <p className="text-sm text-[var(--text-muted)] mt-1">Gerencie usuários, assinaturas, posts, livros e autores.</p>
+        <p className="text-sm text-[var(--text-muted)] mt-1">Gerencie usuÃ¡rios, assinaturas, posts, livros e autores.</p>
       </div>
 
       <div className="flex gap-1 overflow-x-auto pb-1 border-b border-[var(--border)]" style={{ scrollbarWidth: "none" }}>

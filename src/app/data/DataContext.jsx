@@ -556,6 +556,7 @@ export function DataProvider({ children }) {
       pdf_path: data.pdfPath || null,
       author_id: data.authorId || null,
       category: sanitizeSingleLine(data.category, 80) || null,
+      bio: sanitizePlainText(data.bio, 20000) || null,
     };
     if (isSupabase) {
       const { data: inserted, error } = await supabase.from("books").insert(payload).select("*, authors(name)").single();
@@ -591,6 +592,7 @@ export function DataProvider({ children }) {
         pdf_path: data.pdfPath || null,
         author_id: data.authorId || null,
         category: sanitizeSingleLine(data.category, 80) || null,
+        bio: sanitizePlainText(data.bio, 20000) || null,
       }).eq("id", id);
       if (error) throw error;
 
