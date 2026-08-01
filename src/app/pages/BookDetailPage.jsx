@@ -114,7 +114,7 @@ export function BookDetailPage() {
   const ctaLabel = !hasPdf || !release.liberado
     ? "Indisponivel"
     : isCompleted ? "Continuar lendo"
-    : progresso > 0 ? "Lendo agora"
+    : progresso > 0 ? "Continuar lendo"
     : "Comecar a ler";
 
   return (

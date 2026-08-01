@@ -147,6 +147,17 @@ export function BookReaderPage() {
     text = text.replace(/^\s*\d+(?:\s*\/\s*\d+)?\s*$/gm, "");
     // Colapsa espacos multiplos e excesso de linhas vazias.
     text = text.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+    // PDFs com fontes CMap/embedded complexas as vezes retornam o glifo de
+    // substituicao (caixa/FFFD) ou caracteres privados da fonte. Se a pagina
+    // for majoritariamente ilegivel, devolvemos string vazia para que o
+    // leitor caia automaticamente para o canvas em vez de mostrar lixo.
+    const semControle = text.replace(/\uFFFD|[\uE000-\uF8FF]/g, "");
+    const ilegivelRatio = text.length > 0 ? (text.length - semControle.length) / text.length : 0;
+    if (ilegivelRatio > 0.3) {
+      pageTextCacheRef.current.set(pageNumber, "");
+      return "";
+    }
+    text = semControle;
     pageTextCacheRef.current.set(pageNumber, text);
     return text;
   }
@@ -387,7 +398,7 @@ export function BookReaderPage() {
       <header className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--border)] bg-[var(--bg-card)] px-3 py-2.5 sm:px-5">
         <div className="flex min-w-0 items-center gap-2">
           <button
-            onClick={() => navigate(`/app/livro/${id}`)}
+            onClick={() => navigate(-1)}
             className="flex size-9 shrink-0 items-center justify-center rounded-full border border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)] sm:size-10"
             aria-label="Fechar leitor"
           >
@@ -481,11 +492,19 @@ export function BookReaderPage() {
             const dx = touch.clientX - start.x;
             const dy = touch.clientY - start.y;
             touchStartRef.current = null;
-            if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy)) return;
+            if (Math.abs(dx) < 30 || Math.abs(dx) < Math.abs(dy)) return;
             if (window.getSelection()?.toString()) return;
             if (dx < 0) goNextPage(); else goPrevPage();
           }}
-          className="relative flex min-h-0 flex-1 items-start justify-center overflow-y-auto bg-[var(--bg-canvas)] px-4 py-6 sm:px-8 sm:py-10"
+          onPointerUp={(event) => {
+            if (event.pointerType !== "touch") return;
+            const rect = event.currentTarget.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            if (window.getSelection()?.toString()) return;
+            if (x > rect.width * 0.78) goNextPage();
+            else if (x < rect.width * 0.22) goPrevPage();
+          }}
+          className="relative flex min-h-0 flex-1 touch-pan-y select-text items-start justify-center overflow-y-auto bg-[var(--bg-canvas)] px-4 py-6 sm:px-8 sm:py-10"
         >
           {loading ? (
             <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">Carregando livro...</div>
