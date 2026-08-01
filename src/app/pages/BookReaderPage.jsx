@@ -116,14 +116,36 @@ export function BookReaderPage() {
     if (cached !== undefined) return cached;
     const p = await doc.getPage(pageNumber);
     const content = await p.getTextContent();
-    let text = "";
-    for (const item of content.items) {
-      const str = item.str;
-      if (str) {
-        text += str;
-        if (item.hasEOL) text += "\n";
+    // Agrupa itens por linha (Y igual) para reconstruir a pagina de forma
+    // legivel, em vez de colar tudo em uma frase gigante justificada.
+    const lines = [];
+    let currentY = null;
+    let currentLine = [];
+    const items = content.items.filter((item) => item.str !== undefined);
+    for (const item of items) {
+      const transform = item.transform || [];
+      const y = Math.round(transform[5] || 0);
+      if (currentY === null || Math.abs(y - currentY) > 2) {
+        if (currentLine.length) lines.push({ y: currentY, text: currentLine.join("") });
+        currentLine = [];
+        currentY = y;
+      }
+      currentLine.push(item.str);
+      if (item.hasEOL) {
+        lines.push({ y: currentY, text: currentLine.join("") });
+        currentLine = [];
+        currentY = null;
       }
     }
+    if (currentLine.length) lines.push({ y: currentY, text: currentLine.join("") });
+    const cleaned = lines.map((l) => l.text).filter((line) => line.trim().length > 0);
+    let text = cleaned.join("\n");
+    // Hifenizacao de fim de linha: "palavra-" no fim de uma linha eh juntada
+    // a primeira sequencia de letras da linha seguinte, sem hifen.
+    text = text.replace(/(\w)-\n(\w)/g, "$1$2");
+    // Numeros de pagina isolados: linha que so tem digitos (e opcional " / ").
+    text = text.replace(/^\s*\d+(?:\s*\/\s*\d+)?\s*$/gm, "");
+    // Colapsa espacos multiplos e excesso de linhas vazias.
     text = text.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
     pageTextCacheRef.current.set(pageNumber, text);
     return text;
@@ -476,12 +498,47 @@ export function BookReaderPage() {
             </div>
           ) : pageText ? (
             <article className="mx-auto w-full max-w-[680px] select-text">
-              <p
-                className="whitespace-pre-wrap break-words text-[var(--text-primary)]"
-                style={{ fontSize: `${fontSize}px`, lineHeight: 1.7, letterSpacing: "0.005em" }}
-              >
-                {pageText}
-              </p>
+              {pageText.split(/\n\n+/).map((paragraph, index) => {
+                const trimmed = paragraph.trim();
+                if (!trimmed) return null;
+                const semPonto = !/[.!?]\s*$/.test(trimmed);
+                const curta = trimmed.length <= 60;
+                const maiscula = /^[A-Z0-9IVXLCDM \-'".:,()&]+$/.test(trimmed) && /[A-Z]/.test(trimmed);
+                const isChapterHeading = semPonto && curta && maiscula;
+                const isSubheading = semPonto && curta && !maiscula && trimmed.length >= 2;
+                const text = paragraph.replace(/[ \t]+\n/g, "\n").replace(/\n+/g, " ");
+                if (isChapterHeading) {
+                  return (
+                    <h2
+                      key={index}
+                      className="mt-6 mb-5 text-center font-bold uppercase tracking-[0.08em] text-[var(--text-primary)]"
+                      style={{ fontSize: `${Math.round(fontSize * 1.05)}px`, lineHeight: 1.4 }}
+                    >
+                      {trimmed}
+                    </h2>
+                  );
+                }
+                if (isSubheading) {
+                  return (
+                    <h3
+                      key={index}
+                      className="mt-5 mb-2 font-semibold text-[var(--text-primary)]"
+                      style={{ fontSize: `${fontSize}px`, lineHeight: 1.4 }}
+                    >
+                      {trimmed}
+                    </h3>
+                  );
+                }
+                return (
+                  <p
+                    key={index}
+                    className="mb-4 text-[var(--text-primary)]"
+                    style={{ fontSize: `${fontSize}px`, lineHeight: 1.75, letterSpacing: "0.005em", textAlign: "justify" }}
+                  >
+                    {text}
+                  </p>
+                );
+              })}
             </article>
           ) : canvasFallback ? (
             <div className="flex h-full w-full items-center justify-center">
