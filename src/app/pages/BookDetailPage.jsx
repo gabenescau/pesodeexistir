@@ -4,6 +4,8 @@ import { BookOpen, Bookmark as BookmarkIcon, ChevronLeft, Lock, Share2, StarIcon
 import { useData } from "../data/DataContext";
 import { contagemRegressiva, formatarData } from "@/lib/releases";
 import { relatedBooks as recomendarLivros } from "@/lib/recommendations";
+import { CreatePost } from "../components/CreatePost";
+import { PostCard } from "../components/PostCard";
 
 const DEFAULT_LANGUAGE = "Portugues";
 
@@ -30,7 +32,8 @@ export function BookDetailPage() {
   const navigate = useNavigate();
   const {
     getBookById, getAuthorById, getReleaseStatus, toggleFavoriteBook,
-    isFavoriteBook, books, authors, rateBook, myBookRating, bookRatingStats,
+    isFavoriteBook, books, rateBook, myBookRating, bookRatingStats,
+    posts, deletePost,
   } = useData();
   const book = getBookById(id);
   const release = getReleaseStatus(id);
@@ -70,14 +73,11 @@ export function BookDetailPage() {
 
   const relatedBooks = recomendarLivros(livrosComNotaViva, book);
 
-  const relatedAuthors = useMemo(() => {
-    return [
-      ...(author ? [author] : []),
-      ...authors.filter(
-        (a) => a.id !== author?.id && books.some((b) => b.category === book.category && b.authorId === a.id)
-      ),
-    ].slice(0, 6);
-  }, [author, authors, books, book.category]);
+  const bookPosts = useMemo(() => {
+    return posts.filter(
+      (p) => p.book_id === book.id && !(p.tag || "").startsWith("entity-thread:")
+    );
+  }, [posts, book.id]);
 
   const minhaNota = myBookRating(book.id);
   const statsDesteLivro = bookRatingStats[book.id];
@@ -305,58 +305,60 @@ export function BookDetailPage() {
             </section>
           )}
 
-          {/* Livros e autores relacionados */}
-          {(relatedBooks.length > 0 || relatedAuthors.length > 0) && (
+          {/* Livros relacionados */}
+          {relatedBooks.length > 0 && (
             <section>
               <h3 className="mb-3 text-sm font-semibold text-[var(--text-primary)]">Talvez voce tambem goste</h3>
 
-              {relatedBooks.length > 0 && (
-                <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0" style={{ scrollbarWidth: "none" }}>
-                  {relatedBooks.map((rb) => (
-                    <button
-                      key={rb.id}
-                      onClick={() => navigate(`/app/livro/${rb.id}`)}
-                      className="w-[120px] shrink-0 text-left"
-                    >
-                      <div className="aspect-[2/3] overflow-hidden rounded-[8px] border border-[var(--border)] bg-[var(--bg-card)]">
-                        <img src={rb.image} alt="" className="h-full w-full object-cover" />
-                      </div>
-                      <p className="mt-1.5 truncate text-xs font-medium text-[var(--text-primary)]">{rb.title}</p>
-                      {rb.ratingCount > 0 ? (
-                        <p className="mt-0.5 flex items-center gap-0.5 text-[10px] text-[var(--text-secondary)]">
-                          <StarIcon weight="fill" className="size-3 text-amber-400" />
-                          {rb.nota.toFixed(1)}
-                        </p>
-                      ) : null}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {relatedAuthors.length > 0 && (
-                <div className="-mx-4 mt-2 flex gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0" style={{ scrollbarWidth: "none" }}>
-                  {relatedAuthors.map((ra) => (
-                    <button
-                      key={ra.id}
-                      onClick={() => navigate(`/app/autor/${ra.id}`)}
-                      className="w-[84px] shrink-0 text-center"
-                    >
-                      <div className="mx-auto size-16 overflow-hidden rounded-full border border-[var(--border)] bg-[var(--bg-card)]">
-                        {ra.image ? (
-                          <img src={ra.image} alt="" className="h-full w-full object-cover" />
-                        ) : (
-                          <span className="flex h-full w-full items-center justify-center text-lg font-bold text-[var(--text-muted)]">
-                            {ra.name?.charAt(0)}
-                          </span>
-                        )}
-                      </div>
-                      <p className="mt-1.5 truncate text-xs font-medium text-[var(--text-primary)]">{ra.name}</p>
-                    </button>
-                  ))}
-                </div>
-              )}
+              <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0" style={{ scrollbarWidth: "none" }}>
+                {relatedBooks.map((rb) => (
+                  <button
+                    key={rb.id}
+                    onClick={() => navigate(`/app/livro/${rb.id}`)}
+                    className="w-[120px] shrink-0 text-left"
+                  >
+                    <div className="aspect-[2/3] overflow-hidden rounded-[8px] border border-[var(--border)] bg-[var(--bg-card)]">
+                      <img src={rb.image} alt="" className="h-full w-full object-cover" />
+                    </div>
+                    <p className="mt-1.5 truncate text-xs font-medium text-[var(--text-primary)]">{rb.title}</p>
+                    {rb.ratingCount > 0 ? (
+                      <p className="mt-0.5 flex items-center gap-0.5 text-[10px] text-[var(--text-secondary)]">
+                        <StarIcon weight="fill" className="size-3 text-amber-400" />
+                        {rb.nota.toFixed(1)}
+                      </p>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
             </section>
           )}
+
+          {/* Discussoes do livro: posts da comunidade vinculados ao livro */}
+          <section className="space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-[var(--text-primary)]">Discussoes do livro</h3>
+                <p className="text-xs text-[var(--text-muted)]">Postagens da comunidade sobre este livro.</p>
+              </div>
+              <CreatePost initialBookId={book.id} />
+            </div>
+
+            {bookPosts.length > 0 ? (
+              <div className="space-y-4">
+                {bookPosts.map((post) => (
+                  <PostCard
+                    key={post.id}
+                    post={post}
+                    onDelete={deletePost}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-[12px] border border-dashed border-[var(--border)] p-6 text-center text-sm text-[var(--text-muted)]">
+                Ainda nao ha discussoes sobre este livro. Seja a primeira pessoa a postar.
+              </p>
+            )}
+          </section>
 
           {!hasPdf && (
             <section className="rounded-[12px] border border-dashed border-[var(--border)] p-8 text-center">

@@ -52,7 +52,7 @@ async function uploadPostImages(files, userId) {
   return uploaded;
 }
 
-export function CreatePost() {
+export function CreatePost({ initialBookId = null }) {
   const { user, profile, isAdmin } = useAuth();
   const { addPost, books, authors, profiles, subscription } = useData();
   const fileInputRef = useRef(null);
@@ -60,7 +60,7 @@ export function CreatePost() {
   const [open, setOpen] = useState(false);
   const [subscribeOpen, setSubscribeOpen] = useState(false);
   const [text, setText] = useState("");
-  const [bookId, setBookId] = useState(null);
+  const [bookId, setBookId] = useState(initialBookId);
   const [imageFiles, setImageFiles] = useState([]);
   const [previews, setPreviews] = useState([]);
   const [pollEnabled, setPollEnabled] = useState(false);
