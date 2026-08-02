@@ -21,7 +21,7 @@ export function LandingHeader() {
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-6 sm:pt-4">
-      <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between rounded-[8px] border border-[var(--landing-border)] bg-[var(--landing-bg-glass)] px-4 py-3 shadow-[var(--shadow-sm)] backdrop-blur-xl sm:px-6">
+      <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between rounded-[8px] border border-[var(--landing-border)] bg-[var(--landing-bg-glass)] px-4 py-3 backdrop-blur-xl sm:px-6">
         <a href="#top" className="font-serif text-[15px] leading-[0.9] text-[var(--landing-fg)] sm:text-[17px]">
           OPE
           <br />
@@ -68,7 +68,7 @@ export function LandingHeader() {
       </div>
 
       {menuOpen && (
-        <nav className="mx-auto mt-2 grid w-full max-w-[1400px] gap-1 rounded-[8px] border border-[var(--landing-border)] bg-[var(--landing-surface)] p-3 shadow-xl lg:hidden" aria-label="Navegação mobile">
+        <nav className="mx-auto mt-2 grid w-full max-w-[1400px] gap-1 rounded-[8px] border border-[var(--landing-border)] bg-[var(--landing-surface)] p-3 lg:hidden" aria-label="Navegação mobile">
           {links.map((link) => (
             <a
               key={link.label}
@@ -96,7 +96,7 @@ export function LandingHero() {
   return (
     <section id="top" className="relative isolate min-h-[92svh] overflow-hidden bg-[var(--landing-bg)]">
       <div aria-hidden className="absolute inset-0 -z-20 bg-[url('/hero/backgroundclaromobile.png')] bg-[length:116%_auto] bg-[position:center_-18vw] bg-no-repeat dark:bg-[url('/hero/backgroundherocelular.png')] md:bg-[url('/hero/versaoclaradesktop.png')] md:bg-cover md:bg-center dark:md:bg-[url('/hero/backgroundnovo.png')]" />
-      <div aria-hidden className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,transparent_20%,var(--landing-bg)_76%)] md:bg-[linear-gradient(90deg,var(--landing-bg)_0%,color-mix(in_srgb,var(--landing-bg)_92%,transparent)_28%,color-mix(in_srgb,var(--landing-bg)_35%,transparent)_58%,transparent_82%)]" />
+      <div aria-hidden className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--landing-bg)_55%,transparent)_0%,color-mix(in_srgb,var(--landing-bg)_30%,transparent)_40%,transparent_72%)] md:bg-[linear-gradient(90deg,var(--landing-bg)_0%,color-mix(in_srgb,var(--landing-bg)_88%,transparent)_28%,color-mix(in_srgb,var(--landing-bg)_30%,transparent)_58%,transparent_82%)]" />
       <div aria-hidden className="absolute inset-x-0 bottom-0 -z-10 h-32 bg-gradient-to-t from-[var(--landing-section)] to-transparent" />
 
       <div className="mx-auto flex min-h-[92svh] w-full max-w-[1500px] items-end px-5 pb-10 pt-[82vw] sm:px-8 sm:pt-[68vw] md:items-center md:px-10 md:pb-12 md:pt-28 lg:px-12">

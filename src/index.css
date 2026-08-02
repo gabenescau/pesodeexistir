@@ -263,9 +263,9 @@
    tokens scoped prevents marketing styles from leaking into the app shell. */
 .ope-landing {
   --landing-bg: #f5f5f7;
-  --landing-section: #ffffff;
-  --landing-surface: rgba(255,255,255,.46);
-  --landing-bg-glass: rgba(245,245,247,.82);
+  --landing-section: #fafafc;
+  --landing-surface: rgba(255,255,255,.7);
+  --landing-bg-glass: rgba(245,245,247,.78);
   --landing-fg: #1d1d1f;
   --landing-muted: #7a7a7a;
   --landing-brand: #0066cc;
