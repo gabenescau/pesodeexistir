@@ -348,7 +348,7 @@ function CollectionDetailSheet({ open, onClose, collection, items, books, author
   );
 }
 
-export function CollectionsPanel({ ownerId, ownerName }) {
+export function CollectionsPanel({ ownerId, ownerName, showCreateButton = true, createPrompt }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const {
@@ -368,6 +368,7 @@ export function CollectionsPanel({ ownerId, ownerName }) {
   const openCollection = openCollectionId ? ownerCollections.find((c) => c.id === openCollectionId) : null;
   const openItems = openCollectionId ? getCollectionItems(openCollectionId) : [];
   const canEdit = Boolean(user?.id && openCollection?.user_id === user?.id);
+  const ehProprio = user?.id === ownerId;
 
   async function handleCreate({ name, description, isPublic }) {
     const created = await createCollection({ name, description, isPublic });
@@ -403,12 +404,25 @@ export function CollectionsPanel({ ownerId, ownerName }) {
         <p className="text-xs text-[var(--text-muted)]">
           {ownerCollections.length} {ownerCollections.length === 1 ? "colecao" : "colecoes"} de {ownerName || "este perfil"}
         </p>
-        <button
-          onClick={() => setCreateOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-full bg-[var(--text-primary)] px-3.5 py-1.5 text-xs font-semibold text-[var(--bg-card)]"
-        >
-          <Plus className="size-3.5" weight="bold" /> Criar colecao
-        </button>
+        {showCreateButton ? (
+          ehProprio ? (
+            <button
+              type="button"
+              onClick={() => setCreateOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-[var(--text-primary)] px-3.5 py-1.5 text-xs font-semibold text-[var(--bg-card)]"
+            >
+              <Plus className="size-3.5" weight="bold" /> Criar colecao
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => toast.info(createPrompt || "Voce so pode criar colecoes no seu proprio perfil.")}
+              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] px-3.5 py-1.5 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"
+            >
+              <Plus className="size-3.5" /> Criar colecao
+            </button>
+          )
+        ) : null}
       </div>
 
       {ownerCollections.length === 0 ? (
@@ -432,14 +446,16 @@ export function CollectionsPanel({ ownerId, ownerName }) {
         </div>
       )}
 
-      <CreateCollectionSheet
-        open={createOpen}
-        onClose={(created) => {
-          setCreateOpen(false);
-          if (created) setOpenCollectionId(created.id);
-        }}
-        onCreate={handleCreate}
-      />
+      {ehProprio ? (
+        <CreateCollectionSheet
+          open={createOpen}
+          onClose={(created) => {
+            setCreateOpen(false);
+            if (created) setOpenCollectionId(created.id);
+          }}
+          onCreate={handleCreate}
+        />
+      ) : null}
 
       <CollectionDetailSheet
         open={Boolean(openCollection)}
