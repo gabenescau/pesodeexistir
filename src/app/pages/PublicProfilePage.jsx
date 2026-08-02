@@ -102,7 +102,7 @@ export function PublicProfilePage() {
   }
 
   return (
-    <div className="-mx-4 sm:mx-0">
+    <div className="-mx-4 sm:mx-0 sm:max-w-[640px] md:mx-auto md:max-w-[720px]">
       {/* Top bar (igual a referencia) */}
       <header className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-[var(--border)] bg-[var(--bg-canvas)]/80 px-4 py-2.5 backdrop-blur sm:px-0">
         <div className="flex min-w-0 items-center gap-3">
@@ -148,7 +148,7 @@ export function PublicProfilePage() {
       </header>
 
       {/* Capa */}
-      <div className="relative h-32 overflow-hidden bg-gradient-to-br from-[#0066cc] via-[#0071e3] to-[#2997ff] sm:h-44">
+      <div className="relative h-32 overflow-hidden bg-[var(--hover-overlay)] sm:h-44">
         {capa ? <img src={capa} alt="" className="h-full w-full object-cover" /> : null}
       </div>
 
