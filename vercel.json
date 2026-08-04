@@ -1,12 +1,7 @@
 {
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/app/(.*)", "destination": "/index.html" },
-    { "source": "/entrar", "destination": "/index.html" },
-    { "source": "/cadastro", "destination": "/index.html" },
-    { "source": "/esqueci-senha", "destination": "/index.html" },
-    { "source": "/recuperar-senha", "destination": "/index.html" },
-    { "source": "/checkout", "destination": "/index.html" }
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "headers": [
     {

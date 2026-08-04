@@ -1,11 +1,10 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { Toaster } from '@/components/toaster'
 import { DataProvider } from '@/app/data/DataContext'
 import { Seo } from '@/components/seo'
 
-const LandingPage = lazy(() => import('@/components/LandingPage').then((module) => ({ default: module.LandingPage })))
 const AuthPage = lazy(() => import('@/components/auth-page').then((module) => ({ default: module.AuthPage })))
 const AppShell = lazy(() => import('@/app/AppShell').then((module) => ({ default: module.AppShell })))
 const SubscribePage = lazy(() => import('@/app/pages/SubscribePage').then((module) => ({ default: module.SubscribePage })))
@@ -19,14 +18,12 @@ function RouteLoading() {
   );
 }
 
-const DEFAULT_DESCRIPTION =
-  'OPE Club e uma biblioteca digital e comunidade para quem ama filosofia e literatura. Leia grandes autores, discuta livros e participe de uma comunidade que pensa junto.';
-
 const SEO_PAGES = {
   '/': {
-    title: 'OPE Club | Biblioteca e Comunidade de Filosofia e Literatura',
-    description: DEFAULT_DESCRIPTION,
+    title: 'Entrar | OPE Club',
+    description: 'Acesse sua biblioteca, suas notas e a comunidade de filosofia e literatura do OPE Club.',
     type: 'website',
+    robots: 'noindex, nofollow',
   },
   '/entrar': {
     title: 'Entrar | OPE Club',
@@ -127,7 +124,7 @@ export default function App() {
       <SEOHead />
       <Suspense fallback={<RouteLoading />}>
         <Routes>
-          <Route path="/" element={<LandingPage />} />
+          <Route path="/" element={<AuthPage />} />
           <Route path="/entrar" element={<AuthPage />} />
           <Route path="/assinar" element={<ProtectedRoute><SubscribePage /></ProtectedRoute>} />
           <Route path="/pagamento/processando" element={<ProtectedRoute><ProcessingPage /></ProtectedRoute>} />
