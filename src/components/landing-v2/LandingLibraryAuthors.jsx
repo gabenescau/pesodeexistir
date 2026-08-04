@@ -1,10 +1,10 @@
 import { bookCovers, landingAuthors } from "./data";
 
 function CoverRow({ covers, reverse = false }) {
-  const loop = [...covers, ...covers];
+  const loop = [...covers, ...covers, ...covers];
   return (
-    <div className="flex overflow-hidden" aria-label="Capas do acervo">
-      <div className={`flex w-max gap-3 sm:gap-4 pr-3 sm:pr-4 ${reverse ? "landing-marquee-right" : "landing-marquee-left"}`}>
+    <div className="flex overflow-hidden py-1" aria-label="Capas do acervo">
+      <div className={`flex w-max gap-3 sm:gap-4 pr-3 sm:pr-4 ${reverse ? "landing-marquee-right" : "landing-marquee-left"} hover:[animation-play-state:paused]`}>
         {loop.map((src, index) => (
           <img
             key={`${src}-${index}`}
@@ -36,15 +36,15 @@ export function LandingLibrary() {
         <CoverRow covers={bookCovers.slice(0, 15)} />
         <CoverRow covers={bookCovers.slice(15)} reverse />
       </div>
-      <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0 w-16 sm:w-24 bg-gradient-to-r from-[var(--landing-section)] to-transparent md:w-56" />
-      <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-16 sm:w-24 bg-gradient-to-l from-[var(--landing-section)] to-transparent md:w-56" />
+      <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0 w-16 sm:w-28 bg-gradient-to-r from-[var(--landing-section)] to-transparent md:w-56 z-10" />
+      <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-16 sm:w-28 bg-gradient-to-l from-[var(--landing-section)] to-transparent md:w-56 z-10" />
     </section>
   );
 }
 
 function AuthorCard({ author }) {
   return (
-    <article className="group relative h-[380px] w-[260px] sm:h-[440px] sm:w-[310px] shrink-0 snap-start overflow-hidden rounded-2xl sm:rounded-3xl border border-[var(--landing-border)] bg-[var(--landing-surface)] transition-all duration-300 hover:border-[var(--landing-brand)]/50 hover:shadow-2xl">
+    <article className="group relative h-[360px] w-[250px] sm:h-[430px] sm:w-[300px] shrink-0 overflow-hidden rounded-2xl sm:rounded-3xl border border-[var(--landing-border)] bg-[var(--landing-surface)] transition-all duration-300 hover:border-[var(--landing-brand)]/50 hover:shadow-2xl">
       <img
         src={encodeURI(author.image)}
         alt={`Retrato de ${author.name}`}
@@ -72,8 +72,10 @@ function AuthorCard({ author }) {
 }
 
 export function LandingAuthors() {
+  const loopAuthors = [...landingAuthors, ...landingAuthors, ...landingAuthors];
+
   return (
-    <section id="autores" className="border-t border-[var(--landing-border)] bg-[var(--landing-bg)] py-16 sm:py-24 md:py-32">
+    <section id="autores" className="relative overflow-hidden border-t border-[var(--landing-border)] bg-[var(--landing-bg)] py-16 sm:py-24 md:py-32">
       <div className="mx-auto w-full max-w-[1280px] px-4 sm:px-6">
         <div className="text-center">
           <h2 className="text-[clamp(1.9rem,4.5vw,3.3rem)] font-medium leading-tight tracking-tight text-[var(--landing-fg)] text-balance">
@@ -85,14 +87,16 @@ export function LandingAuthors() {
         </div>
       </div>
 
-      <div className="mt-10 sm:mt-16 hidden snap-x gap-6 overflow-x-auto px-6 pb-4 [scrollbar-width:none] md:flex [&::-webkit-scrollbar]:hidden justify-center">
-        {landingAuthors.map((author) => <AuthorCard key={author.name} author={author} />)}
+      <div className="mt-10 sm:mt-16 flex overflow-hidden py-2" aria-label="Galeria de autores">
+        <div className="flex w-max gap-5 sm:gap-6 pr-5 sm:pr-6 landing-marquee-authors hover:[animation-play-state:paused]">
+          {loopAuthors.map((author, index) => (
+            <AuthorCard key={`${author.name}-${index}`} author={author} />
+          ))}
+        </div>
       </div>
-      <div className="mt-10 sm:mt-16 overflow-x-auto px-4 pb-4 md:hidden flex gap-4 snap-x snap-mandatory [scrollbar-width:none]">
-        {landingAuthors.map((author, index) => (
-          <AuthorCard key={`${author.name}-${index}`} author={author} />
-        ))}
-      </div>
+
+      <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0 w-16 sm:w-28 bg-gradient-to-r from-[var(--landing-bg)] to-transparent md:w-48 z-10" />
+      <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-16 sm:w-28 bg-gradient-to-l from-[var(--landing-bg)] to-transparent md:w-48 z-10" />
     </section>
   );
 }

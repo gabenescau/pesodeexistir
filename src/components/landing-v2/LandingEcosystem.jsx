@@ -149,42 +149,66 @@ export function LandingEcosystem() {
               {/* Bottom Showcase: Live Leitor & Feed Combined */}
               <div className="grid gap-3.5 sm:gap-4 grid-cols-1 md:grid-cols-2">
                 {/* Leitor Mockup Mini */}
-                <div className="rounded-2xl border border-[var(--landing-border)] bg-[var(--landing-bg)] p-4 sm:p-5 flex flex-col justify-between">
+                <div className="group relative rounded-2xl border border-[var(--landing-border)] bg-[var(--landing-bg)] p-4 sm:p-5 flex flex-col justify-between transition-all duration-300 hover:border-[var(--landing-brand)]/40">
                   <div>
                     <div className="flex items-center justify-between text-xs text-[var(--landing-muted)] pb-2.5 sm:pb-3 border-b border-[var(--landing-border)]">
-                      <span>Leitor Nativo</span>
-                      <span className="font-mono text-[10px] truncate max-w-[180px]">Albert Camus • O Estrangeiro</span>
+                      <div className="flex items-center gap-2 font-medium text-[var(--landing-fg)]">
+                        <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+                        <span>Leitor Nativo</span>
+                      </div>
+                      <span className="font-mono text-[10px] text-[var(--landing-muted)] truncate max-w-[180px]">
+                        F. Nietzsche • Além do Bem e do Mal
+                      </span>
                     </div>
-                    <blockquote className="mt-3 sm:mt-4 text-xs sm:text-sm italic leading-relaxed text-[var(--landing-fg)]">
-                      “Hoje, mamãe morreu. Ou talvez ontem, não sei bem. Recebi um telegrama do asilo...”
-                    </blockquote>
+                    <div className="mt-3.5 sm:mt-4 pl-3 border-l-2 border-[var(--landing-brand)]/60">
+                      <blockquote className="font-['Newsreader',_Georgia,_serif] text-[15px] sm:text-[16px] italic leading-relaxed text-[var(--landing-fg)]">
+                        “Quem luta com monstros deve velar para não se transformar também em monstro. E se tu olhares muito tempo para um abismo, o abismo também olhará para ti.”
+                      </blockquote>
+                    </div>
                   </div>
                   <div className="mt-4 flex items-center justify-between text-[11px] text-[var(--landing-muted)] pt-2.5 border-t border-[var(--landing-border)]">
-                    <span>Capítulo 1 • Página 12</span>
-                    <span className="font-mono text-[var(--landing-brand)]">Progresso 18%</span>
+                    <span className="flex items-center gap-1.5">
+                      <Bookmark className="size-3 text-[var(--landing-brand)]" />
+                      Aforismo 146 • Sessão ativa
+                    </span>
+                    <span className="font-mono font-medium text-[var(--landing-fg)]">
+                      +20 min lidos
+                    </span>
                   </div>
                 </div>
 
                 {/* Feed Mockup Mini */}
-                <div className="rounded-2xl border border-[var(--landing-border)] bg-[var(--landing-bg)] p-4 sm:p-5 flex flex-col justify-between">
+                <div className="group relative rounded-2xl border border-[var(--landing-border)] bg-[var(--landing-bg)] p-4 sm:p-5 flex flex-col justify-between transition-all duration-300 hover:border-[var(--landing-brand)]/40">
                   <div>
                     <div className="flex items-center justify-between text-xs text-[var(--landing-muted)] pb-2.5 sm:pb-3 border-b border-[var(--landing-border)]">
-                      <span>Comunidade &amp; Feed</span>
-                      <span className="font-mono text-[10px]">Agora mesmo</span>
-                    </div>
-                    <div className="mt-3 sm:mt-4">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-xs text-[var(--landing-fg)]">Lucas F.</span>
-                        <span className="text-[10px] text-[var(--landing-muted)] font-mono">Nv. 22 Pensador</span>
+                      <div className="flex items-center gap-2 font-medium text-[var(--landing-fg)]">
+                        <MessageSquare className="size-3.5 text-[var(--landing-brand)]" />
+                        <span>Comunidade &amp; Diálogos</span>
                       </div>
-                      <p className="mt-1.5 text-xs text-[var(--landing-muted)] line-clamp-2">
-                        A visão de Dostoiévski em Crime e Castigo sobre a redenção moral é uma das coisas mais profundas que já li.
+                      <span className="font-mono text-[10px] text-[var(--landing-muted)]">
+                        Discussão em alta
+                      </span>
+                    </div>
+                    <div className="mt-3 sm:mt-3.5">
+                      <div className="flex items-center gap-2">
+                        <div className="flex size-6 items-center justify-center rounded-full bg-[var(--landing-hover)] border border-[var(--landing-border)] font-mono text-[10px] font-bold text-[var(--landing-fg)]">
+                          H
+                        </div>
+                        <span className="font-semibold text-xs text-[var(--landing-fg)]">Henrique S.</span>
+                        <span className="rounded-md bg-white/10 px-1.5 py-0.5 text-[9px] font-mono text-[var(--landing-muted)]">
+                          Nv. 24 Pensador
+                        </span>
+                      </div>
+                      <p className="mt-2 text-xs sm:text-[13px] leading-relaxed text-[var(--landing-fg)]/90 line-clamp-2">
+                        “A resposta de Camus ao absurdo não é desistir, mas viver com paixão e revolta lúcida. A liberdade real surge ao aceitar a brevidade da vida.”
                       </p>
                     </div>
                   </div>
                   <div className="mt-4 flex items-center justify-between text-[11px] text-[var(--landing-muted)] pt-2.5 border-t border-[var(--landing-border)]">
-                    <span>18 comentários no debate</span>
-                    <span className="font-mono text-[var(--landing-fg)]">+35 XP</span>
+                    <span>28 respostas no tópico</span>
+                    <span className="font-mono font-medium text-[var(--landing-brand)]">
+                      +45 XP recebidos
+                    </span>
                   </div>
                 </div>
               </div>

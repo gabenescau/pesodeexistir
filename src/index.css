@@ -333,11 +333,15 @@
 }
 
 .landing-marquee-left {
-  animation: landingMarqueeLeft 60s linear infinite;
+  animation: landingMarqueeLeft 32s linear infinite;
 }
 
 .landing-marquee-right {
-  animation: landingMarqueeRight 70s linear infinite;
+  animation: landingMarqueeRight 32s linear infinite;
+}
+
+.landing-marquee-authors {
+  animation: landingMarqueeLeft 38s linear infinite;
 }
 
 .landing-marquee-up {
