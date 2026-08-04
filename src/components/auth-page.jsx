@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog,
+  AlertDialogAction,
   AlertDialogClose,
   AlertDialogContent,
   AlertDialogDescription,
@@ -19,7 +20,7 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { FloatingPaths } from "@/components/floating-paths";
-import { AtSignIcon, LockIcon, UserIcon } from "@/lib/icons";
+import { ChevronLeftIcon, AtSignIcon, LockIcon, UserIcon } from "@/lib/icons";
 import { useAuth } from "@/app/data/AuthContext";
 import { supabase, isSupabaseReady } from "@/app/data/supabase";
 import { getSupabaseErrorMessage } from "@/lib/supabase-error";
@@ -178,6 +179,13 @@ export function AuthPage() {
           <div className="absolute top-0 right-0 h-320 w-60 rounded-full bg-[radial-gradient(50%_50%_at_50%_50%,--theme(--color-foreground/.04)_0,--theme(--color-foreground/.01)_80%,transparent_100%)] [translate:5%_-50%]" />
           <div className="absolute top-0 right-0 h-320 w-60 -translate-y-87.5 rounded-full bg-[radial-gradient(50%_50%_at_50%_50%,--theme(--color-foreground/.04)_0,--theme(--color-foreground/.01)_80%,transparent_100%)]" />
         </div>
+
+        <Link
+          to="/"
+          className="absolute top-7 left-5 inline-flex items-center gap-1.5 rounded-[50px] border border-[var(--border)] px-3 py-1.5 text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--accent-mint)]"
+        >
+          <ChevronLeftIcon className="size-4" />Início
+        </Link>
 
         <div className="auth-form-card mx-auto w-full max-w-sm space-y-4">
           <div className="flex items-center gap-2 lg:hidden">

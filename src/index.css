@@ -1,7 +1,10 @@
-﻿@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist";
 @import "tailwindcss";
 
 @theme inline {
+  --font-serif: "Inter", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: "Inter", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
   --color-card: hsl(var(--card));
@@ -256,6 +259,425 @@
   box-shadow: var(--shadow-lg);
 }
 
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Public landing v2, ported from the standalone Lovable project. Keeping its
+   tokens scoped prevents marketing styles from leaking into the app shell. */
+.ope-landing {
+  --landing-bg: #f5f5f7;
+  --landing-section: #fafafc;
+  --landing-surface: rgba(255,255,255,.8);
+  --landing-bg-glass: rgba(245,245,247,.85);
+  --landing-fg: #111111;
+  --landing-muted: #666666;
+  --landing-brand: #111111;
+  --landing-brand-strong: #000000;
+  --landing-brand-fg: #ffffff;
+  --landing-border: rgba(0,0,0,0.08);
+  --landing-hover: rgba(0,0,0,0.04);
+  --landing-cream: #f1ece1;
+  --landing-cream-card: #ded8ca;
+  --landing-cream-fg: #111111;
+  font-family: "Inter", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.dark .ope-landing {
+  --landing-bg: #111111;
+  --landing-section: #161616;
+  --landing-surface: #181818;
+  --landing-card-alt: #202020;
+  --landing-bg-glass: rgba(17,17,17,.88);
+  --landing-fg: #f1ece1;
+  --landing-muted: #888888;
+  --landing-brand: #f1ece1;
+  --landing-brand-strong: #ffffff;
+  --landing-brand-fg: #111111;
+  --landing-border: rgba(255,255,255,.09);
+  --landing-hover: rgba(255,255,255,0.05);
+  --landing-cream: #f1ece1;
+  --landing-cream-card: #ded8ca;
+  --landing-cream-fg: #111111;
+}
+
+.ope-landing h1,
+.ope-landing h2,
+.ope-landing h3,
+.ope-landing h4,
+.ope-landing h5,
+.ope-landing .font-serif {
+  font-family: "Inter", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+  letter-spacing: -0.025em;
+  font-weight: 600;
+}
+
+.ope-landing .font-mono {
+  font-family: var(--font-mono);
+}
+
+@keyframes landingMarqueeLeft {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@keyframes landingMarqueeRight {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes landingMarqueeUp {
+  from { transform: translateY(0); }
+  to { transform: translateY(-33.333%); }
+}
+
+.landing-marquee-left {
+  animation: landingMarqueeLeft 32s linear infinite;
+}
+
+.landing-marquee-right {
+  animation: landingMarqueeRight 32s linear infinite;
+}
+
+.landing-marquee-authors {
+  animation: landingMarqueeLeft 38s linear infinite;
+}
+
+.landing-marquee-up {
+  animation: landingMarqueeUp var(--landing-marquee-duration, 38s) linear infinite;
+}
+
+.landing-marquee-left:hover,
+.landing-marquee-right:hover,
+.landing-marquee-up:hover {
+  animation-play-state: paused;
+}
+
+@keyframes gentleFloat {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes gentleFloatReverse {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(6px); }
+}
+
+@keyframes shimmerGlow {
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50% { opacity: 0.65; transform: scale(1.05); }
+}
+
+.animate-float {
+  animation: gentleFloat 6s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: gentleFloatReverse 7s ease-in-out infinite 1.5s;
+}
+
+.animate-glow {
+  animation: shimmerGlow 5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-marquee-left,
+  .landing-marquee-right,
+  .landing-marquee-up,
+  .animate-float,
+  .animate-float-delayed,
+  .animate-glow {
+    animation-play-state: paused;
+  }
+}
+
+/* Kirvano-derived sales surface. Copy remains OPE; these are the public visual
+   tokens and layout language used by the current Kirvano marketing site. */
+.sales-page {
+  --kvn-bg: #000000;
+  --kvn-surface: #1d1d1f;
+  --kvn-surface-2: #272729;
+  --kvn-surface-3: #252527;
+  --kvn-brand: #2997ff;
+  --kvn-brand-strong: #0071e3;
+  --kvn-cream: #f5f5f7;
+  --kvn-fg: #ffffff;
+  --kvn-fg-soft: #cccccc;
+  --kvn-fg-dim: #7a7a7a;
+  --kvn-muted: #7a7a7a;
+  --kvn-light-ink: #1d1d1f;
+  --kvn-light-muted: #7a7a7a;
+  --ope-copper: #2997ff;
+  --ope-copper-strong: #0071e3;
+  --ope-copper-dark: #1d1d1f;
+  background: var(--kvn-bg) !important;
+  color: var(--kvn-fg) !important;
+  font-family: "Inter Tight", Inter, system-ui, sans-serif;
+}
+
+.sales-page > header:not(.landing-header) {
+  max-width: 80rem;
+  border-color: transparent !important;
+  background: color-mix(in srgb, var(--kvn-bg) 82%, transparent) !important;
+  color: var(--kvn-fg);
+}
+
+.sales-page > header:not(.landing-header)::after {
+  content: "";
+  position: absolute;
+  left: clamp(1rem, 4vw, 2rem);
+  right: clamp(1rem, 4vw, 2rem);
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.10), transparent);
+  pointer-events: none;
+}
+
+.sales-page > main > section {
+  border: 0 !important;
+  background: var(--kvn-bg) !important;
+  color: var(--kvn-fg);
+  transition: background-color .25s ease;
+}
+
+.sales-page > main > section:nth-child(4n + 2) { background: var(--kvn-surface) !important; }
+.sales-page > main > section:nth-child(4n) { background: var(--kvn-surface-2) !important; }
+.sales-page > main > section:nth-child(4n + 3) {
+  background: var(--kvn-cream) !important;
+  color: var(--kvn-light-ink) !important;
+}
+
+.sales-page main .text-foreground,
+.sales-page main h1,
+.sales-page main h2,
+.sales-page main h3 { color: var(--kvn-fg-soft) !important; }
+
+.sales-page main .text-muted-foreground,
+.sales-page main p,
+.sales-page main li { color: var(--kvn-fg-dim) !important; }
+
+.sales-page > main > section:nth-child(4n + 3) .text-foreground,
+.sales-page > main > section:nth-child(4n + 3) h1,
+.sales-page > main > section:nth-child(4n + 3) h2,
+.sales-page > main > section:nth-child(4n + 3) h3 { color: var(--kvn-light-ink) !important; }
+
+.sales-page > main > section:nth-child(4n + 3) .text-muted-foreground {
+  color: var(--kvn-light-muted) !important;
+}
+
+.sales-page .bg-card\/50,
+.sales-page section.bg-card\/50 {
+  background: var(--kvn-surface) !important;
+}
+
+.sales-page blockquote,
+.sales-page cite,
+.sales-page figure .text-foreground,
+.sales-page figure [class*="text-foreground"] {
+  color: var(--kvn-fg-soft) !important;
+}
+
+.sales-page figure p,
+.sales-page figure span,
+.sales-page figure .text-muted-foreground {
+  color: var(--kvn-fg-dim) !important;
+}
+
+.sales-page main strong,
+.sales-page main em,
+.sales-page main mark,
+.sales-page main h1 span,
+.sales-page main h2 span,
+.sales-page main h3 span,
+.sales-page main [class*="text-primary"] {
+  color: var(--ope-copper) !important;
+}
+
+.sales-page main .bg-card,
+.sales-page main [class*="bg-card/"] {
+  background: var(--kvn-surface-2) !important;
+  border-color: rgba(255,255,255,.08) !important;
+}
+
+.sales-page > main > section:nth-child(4n + 3) .bg-card,
+.sales-page > main > section:nth-child(4n + 3) [class*="bg-card/"] {
+  background: #ffffff !important;
+  border-color: rgba(0,0,0,.08) !important;
+}
+
+.sales-page main [class*="rounded-[8px]"],
+.sales-page main [class*="rounded-[12px]"] {
+  border-radius: 1.5rem !important;
+}
+
+.sales-page [data-slot="button"] {
+  border-radius: 999px !important;
+}
+
+.sales-page .landing-header [data-slot="button"] {
+  border-radius: 0 !important;
+}
+
+.sales-page .landing-header .landing-header-link {
+  background: transparent !important;
+  color: rgba(255,255,255,.72) !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
+.sales-page .landing-header .landing-header-link:hover {
+  background: transparent !important;
+  color: var(--ope-copper) !important;
+}
+
+.sales-page [data-slot="button"]:not([data-variant="ghost"]):not([data-variant="outline"]) {
+  background: var(--ope-copper) !important;
+  color: #ffffff !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.sales-page [data-slot="button"]:hover {
+  background: var(--ope-copper-strong) !important;
+}
+
+.sales-page [data-slot="button"].border-border,
+.sales-page [data-slot="button"].bg-transparent {
+  background: transparent !important;
+  color: var(--kvn-fg) !important;
+  border-color: rgba(255,255,255,.16) !important;
+  box-shadow: none;
+}
+
+.sales-page main h2 {
+  font-size: clamp(2.35rem, 4.5vw, 4.75rem) !important;
+  line-height: 1 !important;
+  letter-spacing: -.055em !important;
+  font-weight: 600 !important;
+}
+
+.sales-page main section:first-child:not(.ope-hero) h1 {
+  max-width: 62rem;
+  font-size: clamp(3rem, 7.2vw, 7rem) !important;
+  line-height: .92 !important;
+  letter-spacing: -.065em !important;
+  font-weight: 600 !important;
+}
+
+.sales-page .ope-hero h1 {
+  color: #ffffff !important;
+  font-size: clamp(2.35rem, 3.9vw, 4.25rem) !important;
+  line-height: 1.04 !important;
+  letter-spacing: -.03em !important;
+  font-weight: 400 !important;
+}
+
+.sales-page .ope-hero p {
+  color: rgba(204,204,204,.86) !important;
+}
+
+.sales-page main section:first-child .w-px { display: none; }
+
+.sales-page a[href="/entrar"],
+.sales-page a[href="#planos"],
+.sales-page a[href="#acervo"],
+.sales-page button[type="submit"] {
+  --kvn-brand: var(--ope-copper);
+  --kvn-brand-strong: var(--ope-copper-strong);
+}
+
+.sales-page .mesh-gradient {
+  background:
+    radial-gradient(circle at 18% 28%, rgba(0,102,204,.26), transparent 30%),
+    radial-gradient(circle at 82% 20%, rgba(0,113,227,.16), transparent 28%),
+    radial-gradient(circle at 55% 76%, rgba(0,102,204,.22), transparent 32%);
+}
+
+.ope-hero {
+  --hero-bg: url("/hero/backgroundnovo.png");
+  background: #000000;
+  color: #ffffff;
+}
+
+.ope-hero .hero-bg {
+  background-image: var(--hero-bg);
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: right center;
+}
+
+@media (max-height: 850px) and (min-width: 1024px) {
+  .ope-hero .hero-bg {
+    background-size: contain;
+    background-position: right center;
+  }
+
+  .ope-hero h1 {
+    font-size: clamp(2.2rem, 3.55vw, 3.9rem) !important;
+  }
+
+  .ope-hero [class*="min-h-[68px]"] {
+    min-height: 58px;
+  }
+}
+
+@media (max-width: 1199px) {
+  .ope-hero .hero-bg {
+    background-size: contain;
+    background-position: right top;
+  }
+}
+
+@media (max-width: 767px) {
+  .ope-hero {
+    min-height: auto;
+  }
+
+  .ope-hero .hero-bg {
+    background-image: url("/hero/backgroundherocelular.png");
+    background-size: 128% auto;
+    background-position: center -38vw;
+    opacity: .86;
+  }
+
+  .ope-hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -9;
+    background:
+      linear-gradient(180deg, transparent 0%, transparent 42%, rgba(0,0,0,.38) 56%, #000000 76%),
+      linear-gradient(90deg, rgba(0,0,0,.18) 0%, rgba(0,0,0,.06) 52%, rgba(0,0,0,.08) 100%);
+    pointer-events: none;
+  }
+
+  .ope-hero h1 {
+    font-size: clamp(1.8rem, 8.7vw, 2.7rem) !important;
+    line-height: 1.02 !important;
+    max-width: 100%;
+  }
+
+  .ope-hero p {
+    font-size: .78rem !important;
+    line-height: 1.55 !important;
+  }
+
+  .ope-hero [class*="grid-cols-2"] {
+    column-gap: .75rem;
+    row-gap: .25rem;
+  }
+
+  .landing-header {
+    background: transparent !important;
+  }
+
+  .mobile-menu-open .landing-header {
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
 .auth-page {
   --background: 0 0% 1%;
   --foreground: 240 11% 96%;
@@ -282,6 +704,259 @@
 
 .auth-page .auth-form-card {
   border-radius: 1.5rem;
+}
+
+html:not(.dark) .sales-page {
+  --kvn-bg: #f5f5f7;
+  --kvn-surface: #ffffff;
+  --kvn-surface-2: #fafafc;
+  --kvn-surface-3: #f5f5f7;
+  --kvn-fg: #1d1d1f;
+  --kvn-fg-soft: #1d1d1f;
+  --kvn-fg-dim: #7a7a7a;
+  --kvn-muted: #7a7a7a;
+  --kvn-border: rgba(0,0,0,.08);
+  --ope-copper: #0066cc;
+  --ope-copper-strong: #0071e3;
+  --ope-copper-dark: #1d1d1f;
+  background: #f5f5f7 !important;
+  color: #1d1d1f !important;
+}
+
+html:not(.dark) .sales-page > main > section,
+html:not(.dark) .sales-page .ope-hero {
+  background: #f5f5f7 !important;
+  color: #1d1d1f !important;
+}
+
+html:not(.dark) .sales-page > main > section:nth-child(4n + 2) {
+  background: #ffffff !important;
+}
+
+html:not(.dark) .sales-page > main > section:nth-child(4n) {
+  background: #f5f5f7 !important;
+}
+
+html:not(.dark) .sales-page > main > section:nth-child(4n + 3) {
+  background: #ffffff !important;
+}
+
+html:not(.dark) .sales-page .landing-header nav {
+  background: rgba(255,255,255,.94) !important;
+  border: 1px solid rgba(0,0,0,.08);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.08);
+}
+
+html:not(.dark) .sales-page .landing-header a,
+html:not(.dark) .sales-page .landing-header button {
+  color: #1d1d1f !important;
+}
+
+html:not(.dark) .sales-page .landing-header a[class*="bg-[var(--accent-mint)]"] {
+  background: #0066cc !important;
+  color: #ffffff !important;
+}
+
+html:not(.dark) .sales-page .mobile-menu-trigger {
+  background: #0066cc !important;
+  color: #ffffff !important;
+}
+
+html:not(.dark) .sales-page .mobile-menu-panel {
+  background: rgba(255,255,255,.98) !important;
+}
+
+html:not(.dark) .sales-page .mobile-menu-logo,
+html:not(.dark) .sales-page .mobile-menu-link,
+html:not(.dark) .sales-page .mobile-menu-ghost {
+  color: #1d1d1f !important;
+}
+
+html:not(.dark) .sales-page .mobile-menu-link {
+  border-color: rgba(0,0,0,.08) !important;
+}
+
+html:not(.dark) .sales-page .mobile-menu-icon {
+  background: #fafafc !important;
+  color: #1d1d1f !important;
+  border-color: rgba(0,0,0,.10) !important;
+}
+
+html:not(.dark) .sales-page .mobile-menu-ghost {
+  border-color: rgba(0,0,0,.12) !important;
+}
+
+html:not(.dark) .sales-page .mobile-menu-cta {
+  background: #0066cc !important;
+  color: #ffffff !important;
+}
+
+html:not(.dark) .sales-page .ope-hero h1 {
+  color: #1d1d1f !important;
+  text-shadow: none;
+}
+
+html:not(.dark) .sales-page .ope-hero h1 span {
+  color: #0066cc !important;
+}
+
+html:not(.dark) .sales-page main h2 {
+  color: #1d1d1f !important;
+  font-size: clamp(2rem, 3.4vw, 3.35rem) !important;
+  line-height: 1.04 !important;
+  letter-spacing: -.04em !important;
+  font-weight: 500 !important;
+}
+
+html:not(.dark) .sales-page main h3,
+html:not(.dark) .sales-page main .text-foreground,
+html:not(.dark) .sales-page blockquote,
+html:not(.dark) .sales-page cite {
+  color: #333333 !important;
+}
+
+html:not(.dark) .sales-page .ope-hero p,
+html:not(.dark) .sales-page main p,
+html:not(.dark) .sales-page main li {
+  color: #7a7a7a !important;
+}
+
+html:not(.dark) .sales-page .ope-hero p {
+  color: #7a7a7a !important;
+  text-shadow: none;
+}
+
+html:not(.dark) .sales-page .ope-hero .hero-bg {
+  background-image: url("/hero/versaoclaradesktop.png") !important;
+  background-size: contain;
+  background-position: right center;
+  opacity: 1;
+}
+
+html:not(.dark) .sales-page .ope-hero .hero-dark-wash {
+  display: none;
+}
+
+html:not(.dark) .sales-page .ope-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -9;
+  background:
+    linear-gradient(90deg, #f5f5f7 0%, rgba(245,245,247,.96) 23%, rgba(245,245,247,.60) 48%, rgba(245,245,247,.10) 72%),
+    linear-gradient(180deg, rgba(245,245,247,.08) 0%, rgba(245,245,247,.06) 58%, #f5f5f7 100%);
+  pointer-events: none;
+}
+
+html:not(.dark) .sales-page .ope-hero h1 {
+  color: #1d1d1f !important;
+  text-shadow: none;
+}
+
+html:not(.dark) .sales-page .ope-hero h1 span {
+  color: #0066cc !important;
+}
+
+html:not(.dark) .sales-page .ope-hero p {
+  color: #7a7a7a !important;
+  text-shadow: none;
+}
+
+@media (max-width: 767px) {
+  html:not(.dark) .sales-page .ope-hero .hero-bg {
+    background-image: url("/hero/backgroundclaromobile.png") !important;
+    background-size: 116% auto;
+    background-position: center -28vw;
+    opacity: 1;
+  }
+
+  html:not(.dark) .sales-page .ope-hero::before {
+    background:
+      linear-gradient(180deg, rgba(245,245,247,0) 0%, rgba(245,245,247,.10) 42%, rgba(245,245,247,.76) 63%, #f5f5f7 80%),
+      linear-gradient(90deg, rgba(245,245,247,.28) 0%, rgba(245,245,247,.04) 38%, rgba(245,245,247,0) 100%);
+  }
+
+  html:not(.dark) .sales-page .ope-hero .hero-dark-wash {
+    display: none;
+  }
+
+  html:not(.dark) .sales-page .ope-hero h1 {
+    color: #1d1d1f !important;
+    text-shadow: none;
+  }
+
+  html:not(.dark) .sales-page .ope-hero h1 span {
+    color: #0066cc !important;
+  }
+
+  html:not(.dark) .sales-page .ope-hero p {
+    color: #7a7a7a !important;
+    text-shadow: none;
+  }
+
+  html:not(.dark) .sales-page .ope-hero [data-slot="button"] {
+    box-shadow: none !important;
+  }
+}
+
+html:not(.dark) .sales-page .text-muted-foreground,
+html:not(.dark) .sales-page figure span,
+html:not(.dark) .sales-page figure p {
+  color: #7a7a7a !important;
+}
+
+html:not(.dark) .sales-page main .bg-card,
+html:not(.dark) .sales-page main [class*="bg-card/"],
+html:not(.dark) .sales-page figure {
+  background: rgba(255,255,255,.6) !important;
+  border-color: rgba(0,0,0,.08) !important;
+  box-shadow: none;
+}
+
+html:not(.dark) .sales-page .bg-card\/50,
+html:not(.dark) .sales-page section.bg-card\/50,
+html:not(.dark) .sales-page .bg-card\/30,
+html:not(.dark) .sales-page section.bg-card\/30 {
+  background: #fafafc !important;
+}
+
+html:not(.dark) .sales-page [data-slot="button"]:not([data-variant="ghost"]):not([data-variant="outline"]) {
+  background: #0066cc !important;
+  color: #ffffff !important;
+}
+
+html:not(.dark) .sales-page .border-border,
+html:not(.dark) .sales-page [class*="border-border"] {
+  border-color: rgba(0,0,0,.12) !important;
+}
+
+html:not(.dark) .sales-page .author-card-image {
+  filter: none !important;
+  opacity: .92 !important;
+}
+
+html:not(.dark) .sales-page .author-card-overlay {
+  background: linear-gradient(to top, rgba(29,29,31,.92), rgba(29,29,31,.38), rgba(29,29,31,.06)) !important;
+}
+
+html:not(.dark) .sales-page .author-card-content h3,
+html:not(.dark) .sales-page .author-card-content span {
+  color: #ffffff !important;
+}
+
+html:not(.dark) .sales-page .author-card-content .bg-primary\/20 {
+  background: rgba(41,151,255,.22) !important;
+  border-color: rgba(255,255,255,.30) !important;
+  color: #2997ff !important;
+}
+
+html:not(.dark) .sales-page .logo-cloud-card {
+  background: rgba(255,255,255,.5) !important;
+  border-color: rgba(0,0,0,.08) !important;
+}
+
+html:not(.dark) .sales-page .logo-cloud-card [class*="text-[var(--text-secondary)]"] {
+  color: #1d1d1f !important;
 }
 
 html:not(.dark) .auth-page {
@@ -337,6 +1012,17 @@ html:not(.dark) .auth-page input {
 html:not(.dark) .auth-page a,
 html:not(.dark) .auth-page button:not([data-slot="button"]) {
   color: #0066cc !important;
+}
+
+@media (max-width: 390px) {
+  .ope-hero .hero-bg {
+    background-size: 138% auto;
+    background-position: center -42vw;
+  }
+
+  .ope-hero h1 {
+    font-size: clamp(1.65rem, 8.2vw, 2.35rem) !important;
+  }
 }
 
 .dark .app-kirvano {
@@ -581,6 +1267,14 @@ html:not(.dark) .app-kirvano .create-post-textarea {
 
 .book-marquee:hover .book-marquee-track {
   animation-play-state: paused;
+}
+
+html:not(.dark) .sales-page .book-marquee > div:first-child {
+  background: linear-gradient(to right, var(--kvn-bg), transparent) !important;
+}
+
+html:not(.dark) .sales-page .book-marquee > div:nth-child(2) {
+  background: linear-gradient(to left, var(--kvn-bg), transparent) !important;
 }
 
 .app-kirvano [class*="rounded-[12px]"],
