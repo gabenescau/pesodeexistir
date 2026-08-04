@@ -115,6 +115,13 @@ const ICONS = {
   SunIcon: Phosphor.Sun,
   Trash2: Phosphor.Trash,
   Trophy: Phosphor.Trophy,
+  Flame: Phosphor.Flame,
+  Gift: Phosphor.Gift,
+  Layers: Phosphor.Stack,
+  ShieldCheck: Phosphor.ShieldCheck,
+  Truck: Phosphor.Truck,
+  Shirt: Phosphor.TShirt,
+  Award: Phosphor.Medal,
   User: Phosphor.User,
   UserCheck: Phosphor.UserCheck,
   UserCircle: Phosphor.UserCircle,
@@ -143,6 +150,7 @@ export const ArrowUpDown = Phosphor.ArrowsDownUp;
 export const ArrowUpRight = Phosphor.ArrowUpRight;
 export const AtSign = Phosphor.At;
 export const AtSignIcon = Phosphor.At;
+export const Award = Phosphor.Medal;
 export const BarChart3 = Phosphor.ChartBar;
 export const Bell = Phosphor.Bell;
 export const BellIcon = Phosphor.Bell;
@@ -179,8 +187,10 @@ export const Crown = Phosphor.Crown;
 export const Edit3 = Phosphor.PencilSimpleLine;
 export const Eye = Phosphor.Eye;
 export const Feather = Phosphor.Feather;
+export const Flame = Phosphor.Flame;
 export const FolderOpen = Phosphor.FolderOpen;
 export const Folder = Phosphor.Folder;
+export const Gift = Phosphor.Gift;
 export const MagnifyingGlass = Phosphor.MagnifyingGlass;
 export const Globe = Phosphor.Globe;
 export const GraduationCap = Phosphor.GraduationCap;
@@ -194,6 +204,7 @@ export const Image = Phosphor.Image;
 export const Info = Phosphor.Info;
 export const InstagramLogo = Phosphor.InstagramLogo;
 export const Keyboard = Phosphor.Keyboard;
+export const Layers = Phosphor.Stack;
 export const LayoutGrid = Phosphor.SquaresFour;
 export const Library = Phosphor.Books;
 export const Lightbulb = Phosphor.Lightbulb;
@@ -233,7 +244,9 @@ export const SettingsIcon = Phosphor.Gear;
 export const Share2 = Phosphor.ShareNetwork;
 export const Shield = Phosphor.Shield;
 export const ShieldAlert = Phosphor.ShieldWarning;
+export const ShieldCheck = Phosphor.ShieldCheck;
 export const ShieldIcon = Phosphor.Shield;
+export const Shirt = Phosphor.TShirt;
 export const SlidersHorizontal = Phosphor.SlidersHorizontal;
 export const Smartphone = Phosphor.DeviceMobile;
 export const Smile = Phosphor.Smiley;
@@ -244,6 +257,7 @@ export const Sun = Phosphor.Sun;
 export const SunIcon = Phosphor.Sun;
 export const Trash2 = Phosphor.Trash;
 export const Trophy = Phosphor.Trophy;
+export const Truck = Phosphor.Truck;
 export const User = Phosphor.User;
 export const UserCheck = Phosphor.UserCheck;
 export const UserCircle = Phosphor.UserCircle;

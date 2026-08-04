@@ -50,25 +50,49 @@ export const landingAuthors = [
 
 export const testimonials = [
   [
-    { quote: "Nunca consegui conversar sobre filosofia com meus amigos. Aqui sempre encontro alguém lendo o mesmo livro.", name: "Ana Clara", meta: "Leitora · Há 3 meses" },
-    { quote: "Achei que estava comprando uma biblioteca. Hoje entro todos os dias principalmente pelas conversas.", name: "Rafael M.", meta: "Leitor · Há 6 meses" },
-    { quote: "Descobri mais autores pela comunidade do que pesquisando sozinho.", name: "Juliana T.", meta: "Leitora · Há 2 meses" },
+    { quote: "Nunca consegui conversar sobre filosofia com meus amigos. Aqui leio no app e sempre encontro alguém debatendo o mesmo livro.", name: "Ana Clara", meta: "Plano Pensador · Nível 14" },
+    { quote: "Já resgatei um livro físico de capa dura e uma camiseta oversized só acumulando Créditos lendo todos os dias. Chegou super rápido e com frete grátis!", name: "Rafael M.", meta: "Membro da Season Camus · Nível 22" },
+    { quote: "A dinâmica de feed estilo Twitter/Reddit focada em literatura é genial. Sem dancinhas, só ideias que importam.", name: "Juliana T.", meta: "Plano Leitor · Nível 8" },
   ],
   [
-    { quote: "Finalmente um lugar onde posso publicar minhas reflexões e receber feedback de verdade.", name: "Lucas F.", meta: "Leitor · Há 4 meses" },
-    { quote: "A curadoria é fantástica. Cada semana descubro um autor novo que muda minha forma de pensar.", name: "Marina S.", meta: "Leitora · Há 5 meses" },
-    { quote: "O que me prendeu não foi o acervo, foi ver outras pessoas tão apaixonadas por livros quanto eu.", name: "Diego R.", meta: "Leitor · Há 7 meses" },
+    { quote: "Finalmente um lugar onde posso publicar minhas reflexões, subir de nível no ranking e interagir com leitores de verdade.", name: "Lucas F.", meta: "Plano Pensador · Top 10 Ranking" },
+    { quote: "A curadoria é fantástica. Ler direto no aplicativo sem precisar de PDF mudou totalmente meu ritmo de leitura.", name: "Marina S.", meta: "Plano Leitor · Nível 19" },
+    { quote: "O sistema de Seasons traz um fôlego incrível: missões temáticas de Bukowski e Dostoiévski com recompensas físicas exclusivas.", name: "Diego R.", meta: "Plano Pensador · Nível 31" },
   ],
   [
-    { quote: "Li mais em 3 meses dentro do OPE Club do que no ano inteiro passado.", name: "Camila L.", meta: "Leitora · Há 3 meses" },
-    { quote: "É raro encontrar um espaço assim: inteligente, acolhedor e sem barulho.", name: "Thiago A.", meta: "Leitor · Há 2 meses" },
-    { quote: "Já entrei por causa dos livros. Fiquei por causa das discussões.", name: "Beatriz C.", meta: "Leitora · Há 8 meses" },
+    { quote: "Li mais em 3 meses dentro do OPE Club do que no ano inteiro passado. A gamificação com XP realmente motiva a ler todo dia.", name: "Camila L.", meta: "Plano Leitor · Nível 11" },
+    { quote: "O moletom da Loja OPE tem uma qualidade absurda, tecido pesado de verdade. Troquei com meus pontos de leitura.", name: "Thiago A.", meta: "Membro Ativo · Nível 27" },
+    { quote: "Já entrei por causa dos livros. Fiquei pela comunidade e pela evolução no clube.", name: "Beatriz C.", meta: "Plano Pensador · Nível 16" },
   ],
 ];
 
 export const faqs = [
-  { q: "Por que cobrar mensalmente?", a: "A mensalidade sustenta a curadoria contínua do acervo, a moderação da comunidade e a manutenção do aplicativo. Todo mês entram novos livros, discussões e recursos." },
-  { q: "É só uma biblioteca?", a: "Não. A biblioteca é metade do OPE Club. A outra metade é a comunidade: publicações, discussões, comentários e recomendações entre leitores dentro do próprio aplicativo." },
-  { q: "A comunidade é moderada?", a: "Sim. A comunidade é moderada diariamente para manter um espaço inteligente, respeitoso e sem barulho, com foco em leitura e ideias." },
-  { q: "Posso publicar meus próprios textos?", a: "Pode. Você publica reflexões, resenhas e trechos e recebe comentários de outros leitores que estão nas mesmas páginas que você." },
+  {
+    q: "O que é exatamente o OPE Club?",
+    a: "O OPE Club é o maior ecossistema brasileiro para leitores de filosofia e literatura. Ele une um aplicativo leitor digital completo (sem necessidade de baixar PDFs), uma rede social com feed e discussões inspirada no Twitter/Reddit, um sistema de gamificação e uma loja permanente onde você troca seus pontos de leitura por livros físicos, moletons e camisetas oversized com frete grátis."
+  },
+  {
+    q: "Como funciona a leitura dentro do aplicativo?",
+    a: "Você acessa e lê todos os livros diretamente pelo aplicativo no navegador, celular, tablet ou computador. O leitor possui modo noturno, tipografia refinada e contagem inteligente de tempo real de leitura, sem distrações e com carregamento instantâneo."
+  },
+  {
+    q: "Como funciona a Loja OPE e os produtos físicos?",
+    a: "Conforme você lê diariamente, publica reflexões e conclui missões no app, você acumula Créditos OPE. Esses créditos podem ser usados para resgatar produtos físicos reais do nosso catálogo — incluindo livros clássicos, edições premium de luxo, camisetas oversized e moletons exclusivos. Todos os envios têm frete 100% gratuito para todo o Brasil."
+  },
+  {
+    q: "Qual a diferença entre XP e Créditos OPE?",
+    a: "O XP mede a sua reputação perpétua no clube: serve para subir de nível, desbloquear títulos, selos de verificado e disputar o ranking mensal. O XP nunca é gasto nem expira. Já os Créditos OPE são a moeda de troca da Loja OPE: após fazer um resgate físico, os créditos são debitados, enquanto seu XP e nível permanecem intactos."
+  },
+  {
+    q: "O que são as Seasons (Temporadas)?",
+    a: "As Seasons são ciclos trimestrais (duração de 3 meses) dedicados a um grande autor ou escola de pensamento (como Season Camus, Bukowski, Kafka ou Dostoiévski). Durante cada Season, liberamos desafios de leitura temáticos, ranking de temporada e drops de roupas e colecionáveis exclusivos na loja."
+  },
+  {
+    q: "Qual a diferença entre o Plano Leitor (R$ 19/mês) e o Plano Pensador (R$ 29/mês)?",
+    a: "O Plano Leitor garante acesso completo ao leitor digital, biblioteca de livros, feed social, missões, acúmulo de XP e Créditos e resgate na Loja OPE. O Plano Pensador inclui tudo do Plano Leitor mais: participação no Ranking Mensal competitivo de leitores, selo e título exclusivo de Pensador, bônus multiplicador de Créditos e acesso prioritário a lançamentos e drops da loja."
+  },
+  {
+    q: "Posso cancelar a qualquer momento?",
+    a: "Sim, sem nenhuma fidelidade ou burocracia. Você pode cancelar sua assinatura quando quiser com um clique diretamente no painel de configurações."
+  }
 ];
