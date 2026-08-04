@@ -1,4 +1,4 @@
-import { BookOpen, Flame, Layers, MessageSquare, Trophy, Truck, Shirt, Compass, Sparkles, ArrowRight, ShieldCheck, CheckCircle2, Bookmark, Plus } from "@/lib/icons";
+import { BookOpen, Flame, Layers, MessageSquare, Trophy, Truck, Shirt, Compass, Sparkles, ArrowRight, ShieldCheck, CheckCircle2, Bookmark } from "@/lib/icons";
 import { Link } from "react-router-dom";
 
 export function LandingEcosystem() {
@@ -213,6 +213,36 @@ export function LandingEcosystem() {
 
 const shopProducts = [
   {
+    title: "Edições Especiais",
+    desc: "Livros clássicos e coleções nobres.",
+    image: "https://http2.mlstatic.com/D_NQ_NP_2X_616707-MLA95645759960_102025-F.webp",
+  },
+  {
+    title: "Tratados Filosóficos",
+    desc: "Filosofia e literatura em capa dura.",
+    image: "https://http2.mlstatic.com/D_NQ_NP_2X_939221-MLA100846856238_122025-F.webp",
+  },
+  {
+    title: "Boxes & Coleções",
+    desc: "Edições de luxo e coleções completas.",
+    image: "https://http2.mlstatic.com/D_NQ_NP_2X_664970-MLA112247816123_052026-F.webp",
+  },
+  {
+    title: "Edições Selecionadas",
+    desc: "Livros físicos para membros do clube.",
+    image: "https://http2.mlstatic.com/D_NQ_NP_2X_979425-MLA105576395728_012026-F.webp",
+  },
+  {
+    title: "Obras Essenciais",
+    desc: "Acervo de literatura e filosofia.",
+    image: "https://http2.mlstatic.com/D_NQ_NP_2X_735527-MLA84467669062_052025-F.webp",
+  },
+  {
+    title: "Edições de Autor",
+    desc: "Camus, Dostoiévski e Nietzsche.",
+    image: "https://http2.mlstatic.com/D_NQ_NP_2X_707949-MLA93662893200_102025-F.webp",
+  },
+  {
     title: "Moletom Thanatos",
     desc: "Moletom pesado com estampa conceitual.",
     image: "/shop/moletom-thanatos.png",
@@ -231,31 +261,6 @@ const shopProducts = [
     title: "Camiseta Memento Mori",
     desc: "Camiseta oversized off-white.",
     image: "/shop/camiseta-memento.png",
-  },
-  {
-    title: "Boxes & Coleções",
-    desc: "Edições de luxo e tratados filosóficos.",
-    image: "https://http2.mlstatic.com/D_NQ_NP_2X_664970-MLA112247816123_052026-F.webp",
-  },
-  {
-    title: "Edições Especiais",
-    desc: "Livros físicos de capa dura.",
-    image: "https://http2.mlstatic.com/D_NQ_NP_2X_979425-MLA105576395728_012026-F.webp",
-  },
-  {
-    title: "Obras Essenciais",
-    desc: "Acervo de literatura e filosofia.",
-    image: "https://http2.mlstatic.com/D_NQ_NP_2X_735527-MLA84467669062_052025-F.webp",
-  },
-  {
-    title: "Edições Selecionadas",
-    desc: "Obras de Camus, Nietzsche e mais.",
-    image: "https://http2.mlstatic.com/D_NQ_NP_2X_707949-MLA93662893200_102025-F.webp",
-  },
-  {
-    isMoreCard: true,
-    title: "E muito mais",
-    desc: "Novos livros e peças a cada Season.",
   },
 ];
 
@@ -336,56 +341,45 @@ export function LandingGamificationShop() {
 
         {/* Clean Showcase with Touch Horizontal Scroll on Mobile & Responsive Grid on Desktop */}
         <div className="mt-10 sm:mt-12 overflow-hidden rounded-2xl sm:rounded-3xl border border-[var(--landing-border)] bg-[var(--landing-surface)] p-4 sm:p-6 lg:p-8 shadow-xl">
-          <div className="border-b border-[var(--landing-border)] pb-4 sm:pb-5">
-            <h4 className="text-base sm:text-xl font-semibold tracking-tight text-[var(--landing-fg)]">
-              Loja Oficial OPE
-            </h4>
-            <p className="text-xs sm:text-sm text-[var(--landing-muted)]">
-              Itens exclusivos para membros resgatarem com créditos e frete grátis
-            </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--landing-border)] pb-4 sm:pb-5">
+            <div>
+              <h4 className="text-base sm:text-xl font-semibold tracking-tight text-[var(--landing-fg)]">
+                Loja Oficial OPE
+              </h4>
+              <p className="text-xs sm:text-sm text-[var(--landing-muted)]">
+                Itens exclusivos para membros resgatarem com créditos e frete grátis
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-1.5 self-start sm:self-center rounded-full border border-[var(--landing-border)] bg-[var(--landing-hover)] px-3 py-1 font-mono text-[11px] font-medium text-[var(--landing-brand)]">
+              <Sparkles className="size-3 text-[var(--landing-brand)]" />
+              Novos livros e peças a cada Season
+            </span>
           </div>
 
-          {/* Horizontal Scroll on Mobile / Grid on Desktop */}
+          {/* Horizontal Scroll on Mobile / Multi-column Grid on Desktop */}
           <div className="mt-5 sm:mt-6 flex gap-3.5 sm:gap-4 overflow-x-auto snap-x snap-mandatory [scrollbar-width:none] pb-2 -mx-1 px-1 sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 sm:overflow-visible sm:pb-0">
-            {shopProducts.map((product) =>
-              product.isMoreCard ? (
-                <div
-                  key="more-card"
-                  className="group relative flex w-[190px] sm:w-auto shrink-0 snap-start flex-col justify-center items-center text-center overflow-hidden rounded-xl sm:rounded-2xl border border-dashed border-[var(--landing-border)] bg-[var(--landing-bg)] p-4 sm:p-5 transition-all duration-300 hover:border-[var(--landing-brand)]/60 hover:bg-[var(--landing-hover)]"
-                >
-                  <div className="flex size-12 sm:size-14 items-center justify-center rounded-2xl bg-[var(--landing-hover)] border border-[var(--landing-border)] text-[var(--landing-brand)] group-hover:scale-110 transition-transform">
-                    <Sparkles className="size-5 sm:size-6" />
-                  </div>
-                  <h5 className="mt-3 sm:mt-4 text-xs sm:text-sm font-semibold text-[var(--landing-fg)]">
-                    {product.title}
-                  </h5>
-                  <p className="mt-1 text-[11px] sm:text-xs leading-relaxed text-[var(--landing-muted)]">
+            {shopProducts.map((product) => (
+              <div
+                key={product.title}
+                className="group relative flex w-[190px] sm:w-auto shrink-0 snap-start flex-col overflow-hidden rounded-xl sm:rounded-2xl border border-[var(--landing-border)] bg-[var(--landing-bg)] p-3 transition-all duration-300 hover:border-[var(--landing-brand)]/50"
+              >
+                <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-black/60 flex items-center justify-center">
+                  <img
+                    src={product.image}
+                    alt={product.title}
+                    className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-30 pointer-events-none" />
+                </div>
+                <div className="mt-3">
+                  <h5 className="text-xs sm:text-sm font-semibold text-[var(--landing-fg)] line-clamp-1">{product.title}</h5>
+                  <p className="mt-1 text-[11px] sm:text-xs leading-relaxed text-[var(--landing-muted)] line-clamp-1">
                     {product.desc}
                   </p>
                 </div>
-              ) : (
-                <div
-                  key={product.title}
-                  className="group relative flex w-[190px] sm:w-auto shrink-0 snap-start flex-col overflow-hidden rounded-xl sm:rounded-2xl border border-[var(--landing-border)] bg-[var(--landing-bg)] p-3 transition-all duration-300 hover:border-[var(--landing-brand)]/50"
-                >
-                  <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-black/60 flex items-center justify-center">
-                    <img
-                      src={product.image}
-                      alt={product.title}
-                      className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      loading="lazy"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-30 pointer-events-none" />
-                  </div>
-                  <div className="mt-3">
-                    <h5 className="text-xs sm:text-sm font-semibold text-[var(--landing-fg)] line-clamp-1">{product.title}</h5>
-                    <p className="mt-1 text-[11px] sm:text-xs leading-relaxed text-[var(--landing-muted)] line-clamp-1">
-                      {product.desc}
-                    </p>
-                  </div>
-                </div>
-              )
-            )}
+              </div>
+            ))}
           </div>
         </div>
       </div>
