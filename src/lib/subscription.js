@@ -1,0 +1,96 @@
+import { supabase, isSupabaseReady } from "@/app/data/supabase";
+
+export const ACTIVE_SUBSCRIPTION_STATUSES = [
+  "active",
+  "past_due",
+  "trialing",
+  "paid",
+  "approved",
+  "authorized",
+  "complete",
+  "completed",
+  "succeeded",
+];
+
+function getSubscriptionEndDate(sub) {
+  return sub?.current_period_end || sub?.ends_at || sub?.expires_at || sub?.expiration_date || null;
+}
+
+function getSubscriptionSortDate(sub) {
+  return new Date(
+    getSubscriptionEndDate(sub) ||
+      sub?.updated_at ||
+      sub?.created_at ||
+      0
+  ).getTime();
+}
+
+export function isActiveSubscription(sub) {
+  if (!sub) return false;
+
+  const status = String(sub.status || "").toLowerCase();
+  if (!ACTIVE_SUBSCRIPTION_STATUSES.includes(status)) return false;
+
+  const endDateValue = getSubscriptionEndDate(sub);
+  if (!endDateValue) return true;
+
+  const endDate = new Date(endDateValue);
+  if (Number.isNaN(endDate.getTime())) return true;
+
+  return endDate.getTime() >= Date.now();
+}
+
+export function pickCurrentSubscription(list = [], userId) {
+  const userSubscriptions = (list || []).filter((sub) => !userId || sub.user_id === userId);
+
+  const activeSubscription = userSubscriptions
+    .filter(isActiveSubscription)
+    .sort((a, b) => getSubscriptionSortDate(b) - getSubscriptionSortDate(a))[0];
+
+  if (activeSubscription) return activeSubscription;
+
+  const pendingSubscription = userSubscriptions
+    .filter((sub) => String(sub.status || "").toLowerCase() === "pending")
+    .sort((a, b) => new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0))[0];
+
+  if (pendingSubscription) return pendingSubscription;
+
+  return userSubscriptions
+    .sort((a, b) => getSubscriptionSortDate(b) - getSubscriptionSortDate(a))[0] || null;
+}
+
+export async function synchronizeSubscription(subscriptionId) {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData?.session?.access_token;
+  if (!accessToken) throw new Error("Sua sessao expirou.");
+
+  const response = await fetch("/api/subscription-action", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ action: "sync", subscriptionId }),
+  });
+  const body = await response.json();
+  if (!body.success) throw new Error(body.error || "Nao foi possivel confirmar o pagamento");
+  return body.data;
+}
+
+export async function getCurrentSubscription(userId) {
+  if (!isSupabaseReady() || !userId) return null;
+
+  const { data, error } = await supabase
+    .from("subscriptions")
+    .select("*")
+    .eq("user_id", userId)
+    .order("current_period_end", { ascending: false, nullsFirst: false })
+    .order("updated_at", { ascending: false, nullsFirst: false });
+
+  if (error) {
+    console.error("Erro ao buscar assinatura:", error.message);
+    return null;
+  }
+
+  return pickCurrentSubscription(data || [], userId);
+}

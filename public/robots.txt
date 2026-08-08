@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /app/
+Disallow: /assinar
+Disallow: /pagamento/
+
+Sitemap: https://pesodeexistir.online/sitemap.xml

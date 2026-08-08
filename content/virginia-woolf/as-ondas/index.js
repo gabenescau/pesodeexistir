@@ -1,0 +1,1 @@
+﻿export default { "title": "As Ondas", "image": "/placeholder-book.svg" }

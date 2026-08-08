@@ -1,0 +1,36 @@
+# Env & secrets
+.env
+.env.*
+!.env.example
+
+# Tooling / agent config (not app code)
+.claude/
+.agents/
+.vercel/
+
+# Build outputs & dependencies
+dist/
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local data
+local-sql/
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Loose design / report files (not source)
+DESIGN (1).md
+RELATORIO-ACHIEVEMENTS.md
+*.pdf

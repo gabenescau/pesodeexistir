@@ -1,0 +1,113 @@
+import { useCallback, useEffect, useState } from "react";
+import { Copy, UserPlus } from "@/lib/icons";
+import { useRewards } from "@/app/data/RewardsContext";
+import { supabase, isSupabaseReady } from "@/app/data/supabase";
+import { toast } from "@/lib/toast";
+
+// Indicacoes: mostra o codigo de convite e permite reclamar a recompensa
+// (+500 XP / +100 creditos) por convidado que virou assinante ativo ha 30+ dias.
+export function ReferralWidget() {
+  const { getMyReferralCode, referralClaim, refresh } = useRewards();
+  const [code, setCode] = useState("");
+  const [referrals, setReferrals] = useState([]);
+  const [busy, setBusy] = useState("");
+
+  const load = useCallback(async () => {
+    if (!isSupabaseReady()) return;
+    const [codeResult, referralsResult] = await Promise.allSettled([
+      getMyReferralCode(),
+      supabase
+        .from("referrals")
+        .select("referred_user_id, rewarded_at, created_at")
+        .eq("referrer_user_id", (await supabase.auth.getSession()).data.session?.user?.id)
+        .order("created_at", { ascending: false })
+        .limit(50),
+    ]);
+    if (codeResult.status === "fulfilled") setCode(codeResult.value || "");
+    if (referralsResult.status === "fulfilled") setReferrals(referralsResult.value?.data || []);
+  }, [getMyReferralCode]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function copyCode() {
+    try {
+      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(code);
+      toast.success("Código de indicação copiado!");
+    } catch {
+      toast.error("Não foi possível copiar o código.");
+    }
+  }
+
+  async function claim(referredUserId) {
+    if (busy) return;
+    setBusy(referredUserId);
+    try {
+      await referralClaim(referredUserId);
+      toast.success("Recompensa de indicação creditada! +500 XP, +100 créditos.");
+      await refresh();
+      await load();
+    } catch (err) {
+      toast.error(err?.message || "Este convidado ainda não completou 30 dias de assinatura ativa.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  const pendingCount = referrals.filter((r) => !r.rewarded_at).length;
+
+  return (
+    <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-5">
+      <div className="mb-3 flex items-center gap-2">
+        <UserPlus className="size-4 text-[var(--accent-mint)]" />
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-[var(--text-muted)]">
+          Indique amigos
+        </h3>
+      </div>
+      <p className="mb-3 text-xs leading-relaxed text-[var(--text-secondary)]">
+        Cada amigo que assinar com seu código e ficar 30 dias ativo rende{" "}
+        <span className="font-semibold text-[var(--text-primary)]">+500 XP e +100 créditos</span>.
+      </p>
+      {code && (
+        <button
+          type="button"
+          onClick={copyCode}
+          className="mb-3 flex w-full items-center justify-between gap-2 rounded-[8px] bg-[var(--hover-overlay)] px-3 py-2 text-left transition-colors hover:bg-[var(--bg-card-hover)]"
+        >
+          <span className="font-mono text-sm font-semibold text-[var(--text-primary)]">{code}</span>
+          <Copy className="size-4 shrink-0 text-[var(--text-muted)]" />
+        </button>
+      )}
+      {referrals.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs text-[var(--text-muted)]">
+            {pendingCount > 0 ? `${pendingCount} convite(s) aguardando recompensa` : "Nenhum convite pendente."}
+          </p>
+          {referrals.slice(0, 5).map((r) => (
+            <div key={r.referred_user_id} className="flex items-center justify-between gap-2 rounded-[8px] bg-[var(--bg-canvas)] px-3 py-2">
+              <div className="min-w-0">
+                <p className="truncate text-xs text-[var(--text-secondary)]">
+                  {r.rewarded_at ? "Recompensa recebida" : "Convidado"}
+                </p>
+                <p className="text-[10px] text-[var(--text-muted)]">
+                  {new Date(r.created_at).toLocaleDateString("pt-BR")}
+                </p>
+              </div>
+              {!r.rewarded_at && (
+                <button
+                  type="button"
+                  disabled={busy === r.referred_user_id}
+                  onClick={() => claim(r.referred_user_id)}
+                  className="shrink-0 rounded-full bg-[var(--accent-mint)] px-3 py-1.5 text-[11px] font-semibold text-[var(--bg-card)] transition-opacity disabled:opacity-50"
+                >
+                  {busy === r.referred_user_id ? "..." : "Reclamar"}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
