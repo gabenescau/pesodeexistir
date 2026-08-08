@@ -27,9 +27,13 @@ export function MissionsWidget() {
   const [busyDaily, setBusyDaily] = useState(false);
   const [busyWeekly, setBusyWeekly] = useState(false);
 
-  const daily = wallet?.missions?.daily;
-  const weekly = wallet?.missions?.weekly;
-  const canClaimDaily = Boolean(daily && !daily.done && daily.objectives.login && daily.objectives.reading30 && daily.objectives.post && daily.objectives.comments);
+  const today = wallet?.today || {};
+  const loginDone = Boolean(daily?.objectives?.login || today.login);
+  const readingDone = Boolean(daily?.objectives?.reading30 || Number(today.readingSec || 0) >= 1800);
+  const postDone = Boolean(daily?.objectives?.post || Number(today.post || 0) >= 1);
+  const commentsDone = Boolean(daily?.objectives?.comments || Number(today.comment || 0) >= 1);
+
+  const canClaimDaily = Boolean(daily && !daily.done && loginDone && readingDone && postDone && commentsDone);
   const canClaimWeekly = Boolean(weekly && !weekly.done && (wallet?.streak?.current ?? 0) >= (weekly.streakNeeded || 7));
 
   async function claimDaily() {
@@ -70,10 +74,10 @@ export function MissionsWidget() {
 
   const streak = wallet.streak?.current || 0;
   const objectiveItems = [
-    { key: "login", label: "Entrar na plataforma" },
-    { key: "reading30", label: "Ler 30 min no dia" },
-    { key: "post", label: "Publicar 1 discussão" },
-    { key: "comments", label: "Comentar 1 vez" },
+    { key: "login", label: "Entrar na plataforma", done: loginDone },
+    { key: "reading30", label: "Ler 30 min no dia", done: readingDone },
+    { key: "post", label: "Publicar 1 discussão", done: postDone },
+    { key: "comments", label: "Comentar 1 vez", done: commentsDone },
   ];
 
   return (
@@ -96,7 +100,7 @@ export function MissionsWidget() {
         </div>
         <ul className="mb-3 space-y-1.5">
           {objectiveItems.map((item) => {
-            const done = Boolean(daily?.objectives?.[item.key]);
+            const done = item.done;
             return (
               <li key={item.key} className="flex items-center gap-2 text-xs">
                 <CheckCircle2 className={`size-3.5 shrink-0 ${done ? "text-[var(--accent-mint)]" : "text-[var(--text-muted)]"}`} />

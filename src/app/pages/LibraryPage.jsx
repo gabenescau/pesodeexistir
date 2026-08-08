@@ -59,22 +59,26 @@ const BookCard = memo(function BookCard({ book }) {
 });
 
 const ContinueCard = memo(function ContinueCard({ book }) {
+  const prog = Math.min(100, Math.max(0, Math.round(book.progress || 0)));
   return (
     <Link
-      to={`/app/livro/${book.id}`}
-      className="flex w-[200px] shrink-0 items-center gap-3 rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-2.5 transition-colors hover:bg-[var(--hover-overlay)] sm:w-[220px]"
+      to={`/app/ler/${book.id}`}
+      className="group flex w-[220px] shrink-0 items-center gap-3 rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)] p-3 transition-all duration-200 hover:border-blue-500/30 hover:bg-[var(--hover-overlay)] sm:w-[250px]"
     >
-      <div className="w-12 shrink-0 overflow-hidden rounded-[6px] border border-[var(--border)]">
-        <div className="aspect-[2/3]">
-          <img src={book.image} alt="" loading="lazy" className="h-full w-full object-cover" />
-        </div>
+      <div className="relative w-12 shrink-0 overflow-hidden rounded-[8px] border border-[var(--border)] aspect-[2/3]">
+        <img src={book.image} alt={book.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105" />
       </div>
-      <div className="min-w-0 flex-1">
-        <h3 className="truncate text-xs font-semibold text-[var(--text-primary)]">{book.title}</h3>
+      <div className="min-w-0 flex-1 space-y-1">
+        <h3 className="truncate text-xs font-semibold text-[var(--text-primary)] group-hover:text-blue-500 transition-colors">{book.title}</h3>
         <p className="truncate text-[10px] text-[var(--text-muted)]">{book.autorNome || book.authorName}</p>
-        <div className="mt-1 flex items-center gap-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
-          <StarIcon className="size-3 text-amber-500" weight="fill" />
-          <span>{book.ratingCount > 0 ? book.nota.toFixed(1) : "—"}</span>
+        <div className="pt-1">
+          <div className="mb-1 flex items-center justify-between text-[10px] font-medium text-[var(--text-secondary)]">
+            <span>Progresso</span>
+            <span className="font-semibold text-[var(--text-primary)]">{prog}%</span>
+          </div>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--bg-canvas)] border border-[var(--border)]/50">
+            <div className="h-full rounded-full bg-blue-500 transition-all duration-300" style={{ width: `${prog}%` }} />
+          </div>
         </div>
       </div>
     </Link>
@@ -306,6 +310,28 @@ export function LibraryPage() {
 
   return (
     <div className="space-y-6 sm:space-y-8">
+      {continueReading.length > 0 && (
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="h-4 w-[3px] rounded-full bg-blue-500" />
+              <h2 className="text-sm font-semibold text-[var(--text-primary)] sm:text-base">Continuar lendo</h2>
+            </div>
+            <span className="text-xs text-[var(--text-muted)]">{continueReading.length} {continueReading.length === 1 ? "obra em andamento" : "obras em andamento"}</span>
+          </div>
+          <div
+            className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0"
+            style={{ scrollbarWidth: "none", scrollSnapType: "x mandatory" }}
+          >
+            {continueReading.map((book) => (
+              <div key={book.id} style={{ scrollSnapAlign: "start" }}>
+                <ContinueCard book={book} />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {destaque ? (
         <section>
           <div className="mb-3 flex items-center gap-2">
@@ -314,16 +340,7 @@ export function LibraryPage() {
           </div>
           <div className="flex flex-col gap-3 md:flex-row md:items-stretch md:gap-4">
             <FeaturedBook book={destaque} />
-            {continueReading.length > 0 ? (
-              <div className="min-w-0 flex-1">
-                <p className="mb-2 text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">Continuar lendo</p>
-                <div className="flex flex-col gap-2 overflow-y-auto" style={{ maxHeight: "260px", scrollbarWidth: "none" }}>
-                  {continueReading.map((book) => (
-                    <ContinueCard key={book.id} book={book} />
-                  ))}
-                </div>
-              </div>
-            ) : <PopularCarousel books={carouselBooks} />}
+            <PopularCarousel books={carouselBooks} />
           </div>
         </section>
       ) : null}

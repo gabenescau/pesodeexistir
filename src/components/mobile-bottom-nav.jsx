@@ -4,6 +4,10 @@ import { bottomNavItems } from "@/components/app-shared";
 export function MobileBottomNav() {
   const location = useLocation();
 
+  if (location.pathname.startsWith("/app/ler/")) {
+    return null;
+  }
+
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-[var(--border)] bg-[var(--bg-canvas)]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden">
       <div className="flex min-h-14 items-center justify-around px-1 sm:px-2">

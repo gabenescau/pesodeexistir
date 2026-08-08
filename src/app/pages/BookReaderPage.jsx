@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-  ArrowLeft, Bookmark, CheckCircle2, ChevronLeft, ChevronRight, Lock, Minus, Plus, Share2,
+  ArrowLeft, Bookmark, CheckCircle2, ChevronLeft, ChevronRight, Lock, Maximize2, Minimize2, Minus, Plus, Share2,
 } from "@/lib/icons";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
@@ -96,7 +96,24 @@ export function BookReaderPage() {
   const [zoom, setZoom] = useState(initialZoom);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [showHint, setShowHint] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const favoritado = book ? isFavoriteBook(book.id) : false;
+
+  useEffect(() => {
+    function handleFullscreenChange() {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    }
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    }
+  }, []);
 
   const rawPdfFile = book?.pdfFile || book?.pdf_url;
   const bloqueado = Boolean(book) && !release.liberado;
@@ -312,7 +329,7 @@ export function BookReaderPage() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[var(--bg-canvas)] text-[var(--text-primary)]">
+    <div className="fixed inset-0 z-[60] flex flex-col bg-[var(--bg-canvas)] text-[var(--text-primary)]">
       <header className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--border)] bg-[var(--bg-card)] px-3 py-2.5 sm:px-5">
         <div className="flex min-w-0 items-center gap-2">
           <button
@@ -324,7 +341,9 @@ export function BookReaderPage() {
           </button>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{book.title}</p>
-            <p className="truncate text-xs text-[var(--text-muted)]">{author?.name || book.authorName || book.author}</p>
+            <p className="truncate text-xs text-[var(--text-muted)]">
+              {author?.name || book.authorName || book.author} <span className="inline-block sm:hidden font-semibold text-[var(--text-primary)]">• Pág. {page}/{totalPages || "..."}</span>
+            </p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
@@ -333,6 +352,15 @@ export function BookReaderPage() {
             <span className="min-w-10 text-center text-xs font-medium text-[var(--text-primary)]">{zoom}%</span>
             <button type="button" onClick={() => changeZoom(zoom + 10)} className="flex size-7 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]" aria-label="Aumentar zoom"><Plus className="size-4" /></button>
           </div>
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            className="flex size-9 items-center justify-center rounded-full border border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)] sm:size-10"
+            aria-label={isFullscreen ? "Sair da Tela Cheia" : "Modo Tela Cheia"}
+            title={isFullscreen ? "Sair da Tela Cheia" : "Modo Tela Cheia"}
+          >
+            {isFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+          </button>
           <button
             type="button"
             onClick={() => toggleFavoriteBook(book.id).then(() => toast.success(favoritado ? "Removido dos favoritos." : "Salvo nos favoritos.")).catch((err) => toast.error(err?.message || "Não foi possível salvar."))}
@@ -409,14 +437,14 @@ export function BookReaderPage() {
           <span className="hidden sm:inline">Anterior</span>
         </button>
         <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-          <div className="relative h-1 flex-1 overflow-hidden rounded-full bg-[var(--border)]">
-            <div className="h-full rounded-full bg-[var(--text-primary)]" style={{ width: `${progress}%` }} />
+          <div className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--border)]">
+            <div className="h-full rounded-full bg-blue-500 transition-all duration-300" style={{ width: `${progress}%` }} />
           </div>
-          <div className="flex shrink-0 flex-col items-end leading-tight">
-            <p className="min-w-[52px] text-center text-xs font-semibold text-[var(--text-primary)]">
+          <div className="flex shrink-0 flex-col items-center sm:items-end leading-tight px-1 min-w-[64px]">
+            <p className="whitespace-nowrap text-xs font-bold text-[var(--text-primary)]">
               {page}/{totalPages || "..."}
             </p>
-            <p className="text-[10px] text-[var(--text-muted)]">{progress}%</p>
+            <p className="text-[10px] text-[var(--text-muted)] font-medium">{progress}%</p>
           </div>
         </div>
         <button type="button" onClick={goNextPage} disabled={Boolean(totalPages) && page >= totalPages} className="flex h-10 min-w-10 shrink-0 items-center justify-center gap-1 rounded-full border border-[var(--border)] px-2 text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--hover-overlay)] disabled:opacity-35 sm:h-11 sm:px-3" aria-label="Proxima pagina">

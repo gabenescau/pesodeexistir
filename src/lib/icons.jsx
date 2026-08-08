@@ -221,6 +221,7 @@ export const LogIn = Phosphor.SignIn;
 export const LogOut = Phosphor.SignOut;
 export const Mail = Phosphor.EnvelopeSimple;
 export const Maximize2 = Phosphor.CornersOut;
+export const Minimize2 = Phosphor.CornersIn;
 export const Menu = Phosphor.List;
 export const MenuIcon = Phosphor.List;
 export const MessageCircle = Phosphor.ChatCircle;
