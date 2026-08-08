@@ -7,8 +7,11 @@ export function ProtectedRoute({ children }) {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--bg-canvas)]">
-        <div className="size-6 animate-spin rounded-full border-2 border-[var(--border)] border-t-[var(--text-primary)]" />
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--bg-canvas)] p-6 text-[var(--text-primary)]">
+        <div className="flex flex-col items-center gap-3">
+          <span className="text-xl font-bold tracking-wider text-[var(--text-primary)]">OPE <span className="text-[var(--accent-mint)] font-light">CLUB</span></span>
+          <div className="size-6 animate-spin rounded-full border-2 border-[var(--border)] border-t-[var(--accent-mint)]" />
+        </div>
       </div>
     );
   }
