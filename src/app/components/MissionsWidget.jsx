@@ -27,6 +27,8 @@ export function MissionsWidget() {
   const [busyDaily, setBusyDaily] = useState(false);
   const [busyWeekly, setBusyWeekly] = useState(false);
 
+  const daily = wallet?.missions?.daily;
+  const weekly = wallet?.missions?.weekly;
   const today = wallet?.today || {};
   const loginDone = Boolean(daily?.objectives?.login || today.login);
   const readingDone = Boolean(daily?.objectives?.reading30 || Number(today.readingSec || 0) >= 1800);
