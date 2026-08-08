@@ -109,17 +109,17 @@ export function DataProvider({ children }) {
 
     async function load() {
       setLoading(true);
-
-      const currentUserId = user?.id;
-      const currentProfileRes = currentUserId && !authProfile
-        ? await runSupabaseQuery(
-            () => supabase.from("profiles").select("*").eq("id", currentUserId).maybeSingle(),
-            "carregar perfil atual"
-          )
-        : { data: authProfile || null, error: null };
-      const currentProfile = currentProfileRes.error ? null : currentProfileRes.data;
-      const isCurrentAdmin = isAdmin || currentProfile?.role === "admin";
-      const emptyResult = { data: [], error: null };
+      try {
+        const currentUserId = user?.id;
+        const currentProfileRes = currentUserId && !authProfile
+          ? await runSupabaseQuery(
+              () => supabase.from("profiles").select("*").eq("id", currentUserId).maybeSingle(),
+              "carregar perfil atual"
+            )
+          : { data: authProfile || null, error: null };
+        const currentProfile = currentProfileRes.error ? null : currentProfileRes.data;
+        const isCurrentAdmin = isAdmin || currentProfile?.role === "admin";
+        const emptyResult = { data: [], error: null };
 
       // Admin le a tabela inteira (role, gestao de assinaturas). O email agora
       // mora em user_emails (fora de profiles), so visivel para admin — e
@@ -463,8 +463,11 @@ export function DataProvider({ children }) {
       } else {
         setMyCounts({ comments: 0, reactions: 0 });
       }
-
-      setLoading(false);
+      } catch (err) {
+        console.warn("Erro ao carregar dados do Supabase:", err);
+      } finally {
+        setLoading(false);
+      }
     }
 
     load();

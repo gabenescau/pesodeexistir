@@ -7,18 +7,17 @@ import { useData } from "../data/DataContext";
 import { AutocompleteSearch, buildSearchItems } from "@/components/ui/autocomplete";
 
 export function CommunityPage() {
-  const { posts, deletePost, loading, books, authors, categories } = useData();
+  const { posts = [], deletePost, loading = false, books = [], authors = [], categories = [] } = useData() || {};
   const [filter, setFilter] = useState("Todos");
   const [busca, setBusca] = useState("");
   const [reacoes, setReacoes] = useState([]);
   const [visibleCount, setVisibleCount] = useState(20);
 
   const searchItems = useMemo(
-    () => buildSearchItems({ books, authors, categories }),
+    () => buildSearchItems({ books: books || [], authors: authors || [], categories: categories || [] }),
     [books, authors, categories]
   );
 
-  // Uma consulta para as reacoes do feed inteiro, em vez de uma por card.
   useEffect(() => {
     let ativo = true;
     if (!isSupabaseReady()) return undefined;
@@ -30,12 +29,13 @@ export function CommunityPage() {
       .then(({ data, error }) => {
         if (!ativo || error) return;
         setReacoes(data || []);
-      });
+      })
+      .catch(() => {});
 
     return () => {
       ativo = false;
     };
-  }, [posts.length]);
+  }, [(posts || []).length]);
 
   useEffect(() => {
     setVisibleCount(20);
@@ -43,42 +43,39 @@ export function CommunityPage() {
 
   const reacoesPorPost = useMemo(() => {
     const mapa = {};
-    for (const reacao of reacoes) {
-      (mapa[reacao.target_id] ||= []).push(reacao);
+    for (const reacao of (reacoes || [])) {
+      if (reacao?.target_id) {
+        (mapa[reacao.target_id] ||= []).push(reacao);
+      }
     }
     return mapa;
   }, [reacoes]);
 
-  const filteredPosts = (() => {
-    // Posts de thread (entity-thread:book:UUID / entity-thread:author:UUID)
-    // sao ancoras de comentario criadas pelo EntityComments. Nunca devem
-    // aparecer no feed publico: o texto comeca com [thread] e a tag tem o
-    // prefixo. Filtramos aqui para nao precisar de uma query NOT LIKE no
-    // PostgREST (que tem bugs conhecidos em algumas versoes do supabase-js).
-    const semThreads = posts.filter(
-      (p) => !(p.tag || "").startsWith("entity-thread:")
+  const filteredPosts = useMemo(() => {
+    const safePosts = Array.isArray(posts) ? posts : [];
+    const semThreads = safePosts.filter(
+      (p) => p && !(p.tag || "").startsWith("entity-thread:")
     );
     let result = semThreads;
     if (filter !== "Todos") {
       if (filter === "Em alta") {
-        result = [...semThreads].sort((a, b) => b.likes - a.likes);
+        result = [...semThreads].sort((a, b) => (b?.likes || 0) - (a?.likes || 0));
       } else {
-        result = semThreads.filter(p => p.tag === filter);
+        result = semThreads.filter(p => p?.tag === filter);
       }
     }
 
-    // O campo de busca existia na tela mas nao filtrava nada.
     const termo = busca.trim().toLowerCase();
     if (termo) {
       result = result.filter((post) =>
-        [post.text, post.author, post.handle, post.tag, post.book?.title]
+        post && [post.text, post.author, post.handle, post.tag, post.book?.title]
           .filter(Boolean)
           .some((campo) => String(campo).toLowerCase().includes(termo))
       );
     }
 
     return result;
-  })();
+  }, [posts, filter, busca]);
   const visiblePosts = filteredPosts.slice(0, visibleCount);
 
   return (

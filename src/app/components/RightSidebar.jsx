@@ -20,8 +20,8 @@ function AuthorAvatar({ author }) {
 }
 
 export function RightSidebar() {
-  const { books, authors, posts } = useData();
-  const { wallet } = useRewards();
+  const { books = [], authors = [], posts = [] } = useData() || {};
+  const { wallet } = useRewards() || {};
   const level = wallet?.level ?? (wallet ? levelFromXp(wallet.xp) : 1);
   const progressPct = wallet
     ? Math.max(0, Math.min(100, Math.round((wallet.levelProgress ?? 0) * 100)))
@@ -29,12 +29,10 @@ export function RightSidebar() {
   const xpIntoLevel = wallet ? Math.max(0, wallet.xp - (wallet.levelXp || 0)) : 0;
   const xpForLevel = wallet ? Math.max(1, (wallet.nextLevelXp || 0) - (wallet.levelXp || 0)) : 100;
 
-  // Tags em alta: extrai #hashtags do texto dos posts e conta frequencia.
-  // So aparece se pelo menos 2 usuarios usaram a mesma tag.
   const hashtagRegex = /#(\w+)/g;
   const tagCount = {};
-  for (const post of posts) {
-    const text = post.text || "";
+  for (const post of (posts || [])) {
+    const text = post?.text || "";
     let match;
     while ((match = hashtagRegex.exec(text)) !== null) {
       const tag = `#${match[1]}`;
@@ -47,19 +45,17 @@ export function RightSidebar() {
     .slice(0, 8)
     .map(([tag]) => tag);
 
-  // Autores em destaque: ordena por total de curtidas nos livros
-  // (saved_posts = favoritos). So aparece quem tem pelo menos 1 like.
   const authorLikes = {};
-  for (const book of books) {
-    const authorId = book.author_id || book.authorId;
+  for (const book of (books || [])) {
+    const authorId = book?.author_id || book?.authorId;
     if (authorId) {
-      authorLikes[authorId] = (authorLikes[authorId] || 0) + (book.likes || 0);
+      authorLikes[authorId] = (authorLikes[authorId] || 0) + (book?.likes || 0);
     }
   }
-  const featuredAuthors = authors
+  const featuredAuthors = (authors || [])
     .map((author) => ({
       ...author,
-      works: books.filter((book) => (book.author_id || book.authorId) === author.id).length,
+      works: (books || []).filter((book) => (book?.author_id || book?.authorId) === author.id).length,
       totalLikes: authorLikes[author.id] || 0,
       initial: author.name?.charAt(0)?.toUpperCase() || "A",
     }))
