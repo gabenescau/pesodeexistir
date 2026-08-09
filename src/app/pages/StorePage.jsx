@@ -6,24 +6,27 @@ import { toast } from "@/lib/toast";
 import { CheckoutModal } from "@/app/components/CheckoutModal";
 
 const CATEGORY_LABELS = {
-  book: "Livros",
-  book_premium: "Livros Premium",
+  book: "Livro Físico",
+  livro_fisico: "Livro Físico",
+  book_premium: "Livro Premium",
+  livro_premium: "Livro Premium",
   boxes: "Boxes",
-  oversized: "Oversizeds",
-  hoodie: "Moletons",
+  oversized: "Oversized",
+  hoodie: "Moletom",
+  moletom: "Moletom",
   collectibles: "Colecionáveis",
 };
 
 const CATEGORY_TABS = [
   { id: "all", label: "Todos" },
-  { id: "book_premium", label: "Livros Premium" },
-  { id: "book", label: "Livros" },
+  { id: "book", label: "Livro Físico" },
+  { id: "book_premium", label: "Livro Premium" },
+  { id: "moletom", label: "Moletom" },
+  { id: "oversized", label: "Oversized" },
   { id: "boxes", label: "Boxes" },
-  { id: "oversized", label: "Oversizeds" },
-  { id: "hoodie", label: "Moletons" },
 ];
 
-const DUAL_PAYMENT_CATEGORIES = ["oversized", "hoodie"];
+const DUAL_PAYMENT_CATEGORIES = ["oversized", "hoodie", "moletom"];
 
 function getProductImages(product) {
   if (!product) return [];

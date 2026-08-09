@@ -141,7 +141,6 @@ export function sendError(req, res, error, fallback = "Erro interno") {
   const status = Number(error?.status);
   const safeStatus = status >= 400 && status < 500 ? status : 500;
   const isProviderError =
-    error?.name === "AbacatePayError" ||
     String(error?.message || "").startsWith("Supabase:");
   const message = safeStatus < 500 && !isProviderError
     ? String(error?.message || fallback)

@@ -33,28 +33,3 @@ export function getPlanByKey(key) {
 export function getPlanByCode(code) {
   return Object.values(PLAN_CATALOG).find((plan) => plan.plan === code) || null;
 }
-
-export function getCheckoutProduct(plan, paymentMethod) {
-  if (paymentMethod === "CARD") return plan;
-  if (paymentMethod !== "PIX") throw new Error("Metodo de pagamento invalido");
-
-  return {
-    ...plan,
-    externalId: `${plan.externalId}_pix_one_time`,
-    name: `${plan.name} via PIX`,
-    description: `${plan.durationDays} dias de acesso ao OPE Club via PIX`,
-    cycle: null,
-  };
-}
-
-export function getPlanByProductId(productId, products = []) {
-  const product = products.find((item) => item.id === productId);
-  return product ? getPlanByExternalId(product.externalId) : null;
-}
-
-export function getPlanByExternalId(externalId) {
-  return Object.values(PLAN_CATALOG).find((plan) =>
-    plan.externalId === externalId ||
-    `${plan.externalId}_pix_one_time` === externalId
-  ) || null;
-}

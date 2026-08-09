@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/app/data/AuthContext";
-import { createCheckout, PLANS } from "@/lib/abacatepay";
-import { Check, CreditCard, Loader2, Lock, QrCode, X } from "@/lib/icons";
+import { PLANS } from "@/lib/plans";
+import { Check, Lock, X } from "@/lib/icons";
 
 const BENEFITS = [
   "Acesso completo à biblioteca",
@@ -23,32 +23,15 @@ export function SubscribeModal({
   const { user } = useAuth();
   const navigate = useNavigate();
   const [selectedPlan, setSelectedPlan] = useState("monthly");
-  const [paymentMethod, setPaymentMethod] = useState("PIX");
-  const [creating, setCreating] = useState(null);
-  const [error, setError] = useState(null);
 
   if (!open) return null;
 
-  async function assinar(plan) {
+  function irParaPlanos() {
     if (!user) {
       navigate("/entrar");
       return;
     }
-
-    setCreating(plan);
-    setError(null);
-
-    try {
-      const data = await createCheckout({
-        plan,
-        name: user.email?.split("@")[0] || "",
-        paymentMethod,
-      });
-      window.location.assign(data.url);
-    } catch (e) {
-      setError(e.message);
-      setCreating(null);
-    }
+    navigate("/app/planos");
   }
 
   const plan = PLANS[selectedPlan];
@@ -119,40 +102,6 @@ export function SubscribeModal({
             ))}
           </div>
 
-          <div className="mt-4 grid grid-cols-2 rounded-lg border border-[var(--border)] p-1">
-            <button
-              type="button"
-              onClick={() => setPaymentMethod("PIX")}
-              aria-pressed={paymentMethod === "PIX"}
-              className={`flex h-10 items-center justify-center gap-2 rounded-md text-sm transition-colors ${
-                paymentMethod === "PIX"
-                  ? "bg-[var(--text-primary)] text-[var(--bg-card)]"
-                  : "text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"
-              }`}
-            >
-              <QrCode className="size-4" />
-              PIX
-            </button>
-            <button
-              type="button"
-              onClick={() => setPaymentMethod("CARD")}
-              aria-pressed={paymentMethod === "CARD"}
-              className={`flex h-10 items-center justify-center gap-2 rounded-md text-sm transition-colors ${
-                paymentMethod === "CARD"
-                  ? "bg-[var(--text-primary)] text-[var(--bg-card)]"
-                  : "text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"
-              }`}
-            >
-              <CreditCard className="size-4" />
-              Cartao
-            </button>
-          </div>
-          <p className="mt-2 text-xs text-[var(--text-muted)]">
-            {paymentMethod === "PIX"
-              ? "Pagamento unico com renovacao manual."
-              : "Assinatura com renovacao automatica."}
-          </p>
-
           <ul className="mt-5 space-y-2.5 text-left">
             {benefits.map((b) => (
               <li key={b} className="flex items-center gap-2.5 text-sm text-[var(--text-secondary)]">
@@ -163,27 +112,11 @@ export function SubscribeModal({
           </ul>
 
           <button
-            onClick={() => assinar(selectedPlan)}
-            disabled={creating !== null}
-            className="mt-6 w-full rounded-full bg-[var(--text-primary)] px-5 py-3 text-sm font-medium text-[var(--bg-card)] transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={irParaPlanos}
+            className="mt-6 w-full rounded-full bg-[var(--text-primary)] px-5 py-3 text-sm font-medium text-[var(--bg-card)] transition-opacity hover:opacity-90"
           >
-            {creating ? (
-              <span className="flex items-center justify-center gap-2">
-                <Loader2 className="size-4 animate-spin" />
-                Redirecionando...
-              </span>
-            ) : (
-              `Assinar ${plan.label} — ${plan.priceFormatted}${plan.period}`
-            )}
+            Assinar {plan.label}
           </button>
-
-          {error && (
-            <p className="mt-3 text-xs text-red-400">{error}</p>
-          )}
-
-          <p className="mt-3 text-xs text-[var(--text-muted)]">
-            Pagamento via PIX ou cartão no checkout da AbacatePay, com confirmação automática.
-          </p>
         </div>
       </div>
     </div>

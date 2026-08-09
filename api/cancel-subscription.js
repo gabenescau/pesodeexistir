@@ -1,4 +1,3 @@
-import { cancelAbacateSubscription } from "../server/abacatepay.js";
 import {
   allowPost,
   enforceRateLimit,
@@ -42,20 +41,6 @@ export default async function handler(req, res) {
       return res.status(409).json({ success: false, error: "A assinatura nao esta ativa" });
     }
 
-    let remote = null;
-    if (subscription.provider === "abacatepay") {
-      const isOneTimeCheckout = subscription.metadata?.billing_mode === "one_time";
-      if (!subscription.provider_subscription_id && !isOneTimeCheckout) {
-        return res.status(409).json({
-          success: false,
-          error: "ID remoto ausente. Sincronize a assinatura ou verifique o webhook antes de cancelar.",
-        });
-      }
-      if (subscription.provider_subscription_id) {
-        remote = await cancelAbacateSubscription(subscription.provider_subscription_id);
-      }
-    }
-
     const now = new Date().toISOString();
     const updated = await updateSubscription(subscription.id, {
       status: "canceled",
@@ -64,8 +49,7 @@ export default async function handler(req, res) {
       metadata: {
         ...(subscription.metadata || {}),
         canceled_by: user.id,
-        cancellation_mode: remote ? "abacatepay_api" : "one_time_access",
-        abacatepay_cancellation_status: remote?.status || null,
+        cancellation_mode: "manual",
       },
     });
 

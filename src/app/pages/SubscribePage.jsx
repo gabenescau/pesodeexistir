@@ -1,35 +1,29 @@
 import { useState } from "react";
+import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
 import { getCurrentSubscription, isActiveSubscription } from "@/lib/subscription";
-import { createCheckout, PLANS } from "@/lib/abacatepay";
-import { useEffect } from "react";
-import { CreditCard, Loader2 } from "@/lib/icons";
-import { PixIcon } from "@/components/pix-icon";
+import { PLANS } from "@/lib/plans";
 import { PlanBenefitList } from "@/components/plan-benefit";
 import { toast } from "@/lib/toast";
 import { useCancelSurvey } from "@/components/ui/cancel-survey";
 
 export function SubscribePage() {
   const { user, isAdmin } = useAuth();
-  const { subscription, cancelSubscription, changeSubscriptionPlan } = useData();
+  const { subscription, cancelSubscription } = useData();
   const navigate = useNavigate();
   const location = useLocation();
   const cancelSurvey = useCancelSurvey();
   const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(null);
-  const [error, setError] = useState(null);
   const [cancelError, setCancelError] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState("monthly");
-  const [paymentMethod, setPaymentMethod] = useState("PIX");
   const [currentSubscription, setCurrentSubscription] = useState(null);
   const isAppPlansRoute = location.pathname.startsWith("/app/planos");
   const visibleSubscription = currentSubscription || subscription;
   const hasActivePlan = isAdmin || isActiveSubscription(visibleSubscription);
   const hasActiveSubscription = isActiveSubscription(visibleSubscription);
-  const isOneTimePlan = visibleSubscription?.metadata?.billing_mode === "one_time";
 
   useEffect(() => {
     if (!user) {
@@ -52,34 +46,8 @@ export function SubscribePage() {
     });
   }, [user, isAdmin, isAppPlansRoute, navigate]);
 
-  async function handleSubscribe(plan) {
-    if (!user) return;
-    setError(null);
-    setCreating(plan);
-
-    try {
-      if (isActiveSubscription(visibleSubscription)) {
-        if (visibleSubscription.provider !== "abacatepay") {
-          throw new Error("Planos concedidos manualmente devem ser alterados pelo administrador.");
-        }
-        const updated = await changeSubscriptionPlan(visibleSubscription.id, plan);
-        setCurrentSubscription(updated);
-        setCreating(null);
-        toast.success("Plano atualizado. A alteracao sera aplicada no proximo ciclo.");
-        return;
-      }
-
-      const data = await createCheckout({
-        plan,
-        paymentMethod,
-      });
-
-      window.location.assign(data.url);
-    } catch (e) {
-      setError(e.message);
-      toast.error(e.message);
-      setCreating(null);
-    }
+  function handleSubscribe() {
+    navigate("/app/planos");
   }
 
   async function handleCancel() {
@@ -175,45 +143,6 @@ export function SubscribePage() {
           </div>
         )}
 
-        {!hasActiveSubscription && (
-          <div className="mx-auto grid w-full max-w-md grid-cols-2 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-1">
-            <button
-              type="button"
-              onClick={() => setPaymentMethod("PIX")}
-              aria-pressed={paymentMethod === "PIX"}
-              className={`flex h-11 items-center justify-center gap-2 rounded-md text-sm transition-colors ${
-                paymentMethod === "PIX"
-                  ? "bg-[var(--text-primary)] text-[var(--bg-card)]"
-                  : "text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"
-              }`}
-            >
-              <PixIcon className="size-4" />
-              PIX
-            </button>
-            <button
-              type="button"
-              onClick={() => setPaymentMethod("CARD")}
-              aria-pressed={paymentMethod === "CARD"}
-              className={`flex h-11 items-center justify-center gap-2 rounded-md text-sm transition-colors ${
-                paymentMethod === "CARD"
-                  ? "bg-[var(--text-primary)] text-[var(--bg-card)]"
-                  : "text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"
-              }`}
-            >
-              <CreditCard className="size-4" />
-              Cartao
-            </button>
-          </div>
-        )}
-
-        {!hasActiveSubscription && (
-          <p className="-mt-5 text-center text-xs text-[var(--text-muted)]">
-            {paymentMethod === "PIX"
-              ? "Pagamento unico. Renove manualmente ao fim do periodo."
-              : "Assinatura recorrente com renovacao automatica."}
-          </p>
-        )}
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
           {Object.values(PLANS).map((plan) => {
             const isSelected = selectedPlan === plan.id;
@@ -289,48 +218,23 @@ export function SubscribePage() {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleSubscribe(plan.id);
+                    handleSubscribe();
                   }}
-                  disabled={creating !== null || (hasActiveSubscription && (isCurrent || isOneTimePlan))}
+                  disabled={hasActiveSubscription && isCurrent}
                   className={`mt-6 w-full py-3 rounded-[100px] text-[14px] font-[500] leading-[20px] transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                     isSelected
                       ? "bg-[var(--text-primary)] text-[var(--bg-card)] hover:opacity-90"
                       : "border border-[var(--border)] text-[var(--text-primary)] hover:bg-[var(--hover-overlay)]"
                   }`}
                 >
-                  {creating === plan.id ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <Loader2 className="size-4 animate-spin" />
-                      {hasActiveSubscription ? "Agendando..." : "Redirecionando..."}
-                    </span>
-                  ) : hasActiveSubscription && isCurrent ? (
-                    "Plano atual"
-                  ) : hasActiveSubscription && isOneTimePlan ? (
-                    "Disponivel na renovacao"
-                  ) : hasActiveSubscription ? (
-                    plan.id === "annual" ? "Fazer upgrade" : "Fazer downgrade"
-                  ) : (
-                    `Assinar ${plan.label}`
-                  )}
+                  {hasActiveSubscription && isCurrent
+                    ? "Plano atual"
+                    : `Assinar ${plan.label}`}
                 </button>
               </div>
             );
           })}
         </div>
-
-        {error && (
-          <p className="text-sm text-red-400 text-center max-w-md mx-auto">{error}</p>
-        )}
-        {visibleSubscription?.metadata?.pending_plan && (
-          <p className="text-sm text-center text-[var(--accent-mint)]">
-            Alteracao para o plano {visibleSubscription.metadata.pending_plan === "ope_club_annual" ? "anual" : "mensal"} agendada para o proximo ciclo.
-          </p>
-        )}
-
-        <p className="text-xs text-center max-w-md mx-auto" style={{ color: "var(--text-muted)" }}>
-          Pagamento 100% seguro via PIX ou cartão no checkout da AbacatePay.
-          Acesso liberado apos a confirmacao do pagamento.
-        </p>
       </div>
       {cancelSurvey.dialog}
     </div>

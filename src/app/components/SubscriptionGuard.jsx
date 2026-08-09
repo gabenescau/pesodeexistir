@@ -3,8 +3,6 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/app/data/AuthContext";
 import { getCurrentSubscription, isActiveSubscription } from "@/lib/subscription";
 import { Check } from "@/lib/icons";
-import { createCheckout } from "@/lib/abacatepay";
-import { toast } from "@/lib/toast";
 
 const LEITOR_BENEFITS = [
   "Biblioteca completa de filosofia",
@@ -25,18 +23,14 @@ const PENSADOR_BENEFITS = [
 
 function Paywall() {
   const { user } = useAuth();
-  const [creating, setCreating] = useState(null);
+  const navigate = useNavigate();
 
-  async function handleSubscribe(plan) {
-    if (!user) return;
-    setCreating(plan);
-    try {
-      const data = await createCheckout({ plan, paymentMethod: "PIX" });
-      window.location.assign(data.url);
-    } catch (e) {
-      toast.error(e.message || "Erro ao iniciar assinatura.");
-      setCreating(null);
+  function irParaPlanos() {
+    if (!user) {
+      navigate("/entrar");
+      return;
     }
+    navigate("/app/planos");
   }
 
   return (
@@ -75,11 +69,10 @@ function Paywall() {
 
           <button
             type="button"
-            disabled={creating !== null}
-            onClick={() => handleSubscribe("monthly")}
-            className="w-full rounded-[10px] bg-[var(--text-primary)] py-2.5 text-sm font-semibold text-[var(--bg-card)] hover:opacity-90 transition-opacity disabled:opacity-50"
+            onClick={irParaPlanos}
+            className="w-full rounded-[10px] bg-[var(--text-primary)] py-2.5 text-sm font-semibold text-[var(--bg-card)] hover:opacity-90 transition-opacity"
           >
-            {creating === "monthly" ? "Redirecionando..." : "Assinar Pensador"}
+            Assinar Pensador
           </button>
         </div>
 
@@ -104,17 +97,16 @@ function Paywall() {
 
           <button
             type="button"
-            disabled={creating !== null}
-            onClick={() => handleSubscribe("annual")}
-            className="w-full rounded-[10px] border border-[var(--border)] py-2.5 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] transition-colors disabled:opacity-50"
+            onClick={irParaPlanos}
+            className="w-full rounded-[10px] border border-[var(--border)] py-2.5 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] transition-colors"
           >
-            {creating === "annual" ? "Redirecionando..." : "Assinar Leitor"}
+            Assinar Leitor
           </button>
         </div>
       </div>
 
       <p className="text-center text-xs text-[var(--text-muted)]">
-        Pagamento seguro via Pix ou cartão de crédito.
+        Acesse a pagina de planos para gerenciar sua assinatura.
       </p>
     </div>
   );

@@ -38,12 +38,6 @@ async function grantManual({ admin, userId, email, planKey, durationDays }) {
   const subscriptions = await listUserSubscriptions(userId);
   const current = activeSubscription(subscriptions);
 
-  if (current?.provider === "abacatepay") {
-    const error = new Error("Use upgrade/downgrade ou cancelamento oficial para esta assinatura AbacatePay");
-    error.status = 409;
-    throw error;
-  }
-
   const now = new Date();
   const base = current?.current_period_end && new Date(current.current_period_end) > now
     ? new Date(current.current_period_end)
@@ -82,7 +76,7 @@ async function setManualDuration({ admin, userId, durationDays }) {
   const current = activeSubscription(await listUserSubscriptions(userId));
   if (!current) throw new Error("Usuario nao possui assinatura ativa");
   if (current.provider !== "manual_admin") {
-    const error = new Error("Dias manuais nao alteram uma assinatura cobrada pela AbacatePay");
+    const error = new Error("Dias manuais nao alteram uma assinatura de outro provedor");
     error.status = 409;
     throw error;
   }

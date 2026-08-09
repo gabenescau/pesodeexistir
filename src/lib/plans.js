@@ -1,33 +1,3 @@
-import { supabase } from "@/app/data/supabase";
-
-const API_BASE = "/api";
-
-export async function createCheckout({ plan, paymentMethod }) {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const accessToken = sessionData?.session?.access_token;
-
-  if (!accessToken) {
-    throw new Error("Sua sessao expirou. Entre novamente para assinar.");
-  }
-
-  const res = await fetch(`${API_BASE}/create-checkout`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ plan, paymentMethod }),
-  });
-
-  const body = await res.json();
-
-  if (!body.success) {
-    throw new Error(body.error || "Erro ao criar checkout");
-  }
-
-  return body.data;
-}
-
 export const PLANS = {
   monthly: {
     id: "monthly",

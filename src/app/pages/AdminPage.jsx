@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../data/AuthContext";
 import { useData } from "../data/DataContext";
 import { isSupabaseReady, supabase } from "../data/supabase";
-import { Plus, Trash2, Edit3, Check, Crown, BookOpen, Users, MessageSquare, ShieldAlert, Sparkles, FolderOpen, RefreshCw, ArrowUpDown, ChartLine, Gift, Truck, Flag, Wallet, Package } from "@/lib/icons";
+import { toast } from "@/lib/toast";
+import { Plus, Trash2, Edit3, Check, Crown, BookOpen, Users, MessageSquare, ShieldAlert, Sparkles, FolderOpen, RefreshCw, ChartLine, Gift, Truck, Flag, Wallet, Package } from "@/lib/icons";
 import { isActiveSubscription, pickCurrentSubscription } from "@/lib/subscription";
 import {
   LIBRARY_BUCKETS,
@@ -297,7 +298,7 @@ function FormField({ label, value, onChange, placeholder, type = "text", classNa
 }
 
 function SubscriptionsTab() {
-  const { subscriptions, cancelSubscription, changeSubscriptionPlan, syncSubscription } = useData();
+  const { subscriptions, cancelSubscription } = useData();
   const [working, setWorking] = useState("");
   const [message, setMessage] = useState("");
 
@@ -355,31 +356,6 @@ function SubscriptionsTab() {
                 </td>
                 <td className="py-3">
                   <div className="flex items-center justify-end gap-1">
-                    {s.provider === "abacatepay" && (
-                      <button
-                        type="button"
-                        title="Sincronizar com AbacatePay"
-                        disabled={working === `sync-${s.id}`}
-                        onClick={() => run(`sync-${s.id}`, () => syncSubscription(s.id))}
-                        className="flex size-8 items-center justify-center rounded-[6px] text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)] disabled:opacity-50"
-                      >
-                        <RefreshCw className={`size-4 ${working === `sync-${s.id}` ? "animate-spin" : ""}`} />
-                      </button>
-                    )}
-                    {s.provider === "abacatepay" && s.status === "active" && (
-                      <button
-                        type="button"
-                        title={s.plan === "ope_club_annual" ? "Downgrade para mensal" : "Upgrade para anual"}
-                        disabled={working === `plan-${s.id}`}
-                        onClick={() => run(
-                          `plan-${s.id}`,
-                          () => changeSubscriptionPlan(s.id, s.plan === "ope_club_annual" ? "monthly" : "annual")
-                        )}
-                        className="flex size-8 items-center justify-center rounded-[6px] text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)] disabled:opacity-50"
-                      >
-                        <ArrowUpDown className="size-4" />
-                      </button>
-                    )}
                     {isActiveSubscription(s) && (
                       <button
                         type="button"
@@ -403,7 +379,6 @@ function SubscriptionsTab() {
 
 function UsersTab() {
   const { profiles, subscriptions, upsertUserSubscription, updateUserSubscriptionDuration, removeUserSubscription } = useData();
-  const { addCredits } = useRewards();
   const [durationByUser, setDurationByUser] = useState({});
   const [planByUser, setPlanByUser] = useState({});
   const [savingUser, setSavingUser] = useState(null);
@@ -412,58 +387,6 @@ function UsersTab() {
   const pageSize = 8;
   const totalPages = Math.max(1, Math.ceil(profiles.length / pageSize));
   const visibleProfiles = profiles.slice((page - 1) * pageSize, page * pageSize);
-
-  // Credit management modal state
-  const [creditModal, setCreditModal] = useState(null); // { profile }
-  const [creditAmount, setCreditAmount] = useState("100");
-  const [creditLoading, setCreditLoading] = useState(false);
-  const [creditError, setCreditError] = useState("");
-
-  async function handleAddCredits() {
-    if (!creditModal) return;
-    const amount = parseInt(creditAmount, 10);
-    if (isNaN(amount) || amount === 0) { setCreditError("Informe um valor válido."); return; }
-    setCreditLoading(true);
-    setCreditError("");
-    try {
-      const targetUserId = creditModal.profile.id;
-
-      const { data: walletRow } = await supabase
-        .from("user_wallets")
-        .select("credits")
-        .eq("user_id", targetUserId)
-        .maybeSingle();
-
-      const currentCredits = Number(walletRow?.credits || 0);
-      const newCredits = Math.max(0, currentCredits + amount);
-
-      const { error: upsertErr } = await supabase
-        .from("user_wallets")
-        .upsert(
-          {
-            user_id: targetUserId,
-            credits: newCredits,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "user_id" }
-        );
-
-      if (upsertErr) {
-        console.warn("Erro ao atualizar user_wallets:", upsertErr.message);
-      }
-
-      if (targetUserId === user?.id) {
-        addCredits(amount);
-      }
-
-      toast.success(`Créditos de ${creditModal.profile.name || "Usuário"} atualizados! Saldo: ${newCredits} créditos.`);
-      setCreditModal(null);
-    } catch (e) {
-      setCreditError(e?.message || "Erro ao adicionar créditos.");
-    } finally {
-      setCreditLoading(false);
-    }
-  }
 
   const getSub = (userId) => pickCurrentSubscription(subscriptions, userId);
 
@@ -524,79 +447,6 @@ function UsersTab() {
         <span className="text-xs text-[var(--text-muted)]">Página {page} de {totalPages}</span>
       </div>
       {error && <p className="text-sm text-red-400">{error}</p>}
-
-      {/* Modal de Créditos */}
-      {creditModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setCreditModal(null)}>
-          <div className="w-full max-w-sm rounded-[16px] border border-[var(--border)] bg-[var(--bg-card)] p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="mb-5">
-              <div className="flex items-center gap-3 mb-1">
-                <div className="flex size-10 items-center justify-center overflow-hidden rounded-full bg-[var(--hover-overlay)] text-sm font-bold text-[var(--text-primary)]">
-                  {creditModal.profile.avatar?.startsWith("http") ? (
-                    <img src={creditModal.profile.avatar} className="h-full w-full object-cover" alt="" />
-                  ) : (creditModal.profile.name?.charAt(0) || "U").toUpperCase()}
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-[var(--text-primary)]">{creditModal.profile.name || "Usuário"}</p>
-                  <p className="text-xs text-[var(--text-muted)]">{creditModal.profile.email}</p>
-                </div>
-              </div>
-              <h3 className="text-base font-bold text-[var(--text-primary)] mt-3">Gerenciar Créditos</h3>
-              <p className="text-xs text-[var(--text-muted)] mt-0.5">Use valores positivos para adicionar e negativos para remover créditos.</p>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCreditAmount(v => String((parseInt(v,10)||0) - 50))}
-                  className="size-9 flex items-center justify-center rounded-[8px] border border-[var(--border)] text-lg font-bold text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] transition-colors"
-                >-</button>
-                <div className="relative flex-1">
-                  <input
-                    type="number"
-                    value={creditAmount}
-                    onChange={e => { setCreditAmount(e.target.value); setCreditError(""); }}
-                    className="w-full rounded-[10px] border border-[var(--border)] bg-[var(--bg-canvas)] px-4 py-2.5 text-center text-lg font-bold text-[var(--text-primary)] focus:outline-none focus:border-blue-500/60"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--text-muted)] pointer-events-none">créd.</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setCreditAmount(v => String((parseInt(v,10)||0) + 50))}
-                  className="size-9 flex items-center justify-center rounded-[8px] border border-[var(--border)] text-lg font-bold text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] transition-colors"
-                >+</button>
-              </div>
-
-              <div className="grid grid-cols-4 gap-1.5">
-                {[100, 250, 500, 1000].map(v => (
-                  <button key={v} type="button" onClick={() => setCreditAmount(String(v))}
-                    className={`rounded-[8px] border py-1.5 text-xs font-semibold transition-colors ${
-                      creditAmount === String(v)
-                        ? "border-blue-500/60 bg-blue-500/10 text-blue-400"
-                        : "border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--border-strong)]"
-                    }`}>
-                    +{v}
-                  </button>
-                ))}
-              </div>
-
-              {creditError && <p className="text-xs text-red-400">{creditError}</p>}
-            </div>
-
-            <div className="mt-5 flex gap-2">
-              <button type="button" onClick={() => setCreditModal(null)}
-                className="flex-1 rounded-[10px] border border-[var(--border)] py-2.5 text-sm font-medium text-[var(--text-muted)] hover:bg-[var(--hover-overlay)] transition-colors">
-                Cancelar
-              </button>
-              <button type="button" onClick={handleAddCredits} disabled={creditLoading}
-                className="flex-1 rounded-[10px] bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-500 transition-colors disabled:opacity-50">
-                {creditLoading ? "Salvando..." : (parseInt(creditAmount,10) >= 0 ? "Adicionar" : "Remover")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <Table variant="card" className="min-w-[940px]">
         <TableHeader>
@@ -670,7 +520,6 @@ function UsersTab() {
                     <select
                       value={planByUser[profile.id] || "ope_club_monthly"}
                       onChange={(e) => setPlanByUser((prev) => ({ ...prev, [profile.id]: e.target.value }))}
-                      disabled={sub?.provider === "abacatepay" && active}
                       className="rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1 text-xs text-[var(--text-primary)] disabled:opacity-50"
                     >
                       <option value="ope_club_monthly">Mensal (Leitor)</option>
@@ -682,7 +531,6 @@ function UsersTab() {
                     <select
                       value={durationByUser[profile.id] || 30}
                       onChange={(e) => setDurationByUser((prev) => ({ ...prev, [profile.id]: Number(e.target.value) }))}
-                      disabled={sub?.provider === "abacatepay" && active}
                       className="rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1 text-xs text-[var(--text-primary)] disabled:opacity-50"
                     >
                       <option value={7}>7 dias</option>
@@ -705,23 +553,21 @@ function UsersTab() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      <span
+                        title="Créditos atuais do usuário (somente leitura)"
+                        className="inline-flex items-center gap-1 rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1.5 text-xs font-semibold text-blue-400"
+                      >
+                        <Wallet className="size-3.5" />
+                        {(profile.credits ?? 0).toLocaleString("pt-BR")}
+                      </span>
                       <button
                         type="button"
-                        onClick={() => { setCreditModal({ profile }); setCreditAmount("100"); setCreditError(""); }}
-                        className="rounded-full border border-blue-500/40 bg-blue-500/10 px-3 py-1.5 text-xs font-medium text-blue-400 hover:bg-blue-500/20 transition-colors"
+                        onClick={() => activate(profile)}
+                        disabled={savingUser === profile.id}
+                        className="rounded-full bg-[var(--text-primary)] px-3 py-1.5 text-xs font-medium text-[var(--bg-card)] hover:opacity-90 disabled:opacity-50 transition-opacity"
                       >
-                        Créditos
+                        {active ? "Renovar plano" : "Adicionar plano"}
                       </button>
-                      {!(sub?.provider === "abacatepay" && active) && (
-                        <button
-                          type="button"
-                          onClick={() => activate(profile)}
-                          disabled={savingUser === profile.id}
-                          className="rounded-full bg-[var(--text-primary)] px-3 py-1.5 text-xs font-medium text-[var(--bg-card)] hover:opacity-90 disabled:opacity-50 transition-opacity"
-                        >
-                          {active ? "Renovar plano" : "Adicionar plano"}
-                        </button>
-                      )}
                       {active && (
                         <button
                           type="button"
@@ -1622,7 +1468,24 @@ function ResgatesTab() {
 // ---------------------------------------------------------------------------
 // Loja: CRUD simples do catalogo de produtos resgataveis.
 // ---------------------------------------------------------------------------
-const PRODUCT_CATEGORIES = ["book", "book_premium", "boxes", "oversized", "hoodie"];
+const PRODUCT_CATEGORIES = [
+  { id: "book", label: "Livro Físico" },
+  { id: "book_premium", label: "Livro Premium" },
+  { id: "hoodie", label: "Moletom" },
+  { id: "oversized", label: "Oversized" },
+  { id: "boxes", label: "Boxes" },
+];
+
+const CATEGORY_LABELS = {
+  book: "Livro Físico",
+  livro_fisico: "Livro Físico",
+  book_premium: "Livro Premium",
+  livro_premium: "Livro Premium",
+  hoodie: "Moletom",
+  moletom: "Moletom",
+  oversized: "Oversized",
+  boxes: "Boxes",
+};
 
 function LojaTab() {
   const [products, setProducts] = useState([]);
@@ -1965,7 +1828,11 @@ function LojaTab() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <input className={inputClass} placeholder="Nome do produto" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <select className={inputClass} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-            {PRODUCT_CATEGORIES.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+            {PRODUCT_CATEGORIES.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.label}
+              </option>
+            ))}
           </select>
           <input className={inputClass} placeholder="Descrição" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <input className={inputClass} type="number" min="1" placeholder="Custo em créditos" value={form.credits_cost} onChange={(e) => setForm({ ...form, credits_cost: e.target.value })} />
@@ -2143,7 +2010,7 @@ function LojaTab() {
                         </div>
                       </div>
                     </td>
-                    <td className="py-3 pr-4 text-[var(--text-secondary)]">{p.category}</td>
+                    <td className="py-3 pr-4 text-[var(--text-secondary)]">{CATEGORY_LABELS[p.category] || p.category}</td>
                     <td className="py-3 pr-4 text-[var(--text-secondary)]">{p.credits_cost}</td>
                     <td className="py-3 pr-4 text-[var(--text-secondary)]">{p.min_months_active}</td>
                     <td className="py-3 pr-4">
@@ -2236,558 +2103,474 @@ function SpamTab() {
 }
 
 function IndicacoesTab() {
-  const [referrals, setReferrals] = useState([
-    { id: "ref-1", referrerName: "Gabriel Santos", referrerEmail: "gabriel@ope.club", refereeName: "Lucas Andrade", refereeEmail: "lucas@gmail.com", plan: "Plano Anual", date: "01/08/2026", status: "Em validação" },
-    { id: "ref-2", referrerName: "Mariana Costa", referrerEmail: "mariana@gmail.com", refereeName: "Rafael Silveira", refereeEmail: "rafael@gmail.com", plan: "Plano Mensal", date: "05/07/2026", status: "Confirmado" },
-    { id: "ref-3", referrerName: "Gabriel Santos", referrerEmail: "gabriel@ope.club", refereeName: "Fernanda Lima", refereeEmail: "fernanda@gmail.com", plan: "Pendente", date: "06/08/2026", status: "Pendente" },
-  ]);
+  const [referrals, setReferrals] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [working, setWorking] = useState("");
 
-  const handleApprove = (id) => {
-    setReferrals((prev) => prev.map((r) => (r.id === id ? { ...r, status: "Confirmado" } : r)));
-  };
+  async function load() {
+    setLoading(true);
+    setError("");
+    if (!isSupabaseReady()) {
+      setReferrals([]);
+      setLoading(false);
+      return;
+    }
+    try {
+      const { data, error: rpcError } = await supabase.rpc("admin_list_referrals");
+      if (rpcError) throw rpcError;
+      setReferrals(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError(err?.message || "Não foi possível carregar as indicações.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  const handleCancel = (id) => {
-    setReferrals((prev) => prev.map((r) => (r.id === id ? { ...r, status: "Cancelado" } : r)));
-  };
+  useEffect(() => { load(); }, []);
+
+  async function handleApprove(r) {
+    setWorking(r.id);
+    setError("");
+    try {
+      const { error: rpcError } = await supabase.rpc("admin_confirm_referral", {
+        p_referrer_user_id: r.referrer.id,
+        p_referred_user_id: r.referred.id,
+      });
+      if (rpcError) throw rpcError;
+      toast.success("Indicação confirmada. Recompensa aplicada.");
+      await load();
+    } catch (err) {
+      setError(err?.message || "Não foi possível confirmar a indicação.");
+    } finally {
+      setWorking("");
+    }
+  }
+
+  async function handleCancel(r) {
+    setWorking(r.id);
+    setError("");
+    try {
+      const { error: rpcError } = await supabase.rpc("admin_cancel_referral", {
+        p_referrer_user_id: r.referrer.id,
+        p_referred_user_id: r.referred.id,
+      });
+      if (rpcError) throw rpcError;
+      toast.success("Indicação cancelada.");
+      await load();
+    } catch (err) {
+      setError(err?.message || "Não foi possível cancelar a indicação.");
+    } finally {
+      setWorking("");
+    }
+  }
+
+  const confirmed = referrals.filter((r) => r.status === "confirmed").length;
+  const pending = referrals.filter((r) => r.status === "pending").length;
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-        <StatCard label="Total de Indicações" value={referrals.length} icon={Users} />
-        <StatCard label="Confirmados" value={referrals.filter(r => r.status === "Confirmado").length} icon={Check} />
-        <StatCard label="Em Validação" value={referrals.filter(r => r.status === "Em validação").length} icon={RefreshCw} />
-        <StatCard label="Pendentes" value={referrals.filter(r => r.status === "Pendente").length} icon={Users} />
-      </div>
-
-      <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-b border-[var(--border)]">
-              <TableHead className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium">Quem Indicou</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium">Quem Entrou</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium">Plano</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium">Data</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium">Status</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody className="divide-y divide-[var(--border)]">
-            {referrals.map((r) => (
-              <TableRow key={r.id} className="hover:bg-[var(--hover-overlay)] transition-colors">
-                <TableCell>
-                  <div className="text-sm font-medium text-[var(--text-primary)]">{r.referrerName}</div>
-                  <div className="text-xs text-[var(--text-muted)]">{r.referrerEmail}</div>
-                </TableCell>
-                <TableCell>
-                  <div className="text-sm font-medium text-[var(--text-primary)]">{r.refereeName}</div>
-                  <div className="text-xs text-[var(--text-muted)]">{r.refereeEmail}</div>
-                </TableCell>
-                <TableCell className="text-sm text-[var(--text-secondary)]">{r.plan}</TableCell>
-                <TableCell className="text-xs text-[var(--text-muted)]">{r.date}</TableCell>
-                <TableCell>
-                  <span className={`inline-flex items-center rounded-[6px] border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
-                    r.status === "Confirmado"
-                      ? "border-[var(--border)] bg-[var(--hover-overlay)] text-[var(--text-primary)]"
-                      : "border-[var(--border)] bg-[var(--hover-overlay)] text-[var(--text-muted)]"
-                  }`}>
-                    {r.status}
-                  </span>
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    {r.status !== "Confirmado" && (
-                      <button
-                        type="button"
-                        onClick={() => handleApprove(r.id)}
-                        className="rounded-[8px] bg-[var(--text-primary)] px-3 py-1.5 text-xs font-semibold text-[var(--bg-card)] hover:opacity-90 transition-opacity"
-                      >
-                        Aprovar
-                      </button>
-                    )}
-                    {r.status !== "Cancelado" && (
-                      <button
-                        type="button"
-                        onClick={() => handleCancel(r.id)}
-                        className="rounded-[8px] border border-[var(--border)] bg-[var(--hover-overlay)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
-                      >
-                        Cancelar
-                      </button>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-    </div>
-  );
-}
-
-function SeasonsTab() {
-  const [seasons, setSeasons] = useState(() => {
-    try {
-      const saved = localStorage.getItem("ope_seasons_config");
-      return saved ? JSON.parse(saved) : INITIAL_SEASONS_ADMIN;
-    } catch {
-      return INITIAL_SEASONS_ADMIN;
-    }
-  });
-
-  const [selectedSeasonId, setSelectedSeasonId] = useState(null);
-
-  const [form, setForm] = useState({
-    name: "",
-    author: "",
-    startDate: "",
-    endDate: "",
-    coverUrl: "",
-    description: "",
-  });
-
-  const [prodForm, setProdForm] = useState({
-    name: "",
-    desc: "",
-    credits: "",
-    imageUrl: "",
-    category: "book",
-  });
-
-  const [missionForm, setMissionForm] = useState({
-    title: "",
-    reward: "+50 XP",
-  });
-
-  const saveSeasonsData = (updated) => {
-    setSeasons(updated);
-    try {
-      localStorage.setItem("ope_seasons_config", JSON.stringify(updated));
-      window.dispatchEvent(new Event("storage"));
-    } catch {}
-  };
-
-  const handleToggleStatus = (seasonId) => {
-    const updated = seasons.map((s) => {
-      if (s.id === seasonId) {
-        const nextStatus = s.status === "Ativa" ? "Desativada" : "Ativa";
-        return { ...s, status: nextStatus };
-      }
-      // Se estamos ativando esta, desativar as outras
-      return s.status === "Ativa" && seasons.find(x => x.id === seasonId)?.status !== "Ativa"
-        ? { ...s, status: "Desativada" }
-        : s;
-    });
-    saveSeasonsData(updated);
-  };
-
-  const handleCreateSeason = (e) => {
-    e.preventDefault();
-    if (!form.name.trim()) return;
-    const newSeason = {
-      id: `season-${Date.now()}`,
-      name: form.name.trim(),
-      author: form.author.trim() || "Curadoria OPE Club",
-      startDate: form.startDate || "01/09/2026",
-      endDate: form.endDate || "30/11/2026",
-      daysLeft: 30,
-      status: "Desativada",
-      coverUrl: form.coverUrl.trim() || "https://images.unsplash.com/photo-1519682577862-22b62b24e493?w=1200&q=80",
-      description: form.description.trim() || "Nova temporada temática do OPE Club.",
-      stats: { xp: "0 XP", credits: "0 Créditos", missions: "0 de 0", position: "-" },
-      products: [],
-      seasonMissions: [],
-      leaderboard: [],
-    };
-    saveSeasonsData([newSeason, ...seasons]);
-    setForm({ name: "", author: "", startDate: "", endDate: "", coverUrl: "", description: "" });
-  };
-
-  const selectedSeason = seasons.find((s) => s.id === selectedSeasonId);
-
-  const handleAddProductToSeason = (e) => {
-    e.preventDefault();
-    if (!selectedSeason || !prodForm.name.trim()) return;
-    const newProd = {
-      id: `sp-${Date.now()}`,
-      name: prodForm.name.trim(),
-      desc: prodForm.desc.trim(),
-      credits: Number(prodForm.credits) || 100,
-      imageUrl: prodForm.imageUrl.trim() || "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&q=80",
-      category: prodForm.category,
-    };
-    const updated = seasons.map((s) =>
-      s.id === selectedSeason.id
-        ? { ...s, products: [...(s.products || []), newProd] }
-        : s
-    );
-    saveSeasonsData(updated);
-    setProdForm({ name: "", desc: "", credits: "", imageUrl: "", category: "book" });
-  };
-
-  const handleRemoveProductFromSeason = (prodId) => {
-    if (!selectedSeason) return;
-    const updated = seasons.map((s) =>
-      s.id === selectedSeason.id
-        ? { ...s, products: (s.products || []).filter((p) => p.id !== prodId) }
-        : s
-    );
-    saveSeasonsData(updated);
-  };
-
-  const handleAddMissionToSeason = (e) => {
-    e.preventDefault();
-    if (!selectedSeason || !missionForm.title.trim()) return;
-    const newMission = {
-      id: `sm-${Date.now()}`,
-      title: missionForm.title.trim(),
-      reward: missionForm.reward.trim() || "+50 XP",
-      completed: false,
-    };
-    const updated = seasons.map((s) =>
-      s.id === selectedSeason.id
-        ? { ...s, seasonMissions: [...(s.seasonMissions || []), newMission] }
-        : s
-    );
-    saveSeasonsData(updated);
-    setMissionForm({ title: "", reward: "+50 XP" });
-  };
-
-  const handleRemoveMissionFromSeason = (missionId) => {
-    if (!selectedSeason) return;
-    const updated = seasons.map((s) =>
-      s.id === selectedSeason.id
-        ? { ...s, seasonMissions: (s.seasonMissions || []).filter((m) => m.id !== missionId) }
-        : s
-    );
-    saveSeasonsData(updated);
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Formulário de Criação de Season */}
-      <form onSubmit={handleCreateSeason} className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4 space-y-4">
-        <h3 className="text-sm font-semibold text-[var(--text-primary)]">Criar Nova Season</h3>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <input
-            className="w-full rounded-[6px] border border-[var(--border)] bg-[var(--bg-canvas)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-none focus:border-[var(--border-strong)]"
-            placeholder="Nome da Season (ex: Season 1 Bukowski)"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-          />
-          <input
-            className="w-full rounded-[6px] border border-[var(--border)] bg-[var(--bg-canvas)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-none focus:border-[var(--border-strong)]"
-            placeholder="Autor / Curadoria da Season"
-            value={form.author}
-            onChange={(e) => setForm({ ...form, author: e.target.value })}
-          />
-          <input
-            type="date"
-            className="w-full rounded-[6px] border border-[var(--border)] bg-[var(--bg-canvas)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-strong)]"
-            value={form.startDate}
-            onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-          />
-          <input
-            type="date"
-            className="w-full rounded-[6px] border border-[var(--border)] bg-[var(--bg-canvas)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-strong)]"
-            value={form.endDate}
-            onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-          />
-          <input
-            className="w-full rounded-[6px] border border-[var(--border)] bg-[var(--bg-canvas)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-none focus:border-[var(--border-strong)] sm:col-span-2"
-            placeholder="URL da Imagem de Banner da Season"
-            value={form.coverUrl}
-            onChange={(e) => setForm({ ...form, coverUrl: e.target.value })}
-          />
-          <input
-            className="w-full rounded-[6px] border border-[var(--border)] bg-[var(--bg-canvas)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-none focus:border-[var(--border-strong)] sm:col-span-2"
-            placeholder="Descrição resumida da Season"
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-          />
-        </div>
-        <button
-          type="submit"
-          className="rounded-[8px] bg-[var(--text-primary)] px-4 py-2 text-xs font-semibold text-[var(--bg-card)] hover:opacity-90 transition-opacity"
-        >
-          Criar Season
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-[var(--text-secondary)]">{referrals.length} indicações</p>
+        <button type="button" onClick={load} className="flex items-center gap-1 rounded-full border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
+          <RefreshCw className="size-3.5" /> Atualizar
         </button>
-      </form>
+      </div>
 
-      {/* Tabela de Seasons */}
-      <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-b border-[var(--border)]">
-              <TableHead className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium">Season</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium">Autor</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium">Período</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium">Produtos Exclusivos</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium">Status</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody className="divide-y divide-[var(--border)]">
-            {seasons.map((s) => {
-              const isActive = s.status === "Ativa" || s.status === "active";
-              const isSelected = s.id === selectedSeasonId;
-              return (
-                <TableRow key={s.id} className={`hover:bg-[var(--hover-overlay)] transition-colors ${isSelected ? "bg-[var(--hover-overlay)]" : ""}`}>
-                  <TableCell className="text-sm font-medium text-[var(--text-primary)]">{s.name}</TableCell>
-                  <TableCell className="text-sm text-[var(--text-secondary)]">{s.author}</TableCell>
-                  <TableCell className="text-xs text-[var(--text-muted)]">{s.startDate} até {s.endDate}</TableCell>
-                  <TableCell className="text-sm text-[var(--text-secondary)]">{(s.products || []).length} itens</TableCell>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <StatCard label="Total de Indicações" value={referrals.length} icon={Users} />
+        <StatCard label="Confirmadas" value={confirmed} icon={Check} />
+        <StatCard label="Pendentes" value={pending} icon={RefreshCw} />
+      </div>
+
+      {error && <p className="text-sm text-red-400">{error}</p>}
+
+      {loading ? (
+        <p className="text-sm text-[var(--text-muted)]">Carregando...</p>
+      ) : referrals.length === 0 ? (
+        <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-10 text-center text-sm text-[var(--text-muted)]">
+          Nenhuma indicação cadastrada ainda.
+        </div>
+      ) : (
+        <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-b border-[var(--border)]">
+                <TableHead className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium">Quem Indicou</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium">Quem Entrou</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium">Data</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium">Status</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-[var(--border)]">
+              {referrals.map((r) => (
+                <TableRow key={r.id} className="hover:bg-[var(--hover-overlay)] transition-colors">
+                  <TableCell>
+                    <div className="text-sm font-medium text-[var(--text-primary)]">{r.referrer?.name || "Sem nome"}</div>
+                    <div className="text-xs text-[var(--text-muted)]">{r.referrer?.email}</div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm font-medium text-[var(--text-primary)]">{r.referred?.name || "Sem nome"}</div>
+                    <div className="text-xs text-[var(--text-muted)]">{r.referred?.email}</div>
+                  </TableCell>
+                  <TableCell className="text-xs text-[var(--text-muted)]">
+                    {r.created_at ? new Date(r.created_at).toLocaleDateString("pt-BR") : "-"}
+                  </TableCell>
                   <TableCell>
                     <span className={`inline-flex items-center rounded-[6px] border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
-                      isActive
-                        ? "border-[var(--border)] bg-[var(--hover-overlay)] text-[var(--text-primary)] font-bold"
-                        : "border-[var(--border)] bg-[var(--hover-overlay)] text-[var(--text-muted)]"
+                      r.status === "confirmed"
+                        ? "border-green-500/30 bg-green-500/10 text-green-400"
+                        : "border-amber-500/30 bg-amber-500/10 text-amber-400"
                     }`}>
-                      {isActive ? "Ativa" : "Desativada"}
+                      {r.status === "confirmed" ? "Confirmada" : "Pendente"}
                     </span>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
+                      {r.status !== "confirmed" && (
+                        <button
+                          type="button"
+                          disabled={working === r.id}
+                          onClick={() => handleApprove(r)}
+                          className="rounded-[8px] bg-[var(--text-primary)] px-3 py-1.5 text-xs font-semibold text-[var(--bg-card)] hover:opacity-90 transition-opacity disabled:opacity-50"
+                        >
+                          Aprovar
+                        </button>
+                      )}
                       <button
                         type="button"
-                        onClick={() => handleToggleStatus(s.id)}
-                        className={`rounded-[8px] px-3 py-1.5 text-xs font-semibold transition-opacity ${
-                          isActive
-                            ? "border border-[var(--border)] bg-[var(--hover-overlay)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                            : "bg-[var(--text-primary)] text-[var(--bg-card)] hover:opacity-90"
-                        }`}
+                        disabled={working === r.id}
+                        onClick={() => handleCancel(r)}
+                        className="rounded-[8px] border border-[var(--border)] bg-[var(--hover-overlay)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors disabled:opacity-50"
                       >
-                        {isActive ? "Desativar" : "Ativar"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedSeasonId(isSelected ? null : s.id)}
-                        className="rounded-[8px] border border-[var(--border)] bg-[var(--hover-overlay)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] hover:border-[var(--border-strong)] transition-colors"
-                      >
-                        {isSelected ? "Fechar Edição" : "Gerenciar Produtos"}
+                        Cancelar
                       </button>
                     </div>
                   </TableCell>
                 </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Painel de Gerenciamento da Season Selecionada */}
-      {selectedSeason && (
-        <div className="space-y-6 rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-5">
-          <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
-            <div>
-              <p className="text-xs uppercase tracking-wider text-[var(--text-muted)]">Gerenciando Evento Especial</p>
-              <h3 className="text-lg font-bold text-[var(--text-primary)]">{selectedSeason.name}</h3>
-            </div>
-            <span className={`inline-flex items-center rounded-[6px] border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
-              selectedSeason.status === "Ativa" ? "border-[var(--border)] bg-[var(--hover-overlay)] text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--hover-overlay)] text-[var(--text-muted)]"
-            }`}>
-              {selectedSeason.status === "Ativa" ? "Exibindo para os Membros" : "Desativada (Oculta)"}
-            </span>
-          </div>
-
-          {/* Seção 1: Produtos Exclusivos da Season */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-semibold text-[var(--text-primary)]">Produtos Exclusivos da Season</h4>
-              <span className="text-xs text-[var(--text-muted)]">{(selectedSeason.products || []).length} produtos vinculados</span>
-            </div>
-
-            {/* Grid dos produtos com imagem retangular vertical */}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {(selectedSeason.products || []).map((prod) => (
-                <div key={prod.id} className="flex gap-3 rounded-[8px] border border-[var(--border)] bg-[var(--bg-canvas)] p-3 items-center">
-                  <div className="w-12 h-16 shrink-0 overflow-hidden rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)]">
-                    <img src={prod.imageUrl} alt="" className="h-full w-full object-cover" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-[var(--text-primary)] truncate">{prod.name}</p>
-                    <p className="text-xs text-[var(--text-muted)]">{prod.credits} créditos</p>
-                    <span className="text-[10px] uppercase text-[var(--text-muted)]">{prod.category}</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveProductFromSeason(prod.id)}
-                    className="rounded-full border border-[var(--border)] p-1.5 text-[var(--text-muted)] hover:text-red-400 transition-colors shrink-0"
-                    title="Remover produto da Season"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
-                </div>
               ))}
-              {(!selectedSeason.products || selectedSeason.products.length === 0) && (
-                <p className="col-span-full py-4 text-center text-xs text-[var(--text-muted)]">Nenhum produto cadastrado nesta Season.</p>
-              )}
-            </div>
-
-            {/* Formulário para adicionar produto à Season */}
-            <form onSubmit={handleAddProductToSeason} className="rounded-[8px] border border-[var(--border)] bg-[var(--bg-canvas)] p-3 space-y-3">
-              <p className="text-xs font-semibold text-[var(--text-primary)]">Adicionar Produto à Season</p>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <input
-                  className="rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-none focus:border-[var(--border-strong)]"
-                  placeholder="Nome do produto exclusivo"
-                  value={prodForm.name}
-                  onChange={(e) => setProdForm({ ...prodForm, name: e.target.value })}
-                />
-                <input
-                  type="number"
-                  className="rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-none focus:border-[var(--border-strong)]"
-                  placeholder="Custo em créditos (ex: 450)"
-                  value={prodForm.credits}
-                  onChange={(e) => setProdForm({ ...prodForm, credits: e.target.value })}
-                />
-                <input
-                  className="rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-none focus:border-[var(--border-strong)] sm:col-span-2"
-                  placeholder="URL da imagem (imagem em formato retangular vertical)"
-                  value={prodForm.imageUrl}
-                  onChange={(e) => setProdForm({ ...prodForm, imageUrl: e.target.value })}
-                />
-                <input
-                  className="rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-none focus:border-[var(--border-strong)] sm:col-span-2"
-                  placeholder="Descrição breve do item"
-                  value={prodForm.desc}
-                  onChange={(e) => setProdForm({ ...prodForm, desc: e.target.value })}
-                />
-              </div>
-              <button
-                type="submit"
-                className="rounded-[6px] bg-[var(--text-primary)] px-3 py-1.5 text-xs font-semibold text-[var(--bg-card)] hover:opacity-90 transition-opacity"
-              >
-                + Adicionar Produto à Season
-              </button>
-            </form>
-          </div>
-
-          {/* Seção 2: Missões da Season */}
-          <div className="space-y-3 border-t border-[var(--border)] pt-4">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-semibold text-[var(--text-primary)]">Missões da Season</h4>
-              <span className="text-xs text-[var(--text-muted)]">{(selectedSeason.seasonMissions || []).length} missões</span>
-            </div>
-
-            <div className="divide-y divide-[var(--border)] rounded-[8px] border border-[var(--border)] bg-[var(--bg-canvas)]">
-              {(selectedSeason.seasonMissions || []).map((m) => (
-                <div key={m.id} className="flex items-center justify-between px-3 py-2">
-                  <div>
-                    <p className="text-xs font-medium text-[var(--text-primary)]">{m.title}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-semibold text-[var(--text-primary)]">{m.reward}</span>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveMissionFromSeason(m.id)}
-                      className="text-[var(--text-muted)] hover:text-red-400 transition-colors"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <form onSubmit={handleAddMissionToSeason} className="flex gap-2">
-              <input
-                className="flex-1 rounded-[6px] border border-[var(--border)] bg-[var(--bg-canvas)] px-3 py-1.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-none focus:border-[var(--border-strong)]"
-                placeholder="Título da missão da season"
-                value={missionForm.title}
-                onChange={(e) => setMissionForm({ ...missionForm, title: e.target.value })}
-              />
-              <input
-                className="w-28 rounded-[6px] border border-[var(--border)] bg-[var(--bg-canvas)] px-3 py-1.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-none focus:border-[var(--border-strong)]"
-                placeholder="Recompensa (ex: +50 XP)"
-                value={missionForm.reward}
-                onChange={(e) => setMissionForm({ ...missionForm, reward: e.target.value })}
-              />
-              <button
-                type="submit"
-                className="shrink-0 rounded-[6px] border border-[var(--border)] bg-[var(--hover-overlay)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] hover:border-[var(--border-strong)] transition-colors"
-              >
-                + Adicionar
-              </button>
-            </form>
-          </div>
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>
   );
 }
 
-const INITIAL_SEASONS_ADMIN = [
-  {
-    id: "season-1",
-    name: "Season 1 Charles Bukowski",
-    author: "Curadoria OPE Club",
-    startDate: "01/06/2026",
-    endDate: "31/08/2026",
-    daysLeft: 24,
-    status: "Ativa",
-    coverUrl: "https://images.unsplash.com/photo-1519682577862-22b62b24e493?w=1200&q=80",
-    description:
-      "Uma imersão completa no universo de Bukowski. Conclua missões exclusivas, suba no ranking da temporada e resgate colecionáveis únicos.",
-    stats: {
-      xp: "1.250 XP",
-      credits: "80 Créditos",
-      missions: "1 de 3",
-      position: "Posição 8",
-    },
-    products: [
-      {
-        id: "sp-1",
-        name: "Livro Físico Bukowski Edição Especial",
-        desc: "Edição especial com tiragem limitada e ilustrações inéditas.",
-        credits: 450,
-        imageUrl: "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&q=80",
-        category: "book",
-      },
-      {
-        id: "sp-2",
-        name: "Livro Premium Bukowski Collector Box",
-        desc: "Encadernação em capa dura especial com estojo rígido e marcador exclusivo.",
-        credits: 900,
-        imageUrl: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&q=80",
-        category: "book_premium",
-      },
-      {
-        id: "sp-3",
-        name: "Moletom Bukowski Street Art",
-        desc: "Moletom 100% algodão com bordado minimalista da Season 1.",
-        credits: 2800,
-        imageUrl: "https://images.unsplash.com/photo-1556821840-3a63f15732ce?w=400&q=80",
-        category: "hoodie",
-      },
-    ],
-    seasonMissions: [
-      { id: "sm-1", title: "Leia uma obra de Bukowski", reward: "+50 XP", completed: true },
-      { id: "sm-2", title: "Compartilhe uma frase do autor na comunidade", reward: "+30 XP", completed: false },
-      { id: "sm-3", title: "Complete o Quiz Bukowski", reward: "+70 XP", completed: false },
-    ],
-    leaderboard: [
-      { position: 1, name: "Ana Lima", xp: "4.200 XP" },
-      { position: 2, name: "Pedro Alves", xp: "3.850 XP" },
-      { position: 3, name: "Julia Costa", xp: "3.600 XP" },
-      { position: 8, name: "Você", xp: "1.250 XP", isCurrentUser: true },
-    ],
-  },
-  {
-    id: "season-2",
-    name: "Season 2 Fiódor Dostoiévski",
-    author: "Equipe Editorial",
-    startDate: "01/09/2026",
-    endDate: "30/11/2026",
-    daysLeft: 90,
-    status: "Desativada",
-    coverUrl: "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?w=1200&q=80",
-    description: "Uma jornada pelas obras profundas do autor russo.",
-    stats: { xp: "0 XP", credits: "0 Créditos", missions: "0 de 5", position: "-" },
-    products: [],
-    seasonMissions: [],
-    leaderboard: [],
-  },
-];
+function SeasonsTab() {
+  const confirm = useConfirmDialog();
+  const [seasons, setSeasons] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [working, setWorking] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState({ name: "", description: "", starts_on: "", ends_on: "" });
+  const [editForm, setEditForm] = useState({ name: "", description: "", starts_on: "", ends_on: "" });
+
+  const STATUS_META = {
+    draft: { label: "Rascunho", cls: "border-[var(--border)] bg-[var(--hover-overlay)] text-[var(--text-muted)]" },
+    active: { label: "Ativa", cls: "border-green-500/30 bg-green-500/10 text-green-400" },
+    archived: { label: "Arquivada", cls: "border-[var(--border)] bg-[var(--hover-overlay)] text-[var(--text-muted)]" },
+  };
+
+  async function load() {
+    setLoading(true);
+    setError("");
+    if (!isSupabaseReady()) {
+      setSeasons([]);
+      setLoading(false);
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from("seasons")
+        .select("id, name, description, status, starts_on, ends_on, created_at")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setSeasons(data || []);
+    } catch (err) {
+      setError(err?.message || "Nao foi possivel carregar as seasons.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  function handleCreate(e) {
+    e.preventDefault();
+    if (!form.name.trim()) return;
+    setWorking("create");
+    setError("");
+    supabase
+      .from("seasons")
+      .insert({
+        name: form.name.trim(),
+        description: form.description.trim() || null,
+        status: "draft",
+        starts_on: form.starts_on || null,
+        ends_on: form.ends_on || null,
+      })
+      .then(async ({ error }) => {
+        if (error) throw error;
+        setForm({ name: "", description: "", starts_on: "", ends_on: "" });
+        await load();
+      })
+      .catch((err) => setError(err?.message || "Nao foi possivel criar a season."))
+      .finally(() => setWorking(""));
+  }
+
+  function handleToggleStatus(season) {
+    const next = season.status === "draft" ? "active" : season.status === "active" ? "archived" : "draft";
+    setWorking(season.id);
+    setError("");
+    supabase
+      .from("seasons")
+      .update({ status: next })
+      .eq("id", season.id)
+      .then(async ({ error }) => {
+        if (error) throw error;
+        await load();
+      })
+      .catch((err) => setError(err?.message || "Nao foi possivel atualizar a season."))
+      .finally(() => setWorking(""));
+  }
+
+  function startEdit(season) {
+    setEditingId(season.id);
+    setEditForm({
+      name: season.name,
+      description: season.description || "",
+      starts_on: season.starts_on || "",
+      ends_on: season.ends_on || "",
+    });
+  }
+
+  function handleSaveEdit(season) {
+    if (!editForm.name.trim()) return;
+    setWorking(season.id);
+    setError("");
+    supabase
+      .from("seasons")
+      .update({
+        name: editForm.name.trim(),
+        description: editForm.description.trim() || null,
+        starts_on: editForm.starts_on || null,
+        ends_on: editForm.ends_on || null,
+      })
+      .eq("id", season.id)
+      .then(async ({ error }) => {
+        if (error) throw error;
+        setEditingId(null);
+        await load();
+      })
+      .catch((err) => setError(err?.message || "Nao foi possivel salvar a season."))
+      .finally(() => setWorking(""));
+  }
+
+  async function handleDelete(season) {
+    const ok = await confirm.ask({
+      title: "Excluir season?",
+      description: `"${season.name}" sera removida permanentemente.`,
+      confirmLabel: "Excluir",
+      danger: true,
+    });
+    if (!ok) return;
+    setWorking(season.id);
+    setError("");
+    try {
+      const { error } = await supabase.from("seasons").delete().eq("id", season.id);
+      if (error) throw error;
+      await load();
+    } catch (err) {
+      setError(err?.message || "Nao foi possivel excluir a season.");
+    } finally {
+      setWorking("");
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-[var(--text-secondary)]">{seasons.length} seasons</p>
+        <button type="button" onClick={load} className="flex items-center gap-1 rounded-full border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
+          <RefreshCw className="size-3.5" /> Atualizar
+        </button>
+      </div>
+      {error && <p className="text-sm text-red-400">{error}</p>}
+
+      <form onSubmit={handleCreate} className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4 space-y-3">
+        <h3 className="text-sm font-semibold text-[var(--text-primary)]">Criar Nova Season</h3>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <input
+            className="rounded-[6px] border border-[var(--border)] bg-[var(--bg-canvas)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-none focus:border-[var(--border-strong)]"
+            placeholder="Nome da Season (ex: Season 1 Bukowski)"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+          />
+          <input
+            type="date"
+            className="rounded-[6px] border border-[var(--border)] bg-[var(--bg-canvas)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-strong)]"
+            value={form.starts_on}
+            onChange={(e) => setForm({ ...form, starts_on: e.target.value })}
+          />
+          <input
+            type="date"
+            className="rounded-[6px] border border-[var(--border)] bg-[var(--bg-canvas)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-strong)]"
+            value={form.ends_on}
+            onChange={(e) => setForm({ ...form, ends_on: e.target.value })}
+          />
+          <textarea
+            className="rounded-[6px] border border-[var(--border)] bg-[var(--bg-canvas)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-none focus:border-[var(--border-strong)] sm:col-span-2"
+            placeholder="Descricao da Season"
+            rows={2}
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={!form.name.trim() || working === "create"}
+          className="rounded-[8px] bg-[var(--text-primary)] px-4 py-2 text-xs font-semibold text-[var(--bg-card)] hover:opacity-90 transition-opacity disabled:opacity-50"
+        >
+          Criar Season
+        </button>
+      </form>
+
+      {loading ? (
+        <p className="text-sm text-[var(--text-muted)]">Carregando...</p>
+      ) : seasons.length === 0 ? (
+        <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-10 text-center text-sm text-[var(--text-muted)]">
+          Nenhuma season cadastrada ainda.
+        </div>
+      ) : (
+        <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-b border-[var(--border)]">
+                <TableHead className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium">Season</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium">Periodo</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium">Status</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-medium text-right">Acoes</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-[var(--border)]">
+              {seasons.map((s) => {
+                const meta = STATUS_META[s.status] || STATUS_META.draft;
+                const editing = editingId === s.id;
+                return (
+                  <TableRow key={s.id} className="hover:bg-[var(--hover-overlay)] transition-colors">
+                    <TableCell>
+                      {editing ? (
+                        <div className="space-y-2 min-w-[220px]">
+                          <input
+                            className="w-full rounded-[6px] border border-[var(--border)] bg-[var(--bg-canvas)] px-3 py-1.5 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-strong)]"
+                            value={editForm.name}
+                            onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                          />
+                          <textarea
+                            className="w-full rounded-[6px] border border-[var(--border)] bg-[var(--bg-canvas)] px-3 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-strong)]"
+                            rows={2}
+                            value={editForm.description}
+                            onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                          />
+                          <div className="flex gap-2">
+                            <input
+                              type="date"
+                              className="rounded-[6px] border border-[var(--border)] bg-[var(--bg-canvas)] px-2 py-1 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-strong)]"
+                              value={editForm.starts_on}
+                              onChange={(e) => setEditForm({ ...editForm, starts_on: e.target.value })}
+                            />
+                            <input
+                              type="date"
+                              className="rounded-[6px] border border-[var(--border)] bg-[var(--bg-canvas)] px-2 py-1 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-strong)]"
+                              value={editForm.ends_on}
+                              onChange={(e) => setEditForm({ ...editForm, ends_on: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <p className="text-sm font-medium text-[var(--text-primary)]">{s.name}</p>
+                          {s.description && <p className="mt-0.5 text-xs text-[var(--text-muted)] line-clamp-2 max-w-md">{s.description}</p>}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs text-[var(--text-muted)]">
+                      {s.starts_on || "?"} ate {s.ends_on || "?"}
+                    </TableCell>
+                    <TableCell>
+                      <span className={`inline-flex items-center rounded-[6px] border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${meta.cls}`}>
+                        {meta.label}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {editing ? (
+                          <>
+                            <button
+                              type="button"
+                              disabled={!editForm.name.trim() || working === s.id}
+                              onClick={() => handleSaveEdit(s)}
+                              className="rounded-[8px] bg-[var(--text-primary)] px-3 py-1.5 text-xs font-semibold text-[var(--bg-card)] hover:opacity-90 transition-opacity disabled:opacity-50"
+                            >
+                              Salvar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingId(null)}
+                              className="rounded-[8px] border border-[var(--border)] bg-[var(--hover-overlay)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                            >
+                              Cancelar
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              disabled={working === s.id}
+                              onClick={() => handleToggleStatus(s)}
+                              className={`rounded-[8px] px-3 py-1.5 text-xs font-semibold transition-opacity disabled:opacity-50 ${
+                                s.status === "active"
+                                  ? "border border-[var(--border)] bg-[var(--hover-overlay)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                                  : "bg-[var(--text-primary)] text-[var(--bg-card)] hover:opacity-90"
+                              }`}
+                            >
+                              {s.status === "draft" ? "Ativar" : s.status === "active" ? "Arquivar" : "Rascunho"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => startEdit(s)}
+                              className="size-8 rounded-full flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] transition-all"
+                              title="Editar"
+                            >
+                              <Edit3 className="size-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(s)}
+                              className="size-8 rounded-full flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-all"
+                              title="Excluir"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+      {confirm.dialog}
+    </div>
+  );
+}
+
 
 
 // ── Aba Créditos ──────────────────────────────────────────────────────────────
@@ -2799,71 +2582,67 @@ const DAILY_MISSIONS = [
   { title: "Bônus por concluir as 4 missões", reward: 2, isBonus: true },
 ];
 
-const MOCK_MEMBER_CREDITS = [
-  { id: "mc-1", name: "Lucas Andrade", email: "lucas@gmail.com", credits: 320, streak: 22, daysInClub: 45, totalEarned: 520, totalSpent: 200, plan: "Anual" },
-  { id: "mc-2", name: "Mariana Costa", email: "mariana@gmail.com", credits: 150, streak: 7, daysInClub: 90, totalEarned: 900, totalSpent: 750, plan: "Mensal" },
-  { id: "mc-3", name: "Rafael Silveira", email: "rafael@gmail.com", credits: 0, streak: 0, daysInClub: 3, totalEarned: 24, totalSpent: 0, plan: "Conta" },
-  { id: "mc-4", name: "Gabriel Santos", email: "gabriel@ope.club", credits: 1200, streak: 60, daysInClub: 180, totalEarned: 4800, totalSpent: 3600, plan: "Anual" },
-];
-
 function CreditsTab() {
   const { profiles, subscriptions } = useData();
-  const { addCredits } = useRewards();
+  const [spentByUser, setSpentByUser] = useState({});
+  const [loadingSpent, setLoadingSpent] = useState(true);
 
-  // Combina profiles reais com mock de créditos (por email) para demonstração
+  useEffect(() => {
+    let active = true;
+    setLoadingSpent(true);
+    if (!isSupabaseReady()) {
+      setLoadingSpent(false);
+      return;
+    }
+    supabase
+      .from("shop_redemptions")
+      .select("user_id, credits_spent")
+      .then(({ data, error }) => {
+        if (!active) return;
+        const totals = {};
+        if (!error && Array.isArray(data)) {
+          for (const r of data) {
+            totals[r.user_id] = (totals[r.user_id] || 0) + Number(r.credits_spent || 0);
+          }
+        }
+        setSpentByUser(totals);
+        setLoadingSpent(false);
+      });
+    return () => { active = false; };
+  }, []);
+
   const memberRows = useMemo(() => {
     return profiles.map((p) => {
-      const mock = MOCK_MEMBER_CREDITS.find((m) => m.email === p.email) || {};
       const sub = pickCurrentSubscription(subscriptions, p.id);
       const active = isActiveSubscription(sub);
       const joinedDate = p.created_at ? new Date(p.created_at) : null;
       const daysInClub = joinedDate
-        ? Math.floor((Date.now() - joinedDate.getTime()) / (1000 * 60 * 60 * 24))
-        : (mock.daysInClub ?? 0);
+        ? Math.max(0, Math.floor((Date.now() - joinedDate.getTime()) / (1000 * 60 * 60 * 24)))
+        : 0;
       return {
         id: p.id,
         name: p.name || "Sem nome",
         email: p.email || "Sem email",
         avatar: p.avatar,
-        credits: mock.credits ?? 0,
-        streak: mock.streak ?? 0,
+        xp: Number(p.xp || 0),
+        credits: Number(p.credits || 0),
+        totalSpent: spentByUser[p.id] || 0,
         daysInClub,
-        totalEarned: mock.totalEarned ?? 0,
-        totalSpent: mock.totalSpent ?? 0,
         plan: active ? (sub?.plan === "ope_club_annual" ? "Anual" : "Mensal") : "Sem plano",
         active,
       };
     });
-  }, [profiles, subscriptions]);
+  }, [profiles, subscriptions, spentByUser]);
 
-  // Fallback: se não há profiles, mostrar os mocks
-  const rows = memberRows.length > 0 ? memberRows : MOCK_MEMBER_CREDITS.map((m) => ({ ...m, active: m.plan === "Anual" || m.plan === "Mensal" }));
+  const rows = memberRows;
 
-  const totalCreditsInSystem = rows.reduce((s, r) => s + (r.credits || 0), 0);
-  const totalEarnedSystem = rows.reduce((s, r) => s + (r.totalEarned || 0), 0);
-  const totalSpentSystem = rows.reduce((s, r) => s + (r.totalSpent || 0), 0);
+  const totalCreditsInSystem = rows.reduce((s, r) => s + r.credits, 0);
+  const totalEarnedSystem = rows.reduce((s, r) => s + r.xp, 0);
+  const totalSpentSystem = rows.reduce((s, r) => s + r.totalSpent, 0);
   const activeMembers = rows.filter((r) => r.active).length;
 
   return (
     <div className="space-y-6">
-
-      {/* Banner de Simulação */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-[12px] border border-blue-500/30 bg-blue-500/10 p-4">
-        <div>
-          <h4 className="text-sm font-bold text-blue-400">Simulador de Créditos da Loja</h4>
-          <p className="text-xs text-[var(--text-muted)]">Adicione créditos à sua conta atual para testar o checkout da loja.</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            addCredits(10000);
-            alert("✓ 10.000 Créditos adicionados com sucesso à sua conta para teste!");
-          }}
-          className="shrink-0 rounded-[8px] bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-500 transition-colors shadow-sm"
-        >
-          + 10.000 Créditos na minha conta
-        </button>
-      </div>
 
       {/* StatCards de Créditos */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -2873,9 +2652,9 @@ function CreditsTab() {
           <p className="mt-1 text-[11px] text-[var(--text-muted)]">saldo total dos membros</p>
         </div>
         <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
-          <p className="text-xs uppercase tracking-wider text-[var(--text-muted)]">Total Emitido</p>
+          <p className="text-xs uppercase tracking-wider text-[var(--text-muted)]">Total de XP</p>
           <p className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">{totalEarnedSystem.toLocaleString("pt-BR")}</p>
-          <p className="mt-1 text-[11px] text-[var(--text-muted)]">créditos ganhos no total</p>
+          <p className="mt-1 text-[11px] text-[var(--text-muted)]">XP acumulado pelos membros</p>
         </div>
         <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
           <p className="text-xs uppercase tracking-wider text-[var(--text-muted)]">Total Resgatado</p>
@@ -2961,7 +2740,7 @@ function CreditsTab() {
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)]">
           <div>
             <p className="text-sm font-semibold text-[var(--text-primary)]">Créditos por Membro</p>
-            <p className="text-xs text-[var(--text-muted)]">{rows.length} membros • detalhes de engajamento e créditos</p>
+            <p className="text-xs text-[var(--text-muted)]">{rows.length} membros • saldo real de créditos e XP</p>
           </div>
         </div>
 
@@ -2973,9 +2752,8 @@ function CreditsTab() {
                 <th className="px-4 py-2.5 text-left text-[10px] uppercase tracking-wider text-[var(--text-muted)] font-medium">Membro</th>
                 <th className="px-4 py-2.5 text-left text-[10px] uppercase tracking-wider text-[var(--text-muted)] font-medium">Plano</th>
                 <th className="px-4 py-2.5 text-right text-[10px] uppercase tracking-wider text-[var(--text-muted)] font-medium">Dias no Club</th>
-                <th className="px-4 py-2.5 text-right text-[10px] uppercase tracking-wider text-[var(--text-muted)] font-medium">Ofensiva</th>
+                <th className="px-4 py-2.5 text-right text-[10px] uppercase tracking-wider text-[var(--text-muted)] font-medium">XP</th>
                 <th className="px-4 py-2.5 text-right text-[10px] uppercase tracking-wider text-[var(--text-muted)] font-medium">Saldo Atual</th>
-                <th className="px-4 py-2.5 text-right text-[10px] uppercase tracking-wider text-[var(--text-muted)] font-medium">Total Ganho</th>
                 <th className="px-4 py-2.5 text-right text-[10px] uppercase tracking-wider text-[var(--text-muted)] font-medium">Total Gasto</th>
               </tr>
             </thead>
@@ -3011,24 +2789,21 @@ function CreditsTab() {
                     <p className="text-[11px] text-[var(--text-muted)]">dias</p>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <p className="text-sm font-semibold text-[var(--text-primary)]">{member.streak}</p>
-                    <p className="text-[11px] text-[var(--text-muted)]">dias seguidos</p>
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">{member.xp.toLocaleString("pt-BR")}</p>
+                    <p className="text-[11px] text-[var(--text-muted)]">XP</p>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <p className="text-sm font-bold text-[var(--text-primary)]">{(member.credits || 0).toLocaleString("pt-BR")}</p>
+                    <p className="text-sm font-bold text-[var(--text-primary)]">{member.credits.toLocaleString("pt-BR")}</p>
                     <p className="text-[11px] text-[var(--text-muted)]">créditos</p>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <p className="text-sm text-[var(--text-primary)]">{(member.totalEarned || 0).toLocaleString("pt-BR")}</p>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <p className="text-sm text-[var(--text-primary)]">{(member.totalSpent || 0).toLocaleString("pt-BR")}</p>
+                    <p className="text-sm text-[var(--text-primary)]">{member.totalSpent.toLocaleString("pt-BR")}</p>
                   </td>
                 </tr>
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-sm text-[var(--text-muted)]">Nenhum membro cadastrado ainda.</td>
+                  <td colSpan={6} className="px-4 py-10 text-center text-sm text-[var(--text-muted)]">Nenhum membro cadastrado ainda.</td>
                 </tr>
               )}
             </tbody>
@@ -3040,52 +2815,71 @@ function CreditsTab() {
 }
 
 function PedidosTab() {
-  const [rawOrders, setRawOrders] = useState(() => {
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const onlyCredits = (o) => o.paymentMethod === "credits" || (o.creditsCost && o.creditsCost > 0);
+
+  function toLocal(r) {
+    return {
+      id: r.id,
+      productName: r.product_name,
+      productCategory: r.product_category,
+      paymentMethod: r.payment_method,
+      creditsCost: r.credits_cost,
+      realPrice: r.real_price,
+      customer: r.customer || {},
+      address: r.address || {},
+      status: r.status,
+      createdAt: r.created_at,
+    };
+  }
+
+  async function load() {
+    setLoading(true);
+    setError("");
     try {
-      const saved = localStorage.getItem("ope_orders");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (isSupabaseReady()) {
+        const { data, error } = await supabase
+          .from("orders")
+          .select("*")
+          .order("created_at", { ascending: false });
+        if (error) throw error;
+        setOrders((data || []).map(toLocal).filter(onlyCredits));
+      } else {
+        try {
+          const saved = localStorage.getItem("ope_orders");
+          const parsed = saved ? JSON.parse(saved) : [];
+          setOrders(Array.isArray(parsed) ? parsed.filter(onlyCredits) : []);
+        } catch {
+          setOrders([]);
+        }
       }
-    } catch {}
-    return [
-      {
-        id: "order-sample-1",
-        productName: "Camiseta Oversized OPE Club",
-        productCategory: "oversized",
-        paymentMethod: "credits",
-        creditsCost: 200,
-        realPrice: null,
-        customer: { name: "Gabriel Santos", email: "gabriel@ope.club", phone: "(71) 99963-6112" },
-        address: { street: "Av. Sete de Setembro", number: "1420", neighborhood: "Vitória", city: "Salvador", state: "BA", cep: "40080-002" },
-        status: "pending",
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: "order-sample-2",
-        productName: "Moletom Street OPE Club",
-        productCategory: "hoodie",
-        paymentMethod: "credits",
-        creditsCost: 350,
-        realPrice: null,
-        customer: { name: "Bruna Lima", email: "bruna@gmail.com", phone: "(11) 95294-6599" },
-        address: { street: "Rua Augusta", number: "500", neighborhood: "Consolação", city: "São Paulo", state: "SP", cep: "01305-000" },
-        status: "pending",
-        createdAt: new Date(Date.now() - 86400000).toISOString(),
+    } catch (err) {
+      setError(err?.message || "Não foi possível carregar os pedidos.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  const updateOrderStatus = async (id, newStatus) => {
+    const optimistic = orders.map((o) => (o.id === id ? { ...o, status: newStatus } : o));
+    setOrders(optimistic);
+    if (isSupabaseReady()) {
+      try {
+        const { error } = await supabase.from("orders").update({ status: newStatus }).eq("id", id);
+        if (error) throw error;
+      } catch {
+        load();
       }
-    ];
-  });
-
-  // Somente as compras no Crédito OPE vão para o Painel Admin
-  const orders = useMemo(
-    () => rawOrders.filter((o) => o.paymentMethod === "credits" || (o.creditsCost && o.creditsCost > 0)),
-    [rawOrders]
-  );
-
-  const updateOrderStatus = (id, newStatus) => {
-    const updated = rawOrders.map((o) => (o.id === id ? { ...o, status: newStatus } : o));
-    setRawOrders(updated);
-    try { localStorage.setItem("ope_orders", JSON.stringify(updated)); } catch {}
+    } else {
+      try {
+        localStorage.setItem("ope_orders", JSON.stringify(optimistic));
+      } catch {}
+    }
   };
 
   const pendingCount = orders.filter((o) => o.status === "pending").length;
@@ -3099,6 +2893,11 @@ function PedidosTab() {
           <p className="text-xs text-[var(--text-muted)]">Leads e pedidos realizados na Loja (Créditos e Dinheiro Real R$)</p>
         </div>
         <div className="flex items-center gap-2">
+          {error ? (
+            <span className="rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-400">
+              {error}
+            </span>
+          ) : null}
           <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-400">
             {pendingCount} pendentes
           </span>
@@ -3124,7 +2923,19 @@ function PedidosTab() {
             </TableRow>
           </TableHeader>
           <TableBody className="divide-y divide-[var(--border)]">
-            {orders.map((o) => (
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="py-10 text-center text-xs text-[var(--text-muted)]">
+                  Carregando pedidos…
+                </TableCell>
+              </TableRow>
+            ) : orders.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="py-10 text-center text-xs text-[var(--text-muted)]">
+                  Nenhum pedido no Crédito OPE ainda.
+                </TableCell>
+              </TableRow>
+            ) : orders.map((o) => (
               <TableRow key={o.id} className="hover:bg-[var(--hover-overlay)] transition-colors">
                 <TableCell>
                   <div className="text-xs font-medium text-[var(--text-primary)]">
@@ -3188,7 +2999,6 @@ function PedidosTab() {
     </div>
   );
 }
-
 export function AdminPage() {
   const { isAdmin, canManageContent } = useAuth();
   const allowedTabs = useMemo(

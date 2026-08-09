@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, Check, ChevronRight, X, MapPin, User, Phone, Mail, Package } from "@/lib/icons";
+import { isSupabaseReady, supabase } from "../data/supabase";
 
 const STEPS = ["Dados", "Endereço", "Confirmação"];
 
@@ -141,12 +142,36 @@ export function CheckoutModal({ isOpen, onClose, product, paymentMethod = "credi
           status: "pending",
           createdAt: new Date().toISOString(),
         };
-        // Save to localStorage
-        try {
-          const existing = JSON.parse(localStorage.getItem("ope_orders") || "[]");
-          existing.unshift(order);
-          localStorage.setItem("ope_orders", JSON.stringify(existing));
-        } catch {}
+        // Persiste o pedido: banco primeiro (fonte da aba "Pedidos" do admin),
+        // fallback localStorage se o Supabase nao estiver configurado.
+        if (isSupabaseReady()) {
+          try {
+            await supabase.from("orders").insert({
+              product_id: product.id || null,
+              product_name: product.name,
+              product_category: product.category || null,
+              payment_method,
+              credits_cost: paymentMethod === "credits" ? product.credits_cost : null,
+              real_price: paymentMethod === "real" ? (product.real_price || null) : null,
+              customer: { name: form.name, email: form.email, phone: form.phone },
+              address: {
+                cep: form.cep,
+                street: form.street,
+                number: form.number,
+                complement: form.complement,
+                neighborhood: form.neighborhood,
+                city: form.city,
+                state: form.state,
+              },
+            });
+          } catch {}
+        } else {
+          try {
+            const existing = JSON.parse(localStorage.getItem("ope_orders") || "[]");
+            existing.unshift(order);
+            localStorage.setItem("ope_orders", JSON.stringify(existing));
+          } catch {}
+        }
         await onConfirm(order);
       } finally {
         setLoading(false);

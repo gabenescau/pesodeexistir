@@ -9,7 +9,6 @@ import { Seo } from '@/components/seo'
 const AuthPage = lazy(() => import('@/components/auth-page').then((module) => ({ default: module.AuthPage })))
 const AppShell = lazy(() => import('@/app/AppShell').then((module) => ({ default: module.AppShell })))
 const SubscribePage = lazy(() => import('@/app/pages/SubscribePage').then((module) => ({ default: module.SubscribePage })))
-const ProcessingPage = lazy(() => import('@/app/pages/ProcessingPage').then((module) => ({ default: module.ProcessingPage })))
 
 function RouteLoading() {
   return (
@@ -38,12 +37,6 @@ const SEO_PAGES = {
     title: 'Assinar OPE Club | Acesso completo a biblioteca e comunidade',
     description: 'A partir de R$ 14/mes, leia a biblioteca completa de filosofia e literatura, publique na comunidade e participe dos lancamentos semanais.',
     type: 'product',
-  },
-  '/pagamento/processando': {
-    title: 'Processando Pagamento | OPE Club',
-    description: 'Aguarde alguns instantes enquanto confirmamos seu pagamento.',
-    type: 'website',
-    robots: 'noindex, nofollow',
   },
   '/app/inicio': {
     title: 'Comunidade | OPE Club',
@@ -137,7 +130,6 @@ export default function App() {
             <Route path="/" element={<Navigate to="/entrar" replace />} />
             <Route path="/entrar" element={<AuthPage />} />
             <Route path="/assinar" element={<ProtectedRoute><SubscribePage /></ProtectedRoute>} />
-            <Route path="/pagamento/processando" element={<ProtectedRoute><ProcessingPage /></ProtectedRoute>} />
             <Route path="/app/*" element={<ProtectedRoute><AppShell /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

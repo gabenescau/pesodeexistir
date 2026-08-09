@@ -20,6 +20,8 @@ O produto é um **clube de leitura com assinatura (OPE Club)** sobre uma base Vi
 > **Status (atualização 31/07/2026):** M1–M10 corrigidos nesta revisão (ver §10).
 > Falta apenas **aplicar** as migrations no projeto remoto via `supabase db push`
 > e validar manualmente (ver §9). M11–M14 permanecem abertos (fase 3/4).
+>
+> **Status (atualização 09/08/2026 — Fase 2 da revisão: economia/gamificação, migration `20260731210000_xp_credits_store.sql`):** novo escopo auditado (XP/créditos, loja de resgate, recompensas, wallet). M15 (anti-padrão `private.award_both`) e M16 (grant de créditos do admin quebrado) adicionados; M17 (RLS de subscriptions sem INSERT/UPDATE) documentado. Design geral do sistema de recompensas é sólido (`redeem_product` DEFINER com rate-limit + exigência de assinatura/meses ativos + débito com row-lock); os pontos fracos são anti-padrão de grants e peças de front/backend mortas (ver §5 M15–M17 e §10b).
 
 ---
 
@@ -178,6 +180,29 @@ O produto é um **clube de leitura com assinatura (OPE Club)** sobre uma base Vi
 ### M14 — [BAIXO] Revisão de observabilidade
 - **Observação:** logs são `console.info/error` (Vercel). Não há alertas configurados para: falhas de webhook em sequência, picos de 429, pagamento confirmado sem atualização de assinatura. Recomenda-se alertas no painel da Vercel/Supabase.
 
+### M15 — [ALTO · defensa em profundidade] `private.award_both` executa por `authenticated` sem guarda interna
+- **Onde:** `20260731210000_xp_credits_store.sql:37` (`grant usage on schema private to authenticated`), `:964-978` (loop de `grant execute ... to authenticated` nos helpers privados, incluindo `award_both`, `bump_counter`, `get_counter`, `day_activity_totals`, `can_target`), `:310-354` (`award_both`).
+- **Problema:** `private.award_both(p_user_id, p_xp, p_credits, p_reason, p_source_ref, p_skip_cap)` é `SECURITY DEFINER search_path=''` e **não valida** quem chama: não há `auth.uid()`, nem `can_target`, nem `is_admin` dentro da função (só checa `p_user_id is null`). Ela insere direto em `private.wallet_ledger` e faz `update profiles set xp=..., credits=...`. O grant a `authenticated` existe porque os RPCs públicos `reward_post`, `reward_comment`, `reward_likes_received` e `report_reading_session` são `SECURITY INVOKER` e dependem do grant para chamar os helpers privados. Consequência: **se o schema `private` for exposto ao PostgREST** (por exemplo, alguém adicionar `db-schemas = "public, private"` no `config.toml`, hoje inexistente no repositório), qualquer usuário autenticado cunha XP/créditos ilimitados para si (ou para outro, via `p_user_id`) com `p_skip_cap=true` — sem rate-limit nem cap.
+- **Explorabilidade atual:** **baixa** — o cliente só chama `supabase.rpc(name, args)` com schema default `public` (verificado em `src/app/data/supabase.js` e `src/lib/rewards.js:43-50`) e não há `config.toml` no repo, então `private` não é exposto via API hoje. O risco é **latente + desenho** (regressão de configuração viraria escalada), e ainda assim viola least-privilege: `authenticated` não deveria ter `EXECUTE` em helpers de escrita.
+- **Correção sugerida (Fase 1B):**
+  1. Converter os RPCs públicos de recompensa (`reward_post`, `reward_comment`, `reward_likes_received`, `report_reading_session`) para `SECURITY DEFINER` (como `redeem_product`/`reward_login` já são) — eles já fazem `can_target`/`auth.uid()` internamente, então manteriam a autorização.
+  2. `REVOKE EXECUTE ... FROM authenticated` nos helpers privados de escrita (`award_both`, `bump_counter`, `get_counter`, `day_activity_totals` etc.), mantendo só `service_role` e o owner.
+  3. Como redundância, adicionar guarda no corpo de `award_both`: `if not private.can_target(p_user_id) then return false; end if;` e validar `p_skip_cap` (só admin/sem pular caps para auto-grant).
+
+### M16 — [MÉDIO · funcional] Grant manual de créditos/XP do admin não funciona
+- **Onde:** `src/app/pages/AdminPage.jsx:397-464` (`handleAddCredits`), `src/app/data/RewardsContext.jsx:226-231` (`addCredits`), `src/app/pages/RankingPage.jsx:21`, `src/app/components/MonthlyRanking.jsx:22`.
+- **Problema:** o admin panel tenta `upsert` em `user_wallets` (tabela que **não existe** em nenhuma migration — conferido via grep no repo) e depois chama `addCredits`, que é só simulação local (`// Simula adicao de creditos localmente`). O `console.warn` cai em catch silencioso + toast de sucesso **falso**; RankingPage/MonthlyRanking também referenciam `user_wallets`. Não existe RPC de grant (o único RPC admin é `spam_revert`). Ou seja: o admin **não consegue** ajustar saldo pela UI — funcionalidade morta que ainda parece funcionar.
+- **Correção sugerida (Fase 3):** criar RPC `SECURITY DEFINER` admin-only `private.admin_grant(user_id, xp, credits, reason)` (com `is_admin()` + `logAuditEvent`) e fazer o AdminPage chamá-lo; remover a simulação local e as refs a `user_wallets`.
+
+### M17 — [MÉDIO · funcional] RLS de `subscriptions` só tem SELECT; fallbacks do front são código morto
+- **Onde:** `0001_full.sql` (policy `subscriptions_read_own_or_admin`), `src/app/data/DataContext.jsx:808-907` (fallbacks de insert/update subscription), `api/admin-subscription.js:140` (actions só `grant`/`set_duration`).
+- **Problema:** sem policy de INSERT/UPDATE/DELETE para `authenticated`, qualquer escrita de subscription via cliente falha (só service_role escreve). Os fallbacks de criação/atualização no DataContext nunca funcionam (segurança OK — UX quebrada/enganosa). No endpoint admin, ações como `cancel`/`remove` retornam 400 "Acao invalida" — não há como cancelar assinatura pelo painel (só grant/set_duration), o que força caminho manual.
+- **Correção sugerida (Fase 3):** remover os fallbacks mortos do DataContext (ou torná-los service-role server-side), e expor cancel/revoke via endpoint admin (chamando a AbacatePay, como já faz `cancel-subscription.js`).
+
+### M18 — [BAIXO · observação] `redeem_product` não expõe estoque/limite de produto
+- **Onde:** `20260731210000_xp_credits_store.sql:734+`.
+- **Observação:** validação é sólida (rate-limit `md5(v_uid||':redeem')`, produto ativo, `has_active_subscription()`, `active_months >= min_months_active`, débito com row-lock). Não há conceito de estoque finito nem de limite por usuário além do débito de créditos — ok para digital; registrar como melhoria se houver itens físicos.
+
 ---
 
 ## 6. Scores por área (0–10)
@@ -205,18 +230,23 @@ O produto é um **clube de leitura com assinatura (OPE Club)** sobre uma base Vi
 2. **M2** — criar `is_book_released()` + `has_active_subscription()` + policy de storage `pdfs`; versionar em migration; remover dependência de function manual no dashboard.
 3. **M3** — fonte única de verdade para admin (`profiles.role`) + auditoria de promoções.
 
+### Fase 1B — Economia/recompensas (junto da Fase 1, na migration do XP)
+4. **M15** — tornar RPCs de recompensa `SECURITY DEFINER`; revogar `EXECUTE` de `authenticated` nos helpers privados; guarda `can_target` dentro de `award_both` (ver §5).
+
 ### Fase 2 — Segurança e robustez (1ª semana pós-Fase 1)
-4. **M4** — corrigir fluxo de email (gravar em `user_emails`).
-5. **M5** — CSP restrita no `vercel.json`.
-6. **M6** — remover `webhookSecret` da query string.
-7. **M7** — `RATE_LIMIT_FAIL_CLOSED=true` em produção.
-8. **M9** — migrar `local-sql/` para migrations versionadas.
+5. **M4** — corrigir fluxo de email (gravar em `user_emails`).
+6. **M5** — CSP restrita no `vercel.json`.
+7. **M6** — remover `webhookSecret` da query string.
+8. **M7** — `RATE_LIMIT_FAIL_CLOSED=true` em produção.
+9. **M9** — migrar `local-sql/` para migrations versionadas.
 
 ### Fase 3 — Privacidade, escala e operação (2ª–3ª semana)
-9. **M8** — view agregada de ratings (sem `user_id` exposto; agregação no banco).
-10. **M10** — recriar `.env.example` com placeholders.
-11. **M11** — revisar ciclo de vida do PIX (expiração/recompra).
-12. **M14** — alertas de observabilidade (webhook, 429, pagamentos).
+10. **M8** — view agregada de ratings (sem `user_id` exposto; agregação no banco).
+11. **M10** — recriar `.env.example` com placeholders.
+12. **M11** — revisar ciclo de vida do PIX (expiração/recompra).
+13. **M14** — alertas de observabilidade (webhook, 429, pagamentos).
+14. **M16** — RPC admin de grant de créditos/XP + remover `user_wallets` e a simulação local.
+15. **M17** — limpar fallbacks mortos de subscriptions no DataContext; expor cancel/revoke no endpoint admin.
 
 ### Fase 4 — Qualidade contínua
 13. Testes de integração das policies (ex.: role escalation, assinante vs. não assinante lendo PDF).
@@ -278,7 +308,33 @@ Todos os itens abaixo passam em `npm run check` (lint + 17 testes + build).
 ### Ainda abertos
 
 - **M11** (PIX `one_time` sem renew — decisão de produto), **M12** (documentado, mantido), **M13** (`content/` fallback local), **M14** (alertas de observabilidade).
+- **M15** (grants de helpers privados / `award_both`), **M16** (grant de créditos do admin), **M17** (fallbacks mortos de subscriptions), **M18** (estoque de produto — observação).
 - **Aplicação remota** das migrations e testes manuais (§9) e testes de integração das policies (Fase 4).
+
+---
+
+## 10b. Fase 2 da revisão — economia/gamificação (09/08/2026)
+
+Escopo: migration `20260731210000_xp_credits_store.sql` (XP/créditos, loja, recompensas, wallet) + camada de dados do front. Leitura completa confirmada do M13 (helpers `private.*`, RPCs públicos, `redeem_product`, grants 958-1040).
+
+### O que está **correto** no desenho
+
+| Área | Verificado |
+|---|---|
+| `redeem_product` | `SECURITY DEFINER search_path=''`; rate-limit `md5(v_uid\|\|':redeem')` (10/60s); produto precisa `active` + `has_active_subscription()` + `active_months >= min_months_active`; débito com row-lock (`update ... where id=v_uid and credits>=cost`). |
+| `reward_login` | DEFINER, `auth.uid()`, award 5/1, `bump_counter` 1x/dia. |
+| `reward_comment` / `reward_likes_received` | INVOKER mas com `can_target(p_user_id)` + contadores anti-spam (`>= 5`, `is_repetitive_comment`, `least(likes_received_today,20)`). |
+| `wallet_state_core` | snapshot DEFINER (xp/credits/level/streak/today/missions) — só leitura. |
+| Loja de créditos | `insert/update/delete on shop_products` para `authenticated` com policy `with check (is_admin())` (linha 159) — barreira real. |
+| RPC admin | único é `spam_revert` (recalcula do ledger); sem RPC de grant. |
+| `current_role()` (M3) | sem fallback de `app_metadata` — única fonte é `profiles.role`. |
+
+### O que está **fraco** (M15–M18, detalhes em §5)
+
+- **M15 (ALTO, latente):** grants de helpers privados a `authenticated` são efeito colateral dos RPCs INVOKER. Não explorável via API hoje (schema `private` não exposto; cliente usa só schema `public`), mas viraria escalada de XP/créditos se `config.toml` passar a expor `private`. Converter RPCs de recompensa para DEFINER elimina o grant e o risco.
+- **M16 (MÉDIO):** grant manual de créditos/XP na UI é código morto (`user_wallets` não existe; `addCredits` é simulação local; sucesso falso).
+- **M17 (MÉDIO):** RLS de `subscriptions` só leitura → fallbacks de escrita no DataContext nunca rodam; endpoint admin não tem ação de cancel/revoke.
+- **M18 (BAIXO):** sem estoque finito em `redeem_product` (ok para digital; nota para físico).
 
 ---
 

@@ -6,16 +6,19 @@ import { toast } from "@/lib/toast";
 import { CheckoutModal } from "@/app/components/CheckoutModal";
 
 const CATEGORY_LABELS = {
-  book: "Livros",
-  book_premium: "Livros Premium",
+  book: "Livro Físico",
+  livro_fisico: "Livro Físico",
+  book_premium: "Livro Premium",
+  livro_premium: "Livro Premium",
   boxes: "Boxes",
-  oversized: "Oversizeds",
-  hoodie: "Moletons",
+  oversized: "Oversized",
+  hoodie: "Moletom",
+  moletom: "Moletom",
   collectibles: "Colecionáveis",
 };
 
 // These categories support dual payment (credits + real money)
-const DUAL_PAYMENT_CATEGORIES = ["oversized", "hoodie"];
+const DUAL_PAYMENT_CATEGORIES = ["oversized", "hoodie", "moletom"];
 
 function getProductImages(product) {
   if (!product) return [];

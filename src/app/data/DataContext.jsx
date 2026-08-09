@@ -912,29 +912,6 @@ export function DataProvider({ children }) {
     if (userId === user?.id) setSubscription(null);
   }, [isSupabase, user?.id]);
 
-  const changeSubscriptionPlan = useCallback(async (id, plan) => {
-    if (!isSupabase || !id) return null;
-    const data = await authenticatedApiPost("/api/subscription-action", {
-      action: "change_plan",
-      subscriptionId: id,
-      plan,
-    });
-    setSubscriptions((prev) => prev.map((sub) => sub.id === data.id ? data : sub));
-    setSubscription((prev) => prev?.id === data.id ? data : prev);
-    return data;
-  }, [isSupabase]);
-
-  const syncSubscription = useCallback(async (id) => {
-    if (!isSupabase || !id) return null;
-    const data = await authenticatedApiPost("/api/subscription-action", {
-      action: "sync",
-      subscriptionId: id,
-    });
-    setSubscriptions((prev) => prev.map((sub) => sub.id === data.id ? data : sub));
-    setSubscription((prev) => prev?.id === data.id ? data : prev);
-    return data;
-  }, [isSupabase]);
-
   const addWeeklyRelease = useCallback(async ({ bookId, releaseDate, note, visible = true }) => {
     if (!isSupabase) return null;
     const { data, error } = await supabase
@@ -1393,7 +1370,7 @@ export function DataProvider({ children }) {
       addBook, updateBook, deleteBook, markBookCompleted, updateReadingProgress,
       addAuthor, updateAuthor, deleteAuthor,
       addPost, deletePost,
-      cancelSubscription, changeSubscriptionPlan, syncSubscription,
+      cancelSubscription,
       upsertUserSubscription, updateUserSubscriptionDuration, removeUserSubscription,
       addWeeklyRelease, deleteWeeklyRelease, toggleWeeklyReleaseVisibility,
       addCategory, updateCategory, deleteCategory,

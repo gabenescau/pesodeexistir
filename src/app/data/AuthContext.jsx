@@ -21,20 +21,8 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (!isSupabaseReady()) {
-      const devUser = {
-        id: "dev-local-user",
-        email: "membro@opeclub.com",
-        user_metadata: { name: "Membro OPE" },
-      };
-      const devProfile = {
-        id: "dev-local-user",
-        name: "Membro OPE",
-        role: "admin",
-        avatar_url: null,
-      };
-      setUser(devUser);
-      setSession({ user: devUser });
-      setProfile(devProfile);
+      // Sem Supabase configurado nao ha sessao possivel: fica deslogado.
+      // Nenhum usuario/role fake e injetado (sem dev-backdoor admin).
       setLoading(false);
       return;
     }

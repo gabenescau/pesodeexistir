@@ -2,8 +2,6 @@ const REQUIRED_SERVER_ENV_GROUPS = [
   ["SUPABASE_URL"],
   ["SUPABASE_SECRET_KEY", "SUPABASE_SERVICE_ROLE_KEY"],
   ["SUPABASE_PUBLISHABLE_KEY"],
-  ["ABACATEPAY_API_KEY"],
-  ["ABACATEPAY_WEBHOOK_SECRET"],
 ];
 
 export default function handler(req, res) {

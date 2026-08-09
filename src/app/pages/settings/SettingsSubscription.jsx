@@ -6,7 +6,7 @@ import { useAuth } from "../../data/AuthContext";
 import { useData } from "../../data/DataContext";
 import { useCancelSurvey } from "@/components/ui/cancel-survey";
 import { PlanBenefitList } from "@/components/plan-benefit";
-import { PLANS } from "@/lib/abacatepay";
+import { PLANS } from "@/lib/plans";
 import { isActiveSubscription } from "@/lib/subscription";
 
 const statusLabels = {
@@ -116,11 +116,9 @@ export function SettingsSubscription() {
         <div className="flex flex-wrap gap-2 border-t border-[var(--border)] px-4 py-4 sm:px-5">
           {active ? (
             <>
-              {subscription?.provider === "abacatepay" ? (
-                <button onClick={() => navigate("/app/planos")} className="rounded-full bg-[var(--text-primary)] px-4 py-2 text-sm font-medium text-[var(--bg-card)]">
-                  Alterar plano
-                </button>
-              ) : null}
+              <button onClick={() => navigate("/app/planos")} className="rounded-full bg-[var(--text-primary)] px-4 py-2 text-sm font-medium text-[var(--bg-card)]">
+                Ver planos
+              </button>
               <button onClick={handleCancel} disabled={cancelling} className="rounded-full border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] hover:border-[var(--border-strong)] disabled:opacity-50">
                 {cancelling ? "Cancelando..." : "Cancelar assinatura"}
               </button>
@@ -136,11 +134,6 @@ export function SettingsSubscription() {
           )}
         </div>
         {cancelError ? <p className="px-4 pb-4 text-xs text-red-400 sm:px-5">{cancelError}</p> : null}
-        {active && subscription?.provider === "abacatepay" ? (
-          <p className="px-4 pb-4 text-[11px] text-[var(--text-muted)] sm:px-5">
-            O cancelamento na AbacatePay e imediato, irreversivel e impede novas cobrancas.
-          </p>
-        ) : null}
       </SettingsSection>
 
       {subscription?.metadata?.pending_plan ? (

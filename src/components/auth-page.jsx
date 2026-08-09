@@ -378,7 +378,7 @@ function TermsDialog({ trigger }) {
         <div className="max-h-[55vh] space-y-3 overflow-y-auto pr-1 text-xs leading-relaxed text-[var(--text-secondary)]">
           <p><strong>1. Aceitacao.</strong> O uso do OPE Club implica concordancia com estes Termos e com a Politica de Privacidade. Se voce nao concordar, nao crie conta.</p>
           <p><strong>2. Cadastro.</strong> Voce deve fornecer informacoes verdadeiras e manter sua senha em sigilo. E de sua responsabilidade toda atividade feita na sua conta.</p>
-          <p><strong>3. Pagamento.</strong> Os planos sao cobrados via AbacatePay. Cancelamentos podem ser feitos a qualquer momento e o acesso permanece ate o fim do ciclo vigente.</p>
+          <p><strong>3. Pagamento.</strong> Os planos sao concedidos pela plataforma. Cancelamentos podem ser feitos a qualquer momento e o acesso permanece ate o fim do ciclo vigente.</p>
           <p><strong>4. Conteudo.</strong> O acervo de livros e o conteudo da comunidade sao para uso pessoal. E proibido redistribuir, reproduzir ou explorar comercialmente sem autorizacao.</p>
           <p><strong>5. Conduta.</strong> Publique apenas conteudo que voce tenha direito de compartilhar. Discurso de odio, spam e assedio nao sao tolerados e podem resultar em banimento.</p>
           <p><strong>6. Suspensao.</strong> Podemos suspender contas que violem estes termos ou apresentem atividade suspeita.</p>
@@ -408,10 +408,10 @@ function PrivacyDialog({ trigger }) {
         </AlertDialogHeader>
         <div className="max-h-[55vh] space-y-3 overflow-y-auto pr-1 text-xs leading-relaxed text-[var(--text-secondary)]">
           <p><strong>Controlador.</strong> OPE Club (pesodeexistir.online), contato: privacidade@pesodeexistir.online.</p>
-          <p><strong>Dados coletados.</strong> Nome, email, foto de perfil, atividades de leitura, publicacoes na comunidade, preferencias de notificacao e dados de pagamento (processados diretamente pela AbacatePay - nao armazenamos numeros de cartao).</p>
+          <p><strong>Dados coletados.</strong> Nome, email, foto de perfil, atividades de leitura, publicacoes na comunidade e preferencias de notificacao.</p>
           <p><strong>Finalidades.</strong> Operacao da conta, personalizacao de conteudo, envio de lancamentos e novidades (somente se autorizado), suporte ao usuario, cumprimento de obrigacoes legais e prevencao a fraudes.</p>
           <p><strong>Base legal.</strong> Executamos o tratamento com base no seu consentimento (art. 7o, I) e na execucao de contrato (art. 7o, V) para operacao do servico.</p>
-          <p><strong>Compartilhamento.</strong> Nao vendemos seus dados. Compartilhamos apenas com prestadores essenciais (Supabase para banco, AbacatePay para pagamentos) sob contratos de confidencialidade.</p>
+          <p><strong>Compartilhamento.</strong> Nao vendemos seus dados. Compartilhamos apenas com prestadores essenciais (Supabase para banco) sob contratos de confidencialidade.</p>
           <p><strong>Cookies.</strong> Usamos cookies essenciais para autenticacao e preferencias. Cookies de marketing sao opcionais.</p>
           <p><strong>Retencao.</strong> Mantemos seus dados enquanto a conta estiver ativa. Apos o cancelamento, dados pessoais sao anonimizados em ate 90 dias, salvo obrigacao legal de retencao.</p>
           <p><strong>Seus direitos (art. 18 LGPD).</strong> Confirmacao, acesso, correcao, anonimizacao, portabilidade, eliminacao, revogacao do consentimento e revisao de decisoes automatizadas. Solicite pelo email acima.</p>

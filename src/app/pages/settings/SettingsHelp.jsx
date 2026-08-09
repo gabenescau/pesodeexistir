@@ -6,7 +6,7 @@ import { SettingsLayout, SettingsRow, SettingsSection } from "../../components/S
 const FAQ = [
   {
     q: "Como assino o OPE Club?",
-    a: "Acesse Configuracoes > Assinatura e escolha o plano mensal ou anual. O pagamento e processado pela AbacatePay.",
+    a: "Acesse Configuracoes > Assinatura e escolha o plano mensal ou anual.",
   },
   {
     q: "Posso ler offline?",
@@ -14,7 +14,7 @@ const FAQ = [
   },
   {
     q: "Como cancelo minha assinatura?",
-    a: "Em Configuracoes > Assinatura, clique em Cancelar assinatura. O cancelamento na AbacatePay e imediato.",
+    a: "Em Configuracoes > Assinatura, clique em Cancelar assinatura.",
   },
   {
     q: "Como crio uma colecao?",
