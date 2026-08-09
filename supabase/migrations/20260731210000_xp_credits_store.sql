@@ -93,7 +93,7 @@ create table if not exists public.shop_products (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   description text,
-  category text not null check (category in ('book','book_premium','oversized','hoodie','exclusive')),
+  category text not null check (category in ('book','book_premium','boxes','oversized','hoodie','moletom','exclusive')),
   credits_cost integer not null check (credits_cost > 0),
   real_price numeric default 0,
   min_months_active numeric(4,1) not null default 0,

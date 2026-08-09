@@ -1622,7 +1622,24 @@ function ResgatesTab() {
 // ---------------------------------------------------------------------------
 // Loja: CRUD simples do catalogo de produtos resgataveis.
 // ---------------------------------------------------------------------------
-const PRODUCT_CATEGORIES = ["book", "book_premium", "boxes", "oversized", "hoodie"];
+const PRODUCT_CATEGORIES = [
+  { id: "book", label: "Livro Físico" },
+  { id: "book_premium", label: "Livro Premium" },
+  { id: "hoodie", label: "Moletom" },
+  { id: "oversized", label: "Oversized" },
+  { id: "boxes", label: "Boxes" },
+];
+
+const CATEGORY_LABELS = {
+  book: "Livro Físico",
+  livro_fisico: "Livro Físico",
+  book_premium: "Livro Premium",
+  livro_premium: "Livro Premium",
+  hoodie: "Moletom",
+  moletom: "Moletom",
+  oversized: "Oversized",
+  boxes: "Boxes",
+};
 
 function LojaTab() {
   const [products, setProducts] = useState([]);
@@ -1965,7 +1982,11 @@ function LojaTab() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <input className={inputClass} placeholder="Nome do produto" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <select className={inputClass} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-            {PRODUCT_CATEGORIES.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+            {PRODUCT_CATEGORIES.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.label}
+              </option>
+            ))}
           </select>
           <input className={inputClass} placeholder="Descrição" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <input className={inputClass} type="number" min="1" placeholder="Custo em créditos" value={form.credits_cost} onChange={(e) => setForm({ ...form, credits_cost: e.target.value })} />
@@ -2143,7 +2164,7 @@ function LojaTab() {
                         </div>
                       </div>
                     </td>
-                    <td className="py-3 pr-4 text-[var(--text-secondary)]">{p.category}</td>
+                    <td className="py-3 pr-4 text-[var(--text-secondary)]">{CATEGORY_LABELS[p.category] || p.category}</td>
                     <td className="py-3 pr-4 text-[var(--text-secondary)]">{p.credits_cost}</td>
                     <td className="py-3 pr-4 text-[var(--text-secondary)]">{p.min_months_active}</td>
                     <td className="py-3 pr-4">
