@@ -7,24 +7,19 @@ import { createCheckout } from "@/lib/abacatepay";
 import { toast } from "@/lib/toast";
 
 const LEITOR_BENEFITS = [
-  "Leitor digital nativo no app (sem baixar PDFs)",
-  "Biblioteca completa de filosofia e clássicos",
-  "Rede social com feed e comentários ilimitados",
-  "Acúmulo diário de XP e Créditos OPE por leitura",
-  "Resgate de livros, moletons e oversizeds na Loja OPE",
-  "Frete grátis em todos os resgates físicos",
-  "Missões diárias, semanais e Seasons temáticas",
-  "Leitura offline e sincronização total",
+  "Biblioteca completa de filosofia e literatura",
+  "Leitor digital nativo no aplicativo",
+  "Comunidade ativa com feed e discussões",
+  "Ganhe XP e Créditos lendo todos os dias",
+  "Resgate livros e itens na Loja OPE",
 ];
 
 const PENSADOR_BENEFITS = [
   "Todos os benefícios do Plano Leitor",
-  "Acesso exclusivo ao Ranking Mensal de XP",
-  "Selo de Pensador verificado",
-  "Multiplicador de Créditos OPE nas missões diárias",
-  "Acesso antecipado aos drops da Loja OPE",
-  "Prioridade na adição de novos autores e livros",
-  "Suporte VIP prioritário direto no WhatsApp",
+  "Selo exclusivo de Pensador Verificado",
+  "Ranking mensal e bônus de Créditos",
+  "Acesso antecipado aos lançamentos da loja",
+  "Suporte prioritário no WhatsApp",
 ];
 
 function Paywall() {

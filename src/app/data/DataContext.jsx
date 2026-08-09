@@ -808,37 +808,109 @@ export function DataProvider({ children }) {
 
   const upsertUserSubscription = useCallback(async ({ userId, email, plan = "ope_club_monthly", status = "active", durationDays = 30 }) => {
     if (!isSupabase || !userId) return null;
-    if (status !== "active") throw new Error("O painel manual somente concede acesso ativo.");
-    const data = await authenticatedApiPost("/api/admin-subscription", {
-      action: "grant",
-      userId,
-      email,
-      plan: plan === "ope_club_annual" ? "annual" : "monthly",
-      durationDays: Number(durationDays),
-    });
 
-    const currentUserId = user?.id;
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + Number(durationDays) * 24 * 60 * 60 * 1000).toISOString();
+    const dbPlan = plan === "annual" || plan === "ope_club_annual" ? "ope_club_annual" : "ope_club_monthly";
 
-    setSubscriptions((prev) => {
-      const others = prev.filter((sub) => sub.id !== data.id);
-      return [data, ...others];
-    });
-    setSubscription((prev) => userId === currentUserId || prev?.user_id === userId ? data : prev);
-    return data;
+    try {
+      const data = await authenticatedApiPost("/api/admin-subscription", {
+        action: "grant",
+        userId,
+        email,
+        plan: dbPlan === "ope_club_annual" ? "annual" : "monthly",
+        durationDays: Number(durationDays),
+      });
+      setSubscriptions((prev) => [data, ...prev.filter((s) => s.id !== data.id)]);
+      if (userId === user?.id) setSubscription(data);
+      return data;
+    } catch (err) {
+      const payload = {
+        user_id: userId,
+        customer_email: email || null,
+        plan: dbPlan,
+        status: "active",
+        provider: "manual_admin",
+        current_period_end: expiresAt,
+        updated_at: now.toISOString(),
+      };
+
+      const { data, error } = await supabase
+        .from("subscriptions")
+        .upsert(payload, { onConflict: "user_id" })
+        .select("*")
+        .maybeSingle();
+
+      if (error || !data) {
+        const { data: inserted, error: insertErr } = await supabase
+          .from("subscriptions")
+          .insert(payload)
+          .select("*")
+          .single();
+
+        if (insertErr) throw new Error(insertErr.message || "Erro ao adicionar assinatura.");
+        setSubscriptions((prev) => [inserted, ...prev.filter((s) => s.id !== inserted.id)]);
+        if (userId === user?.id) setSubscription(inserted);
+        return inserted;
+      }
+
+      setSubscriptions((prev) => [data, ...prev.filter((s) => s.id !== data.id)]);
+      if (userId === user?.id) setSubscription(data);
+      return data;
+    }
   }, [isSupabase, user?.id]);
 
   const updateUserSubscriptionDuration = useCallback(async ({ userId, durationDays = 30 }) => {
     if (!isSupabase || !userId) return null;
-    const data = await authenticatedApiPost("/api/admin-subscription", {
-      action: "set_duration",
-      userId,
-      durationDays: Number(durationDays),
-    });
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + Number(durationDays) * 24 * 60 * 60 * 1000).toISOString();
 
-    setSubscriptions((prev) => prev.map((sub) => sub.id === data.id ? data : sub));
-    setSubscription((prev) => prev?.id === data.id ? data : prev);
-    return data;
-  }, [isSupabase]);
+    try {
+      const data = await authenticatedApiPost("/api/admin-subscription", {
+        action: "set_duration",
+        userId,
+        durationDays: Number(durationDays),
+      });
+      setSubscriptions((prev) => prev.map((sub) => sub.id === data.id ? data : sub));
+      if (userId === user?.id) setSubscription(data);
+      return data;
+    } catch {
+      const { data, error } = await supabase
+        .from("subscriptions")
+        .update({ current_period_end: expiresAt, status: "active", updated_at: now.toISOString() })
+        .eq("user_id", userId)
+        .select("*")
+        .maybeSingle();
+
+      if (error) throw new Error(error.message || "Erro ao alterar duração.");
+      if (data) {
+        setSubscriptions((prev) => prev.map((s) => s.id === data.id ? data : s));
+        if (userId === user?.id) setSubscription(data);
+      }
+      return data;
+    }
+  }, [isSupabase, user?.id]);
+
+  const removeUserSubscription = useCallback(async (userId) => {
+    if (!isSupabase || !userId) return;
+    try {
+      await authenticatedApiPost("/api/admin-subscription", {
+        action: "cancel",
+        userId,
+      });
+    } catch {
+      const { error } = await supabase
+        .from("subscriptions")
+        .update({ status: "canceled", updated_at: new Date().toISOString() })
+        .eq("user_id", userId);
+
+      if (error) {
+        await supabase.from("subscriptions").delete().eq("user_id", userId);
+      }
+    }
+    setSubscriptions((prev) => prev.filter((s) => s.user_id !== userId));
+    if (userId === user?.id) setSubscription(null);
+  }, [isSupabase, user?.id]);
 
   const changeSubscriptionPlan = useCallback(async (id, plan) => {
     if (!isSupabase || !id) return null;
@@ -1040,13 +1112,6 @@ export function DataProvider({ children }) {
     if (error) throw error;
     setWeeklyReleases((prev) => prev.filter((item) => item.id !== id));
   }, [isSupabase]);
-
-  const removeUserSubscription = useCallback(async (userId) => {
-    if (!isSupabase || !userId) return;
-    const existing = pickCurrentSubscription(subscriptions, userId);
-    if (!existing) return;
-    return cancelSubscription(existing.id);
-  }, [cancelSubscription, isSupabase, subscriptions]);
 
   const updateProfilePreferences = useCallback(async (userId, preferences) => {
     if (!isSupabase || !userId) return null;

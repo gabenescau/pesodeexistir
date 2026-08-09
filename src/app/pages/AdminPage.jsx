@@ -426,13 +426,37 @@ function UsersTab() {
     setCreditLoading(true);
     setCreditError("");
     try {
-      // Update localStorage for simulated credits
-      const key = `ope_credits_${creditModal.profile.id}`;
-      const current = parseInt(localStorage.getItem(key) || "0", 10);
-      const next = Math.max(0, current + amount);
-      localStorage.setItem(key, String(next));
-      // If this user is the logged-in user, update context too
-      addCredits(amount);
+      const targetUserId = creditModal.profile.id;
+
+      const { data: walletRow } = await supabase
+        .from("user_wallets")
+        .select("credits")
+        .eq("user_id", targetUserId)
+        .maybeSingle();
+
+      const currentCredits = Number(walletRow?.credits || 0);
+      const newCredits = Math.max(0, currentCredits + amount);
+
+      const { error: upsertErr } = await supabase
+        .from("user_wallets")
+        .upsert(
+          {
+            user_id: targetUserId,
+            credits: newCredits,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id" }
+        );
+
+      if (upsertErr) {
+        console.warn("Erro ao atualizar user_wallets:", upsertErr.message);
+      }
+
+      if (targetUserId === user?.id) {
+        addCredits(amount);
+      }
+
+      toast.success(`Créditos de ${creditModal.profile.name || "Usuário"} atualizados! Saldo: ${newCredits} créditos.`);
       setCreditModal(null);
     } catch (e) {
       setCreditError(e?.message || "Erro ao adicionar créditos.");
@@ -454,8 +478,10 @@ function UsersTab() {
         status: "active",
         durationDays: durationByUser[profile.id] || 30,
       });
+      toast.success(`Plano concedido com sucesso para ${profile.name || "o usuário"}!`);
     } catch (err) {
-      setError(err?.message || "Nao foi possivel adicionar o plano.");
+      setError(err?.message || "Não foi possível adicionar o plano.");
+      toast.error(err?.message || "Não foi possível adicionar o plano.");
     } finally {
       setSavingUser(null);
     }
@@ -466,8 +492,10 @@ function UsersTab() {
     setError("");
     try {
       await removeUserSubscription(profile.id);
+      toast.success(`Plano de ${profile.name || "usuário"} removido.`);
     } catch (err) {
-      setError(err?.message || "Nao foi possivel remover o plano.");
+      setError(err?.message || "Não foi possível remover o plano.");
+      toast.error(err?.message || "Não foi possível remover o plano.");
     } finally {
       setSavingUser(null);
     }
@@ -480,8 +508,10 @@ function UsersTab() {
     setError("");
     try {
       await updateUserSubscriptionDuration({ userId: profile.id, durationDays: Number(days) });
+      toast.success(`Duração atualizada para ${days} dias.`);
     } catch (err) {
-      setError(err?.message || "Nao foi possivel alterar os dias.");
+      setError(err?.message || "Não foi possível alterar os dias.");
+      toast.error(err?.message || "Não foi possível alterar os dias.");
     } finally {
       setSavingUser(null);
     }
@@ -490,8 +520,8 @@ function UsersTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-[var(--text-secondary)]">{profiles.length} usuarios cadastrados</p>
-        <span className="text-xs text-[var(--text-muted)]">Pagina {page} de {totalPages}</span>
+        <p className="text-sm text-[var(--text-secondary)]">{profiles.length} usuários cadastrados</p>
+        <span className="text-xs text-[var(--text-muted)]">Página {page} de {totalPages}</span>
       </div>
       {error && <p className="text-sm text-red-400">{error}</p>}
 
@@ -573,18 +603,27 @@ function UsersTab() {
           <TableRow>
             <TableHead>Usuário</TableHead>
             <TableHead>Email</TableHead>
-            <TableHead>Cargo</TableHead>
-            <TableHead>Plano</TableHead>
-            <TableHead>Expira em</TableHead>
-            <TableHead>Plano manual</TableHead>
-            <TableHead>Dias</TableHead>
-            <TableHead className="w-0 text-right">Acoes</TableHead>
+            <TableHead>Cargo & Tempo</TableHead>
+            <TableHead>Plano Atual</TableHead>
+            <TableHead>Dias Restantes / Expiração</TableHead>
+            <TableHead>Novo Plano</TableHead>
+            <TableHead>Duração</TableHead>
+            <TableHead className="w-0 text-right">Ações</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {visibleProfiles.map((profile) => {
               const sub = getSub(profile.id);
               const active = isActiveSubscription(sub);
+              const daysRemaining = sub?.current_period_end
+                ? Math.max(0, Math.ceil((new Date(sub.current_period_end) - new Date()) / (1000 * 60 * 60 * 24)))
+                : 0;
+
+              const userCreatedAt = profile.created_at || profile.time;
+              const daysOnPlatform = userCreatedAt
+                ? Math.max(1, Math.floor((new Date() - new Date(userCreatedAt)) / (1000 * 60 * 60 * 24)))
+                : 1;
+
               return (
                 <TableRow key={profile.id}>
                   <TableCell>
@@ -600,14 +639,32 @@ function UsersTab() {
                     </div>
                   </TableCell>
                   <TableCell>{profile.email || "Sem email"}</TableCell>
-                  <TableCell>{profile.role || "user"}</TableCell>
                   <TableCell>
-                    <span className={`rounded-full px-2 py-0.5 text-xs ${active ? "bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]" : "bg-[var(--hover-overlay)] text-[var(--text-muted)]"}`}>
-                      {active ? "Ativo" : sub?.status || "Sem plano"}
+                    <div className="text-xs">
+                      <span className="capitalize font-semibold text-[var(--text-primary)]">{profile.role || "Membro"}</span>
+                      <p className="text-[10px] text-[var(--text-muted)]">{daysOnPlatform} {daysOnPlatform === 1 ? "dia na plataforma" : "dias na plataforma"}</p>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                      active
+                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                        : "bg-red-500/10 text-red-400 border border-red-500/20"
+                    }`}>
+                      {active
+                        ? (sub?.plan === "ope_club_annual" ? "Anual (Pensador)" : "Mensal (Leitor)")
+                        : "Sem plano ativo"}
                     </span>
                   </TableCell>
                   <TableCell>
-                    {sub?.current_period_end ? new Date(sub.current_period_end).toLocaleDateString("pt-BR") : "-"}
+                    {active && sub?.current_period_end ? (
+                      <div className="text-xs">
+                        <span className="font-semibold text-[var(--text-primary)]">{daysRemaining} dias restantes</span>
+                        <p className="text-[10px] text-[var(--text-muted)]">Até {new Date(sub.current_period_end).toLocaleDateString("pt-BR")}</p>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-[var(--text-muted)]">Sem assinatura ativa</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <select
@@ -616,8 +673,8 @@ function UsersTab() {
                       disabled={sub?.provider === "abacatepay" && active}
                       className="rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1 text-xs text-[var(--text-primary)] disabled:opacity-50"
                     >
-                      <option value="ope_club_monthly">Mensal</option>
-                      <option value="ope_club_annual">Anual</option>
+                      <option value="ope_club_monthly">Mensal (Leitor)</option>
+                      <option value="ope_club_annual">Anual (Pensador)</option>
                     </select>
                   </TableCell>
                   <TableCell>
@@ -639,7 +696,7 @@ function UsersTab() {
                         type="button"
                         onClick={() => changeDuration(profile, durationByUser[profile.id] || 30)}
                         disabled={savingUser === profile.id}
-                        className="rounded-[6px] border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-primary)] disabled:opacity-50"
+                        className="rounded-[6px] border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] disabled:opacity-50"
                       >
                         Definir
                       </button>
@@ -655,18 +712,22 @@ function UsersTab() {
                       >
                         Créditos
                       </button>
-                      {!(sub?.provider === "abacatepay" && active) && <button
-                        onClick={() => activate(profile)}
-                        disabled={savingUser === profile.id}
-                        className="rounded-full bg-[var(--text-primary)] px-3 py-1.5 text-xs font-medium text-[var(--bg-card)] disabled:opacity-50"
-                      >
-                        {active ? "Adicionar dias" : "Adicionar plano"}
-                      </button>}
+                      {!(sub?.provider === "abacatepay" && active) && (
+                        <button
+                          type="button"
+                          onClick={() => activate(profile)}
+                          disabled={savingUser === profile.id}
+                          className="rounded-full bg-[var(--text-primary)] px-3 py-1.5 text-xs font-medium text-[var(--bg-card)] hover:opacity-90 disabled:opacity-50 transition-opacity"
+                        >
+                          {active ? "Renovar plano" : "Adicionar plano"}
+                        </button>
+                      )}
                       {active && (
                         <button
+                          type="button"
                           onClick={() => remove(profile)}
                           disabled={savingUser === profile.id}
-                          className="rounded-full border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-red-400 disabled:opacity-50"
+                          className="rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/20 disabled:opacity-50 transition-colors"
                         >
                           Remover
                         </button>

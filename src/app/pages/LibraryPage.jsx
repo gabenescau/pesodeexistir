@@ -133,116 +133,16 @@ const Top10Card = memo(function Top10Card({ book, rank }) {
   );
 });
 
-function PopularCarousel({ books }) {
-  const ref = useRef(null);
-  const [page, setPage] = useState(0);
-  const [pages, setPages] = useState(1);
 
-  // Recalcula o numero de "pags" (telas de largura dominante do container)
-  // conforme o conteudo muda / redimensiona, para as setas irem ate o fim.
-  useEffect(() => {
-    function recalc() {
-      const el = ref.current;
-      if (!el) return;
-      const item = el.querySelector("a");
-      const itemWidth = item ? item.getBoundingClientRect().width : 0;
-      const gap = 8;
-      const perView = Math.max(1, Math.floor((el.clientWidth + gap) / (itemWidth + gap)));
-      const total = Math.max(1, Math.ceil(books.length / perView));
-      setPages(total);
-      setPage((p) => Math.min(p, total - 1));
-    }
-    recalc();
-    window.addEventListener("resize", recalc);
-    return () => window.removeEventListener("resize", recalc);
-  }, [books.length]);
-
-  function scrollToIndex(index) {
-    const el = ref.current;
-    if (!el) return;
-    const item = el.querySelector("a");
-    if (!item) return;
-    const itemWidth = item.getBoundingClientRect().width + 8;
-    el.scrollTo({ left: Math.min(index * itemWidth, el.scrollWidth - el.clientWidth), behavior: "smooth" });
-    setPage(index);
-  }
-
-  function handleScroll() {
-    const el = ref.current;
-    if (!el) return;
-    const max = Math.max(1, el.scrollWidth - el.clientWidth);
-    setPage(Math.min(pages - 1, Math.round((el.scrollLeft / max) * (pages - 1))));
-  }
-
-  const canPrev = page > 0;
-  const canNext = page < pages - 1 && pages > 1;
-
-  return (
-    <div className="min-w-0 flex-1">
-      <div className="relative">
-        {canPrev && (
-          <button
-            type="button"
-            aria-label="Anterior"
-            onClick={() => scrollToIndex(page - 1)}
-            className="absolute -left-2 top-1/2 z-10 grid size-7 -translate-y-1/2 place-items-center rounded-full border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] shadow hover:bg-[var(--hover-overlay)]"
-          >
-            <ChevronLeft className="size-4" weight="bold" />
-          </button>
-        )}
-        <div
-          ref={ref}
-          onScroll={handleScroll}
-          className="flex gap-2 overflow-x-auto pb-1 sm:gap-3"
-          style={{ scrollbarWidth: "none", scrollSnapType: "x mandatory", scrollBehavior: "smooth" }}
-        >
-          {books.map((book) => (
-            <Link
-              key={book.id}
-              to={`/app/livro/${book.id}`}
-              className="a block w-[68px] shrink-0 sm:w-[88px] md:w-[100px]"
-              style={{ scrollSnapAlign: "start" }}
-            >
-              <div className="aspect-[2/3] overflow-hidden rounded-[8px] border border-[var(--border)] bg-[var(--bg-card)]">
-                <BookCover src={book.image} title={book.title} />
-              </div>
-            </Link>
-          ))}
-        </div>
-        {canNext && (
-          <button
-            type="button"
-            aria-label="Proximo"
-            onClick={() => scrollToIndex(page + 1)}
-            className="absolute -right-2 top-1/2 z-10 grid size-7 -translate-y-1/2 place-items-center rounded-full border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] shadow hover:bg-[var(--hover-overlay)]"
-          >
-            <ChevronRight className="size-4" weight="bold" />
-          </button>
-        )}
-      </div>
-      <div className="mt-2 flex items-center justify-center gap-1">
-        {Array.from({ length: pages }, (_, index) => (
-          <span
-            key={index}
-            className={`size-1.5 cursor-pointer rounded-full transition-colors ${
-              index === page ? "bg-[var(--text-primary)]" : "bg-[var(--border-strong)]"
-            }`}
-            onClick={() => scrollToIndex(index)}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
 
 function FeaturedBook({ book }) {
   return (
     <Link
       to={`/app/livro/${book.id}`}
-      className="block w-full shrink-0 rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-3 transition-colors hover:bg-[var(--hover-overlay)] sm:p-4 md:w-[44%]"
+      className="block w-full shrink-0 rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4 transition-colors hover:bg-[var(--hover-overlay)] sm:p-5"
     >
-      <div className="flex gap-3 sm:gap-4">
-        <div className="w-[100px] shrink-0 sm:w-[120px]">
+      <div className="flex gap-4 sm:gap-5">
+        <div className="w-[100px] shrink-0 sm:w-[130px]">
           <div className="aspect-[2/3] overflow-hidden rounded-[8px]">
             <BookCover src={book.image} title={book.title} />
           </div>
@@ -254,11 +154,11 @@ function FeaturedBook({ book }) {
           <p className="mt-1 truncate text-[11px] text-[var(--text-muted)] sm:text-xs">
             {book.autorNome || book.authorName}
           </p>
-          <p className="mt-1.5 text-[11px] text-[var(--text-secondary)] sm:text-xs">
+          <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-[var(--text-secondary)] sm:text-sm">
             {book.bio || "Descubra uma nova leitura selecionada pela nossa equipe."}
           </p>
-          <span className="mt-3 inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600 sm:text-xs">
-            Ler mais <ArrowRight className="size-3" weight="bold" />
+          <span className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-amber-600 sm:text-sm">
+            Ler mais <ArrowRight className="size-3.5" weight="bold" />
           </span>
         </div>
       </div>
@@ -303,7 +203,6 @@ export function LibraryPage() {
   }, [books]);
 
   const destaque = popular[0];
-  const carouselBooks = useMemo(() => popular.slice(1, 6), [popular]);
 
   const grid = useMemo(() => {
     if (genero === "Todas") return livrosComMeta;
@@ -332,6 +231,16 @@ export function LibraryPage() {
 
   return (
     <div className="space-y-6 sm:space-y-8">
+      {destaque ? (
+        <section>
+          <div className="mb-3 flex items-center gap-2">
+            <div className="h-4 w-[3px] rounded-full bg-blue-500" />
+            <h2 className="text-sm font-semibold text-[var(--text-primary)] sm:text-base">Populares</h2>
+          </div>
+          <FeaturedBook book={destaque} />
+        </section>
+      ) : null}
+
       {continueReading.length > 0 && (
         <section>
           <div className="mb-3 flex items-center justify-between">
@@ -353,19 +262,6 @@ export function LibraryPage() {
           </div>
         </section>
       )}
-
-      {destaque ? (
-        <section>
-          <div className="mb-3 flex items-center gap-2">
-            <div className="h-4 w-[3px] rounded-full bg-blue-500" />
-            <h2 className="text-sm font-semibold text-[var(--text-primary)] sm:text-base">Populares</h2>
-          </div>
-          <div className="flex flex-col gap-3 md:flex-row md:items-stretch md:gap-4">
-            <FeaturedBook book={destaque} />
-            <PopularCarousel books={carouselBooks} />
-          </div>
-        </section>
-      ) : null}
 
       {/* Top 10 este mês — Netflix style */}
       {top10.length > 0 && (
