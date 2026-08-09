@@ -31,6 +31,7 @@ const SeasonPage = lazyPage(() => import("./pages/SeasonPage"), "SeasonPage");
 const MyRedemptionsPage = lazyPage(() => import("./pages/MyRedemptionsPage"), "MyRedemptionsPage");
 const SupportPage = lazyPage(() => import("./pages/SupportPage"), "SupportPage");
 const MyListPage = lazyPage(() => import("./pages/MyListPage"), "MyListPage");
+const RankingPage = lazyPage(() => import("./pages/RankingPage"), "RankingPage");
 
 function PageLoading() {
   return (
@@ -56,6 +57,7 @@ export function AppShell() {
         <Route path="ler/:id" element={<SubscriptionGuard><BookReaderPage /></SubscriptionGuard>} />
         <Route path="autor/:id" element={<SubscriptionGuard><AuthorPage /></SubscriptionGuard>} />
         <Route path="explorar" element={<SubscriptionGuard><ExplorePage /></SubscriptionGuard>} />
+        <Route path="ranking" element={<SubscriptionGuard><RankingPage /></SubscriptionGuard>} />
         <Route path="lancamentos" element={<SubscriptionGuard><ReleasesPage /></SubscriptionGuard>} />
         <Route path="sugestoes" element={<SubscriptionGuard><SuggestionsPage /></SubscriptionGuard>} />
         <Route path="notificacoes" element={<SubscriptionGuard><NotificacoesPage /></SubscriptionGuard>} />

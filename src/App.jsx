@@ -63,6 +63,12 @@ const SEO_PAGES = {
     type: 'website',
     robots: 'noindex, nofollow',
   },
+  '/app/ranking': {
+    title: 'Ranking Mensal | OPE Club',
+    description: 'Acompanhe os leitores mais ativos e engajados da comunidade no Ranking Mensal.',
+    type: 'website',
+    robots: 'noindex, nofollow',
+  },
   '/app/sugestoes': {
     title: 'Sugestoes da Comunidade | OPE Club',
     description: 'Sugestoes dos leitores para melhorar a biblioteca e a experiencia do clube.',
