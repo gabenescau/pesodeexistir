@@ -222,6 +222,14 @@ export function LibraryPage() {
     [livrosComMeta]
   );
 
+  const top10Ref = useRef(null);
+
+  function scrollTop10(direction) {
+    if (!top10Ref.current) return;
+    const scrollAmount = direction === "left" ? -380 : 380;
+    top10Ref.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
+  }
+
   const top10 = useMemo(() => {
     const sorted = [...livrosComMeta].sort(
       (a, b) => (b.ratingCount || 0) - (a.ratingCount || 0) || (b.nota || 0) - (a.nota || 0)
@@ -263,15 +271,37 @@ export function LibraryPage() {
         </section>
       )}
 
-      {/* Top 10 este mês — Netflix style */}
+      {/* Top 10 este mês — Netflix style com setas de navegação */}
       {top10.length > 0 && (
         <section>
-          <div className="mb-4 flex items-center gap-2">
-            <div className="h-4 w-[3px] rounded-full bg-blue-500" />
-            <h2 className="text-sm font-semibold text-[var(--text-primary)] sm:text-base">Top 10 este mês</h2>
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="h-4 w-[3px] rounded-full bg-blue-500" />
+              <h2 className="text-sm font-semibold text-[var(--text-primary)] sm:text-base">Top 10 este mês</h2>
+            </div>
+            {/* Setas de navegacao para desktop/mobile */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => scrollTop10("left")}
+                className="flex size-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] transition-colors shadow-sm cursor-pointer"
+                aria-label="Rolar para a esquerda"
+              >
+                <ChevronLeft className="size-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollTop10("right")}
+                className="flex size-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] transition-colors shadow-sm cursor-pointer"
+                aria-label="Rolar para a direita"
+              >
+                <ChevronRight className="size-4" />
+              </button>
+            </div>
           </div>
           <div
-            className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-3 sm:mx-0 sm:px-0"
+            ref={top10Ref}
+            className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-3 sm:mx-0 sm:px-0 scroll-smooth"
             style={{ scrollbarWidth: "none", scrollSnapType: "x mandatory" }}
           >
             {top10.map((book, i) => (

@@ -46,7 +46,7 @@ function getDropConfig() {
   return { active: true, productIds: [] };
 }
 
-function DropBannerSection({ products }) {
+function DropBannerSection({ products, onVerTudo }) {
   const navigate = useNavigate();
   const config = useMemo(() => getDropConfig(), []);
 
@@ -74,8 +74,8 @@ function DropBannerSection({ products }) {
         </div>
         <button
           type="button"
-          onClick={() => navigate("/app/loja")}
-          className="flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+          onClick={onVerTudo}
+          className="flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
         >
           Ver tudo <ArrowRight className="size-3" />
         </button>
@@ -212,6 +212,14 @@ export function StorePage() {
     }
   }
 
+  function handleVerTudo() {
+    setActiveCategory("all");
+    const el = document.getElementById("catalogo-produtos");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth" });
+    }
+  }
+
   return (
     <div className="mx-auto w-full min-w-0 max-w-7xl flex-1 space-y-8">
 
@@ -232,10 +240,10 @@ export function StorePage() {
       </div>
 
       {/* Novo Drop Disponível */}
-      {!loading && products.length > 0 && <DropBannerSection products={products} />}
+      {!loading && products.length > 0 && <DropBannerSection products={products} onVerTudo={handleVerTudo} />}
 
       {/* Tabs de Categoria */}
-      <div className="flex gap-0 overflow-x-auto border-b border-[var(--border)] pb-0" style={{ scrollbarWidth: "none" }}>
+      <div id="catalogo-produtos" className="flex gap-0 overflow-x-auto border-b border-[var(--border)] pb-0" style={{ scrollbarWidth: "none" }}>
         {availableCategories.map((tab) => {
           const isActive = activeCategory === tab.id;
           return (

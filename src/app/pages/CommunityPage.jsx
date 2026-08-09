@@ -95,7 +95,7 @@ export function CommunityPage() {
           <CreatePost />
         </div>
 
-        <MonthlyRanking limit={10} className="2xl:hidden" />
+        <MonthlyRanking preview={true} limit={10} className="2xl:hidden" />
 
         {/* Filtros por categoria ocultos: ainda nao ha posts suficientes
             marcados com essas tags e a UI exibia "Nada encontrado por aqui"
