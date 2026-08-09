@@ -16,7 +16,7 @@ import { VerifiedBadge } from "./VerifiedBadge";
 import { sanitizePlainText } from "@/lib/sanitize";
 import { toast } from "@/lib/toast";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
-import { rewardApi } from "@/lib/rewards";
+import { useRewards } from "@/app/data/RewardsContext";
 
 function Avatar({ src, fallback, className = "size-11" }) {
   const [broken, setBroken] = useState(false);
@@ -95,6 +95,7 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
   const navigate = useNavigate();
   const { user, isAdmin } = useAuth();
   const { profiles, savedPostIds, toggleSavedPost, subscription } = useData();
+  const { rewardComment, rewardLikesReceived } = useRewards();
   const confirm = useConfirmDialog();
   const [liked, setLiked] = useState(Boolean(post.likedByMe));
   const [likes, setLikes] = useState(post.likes || 0);
@@ -114,7 +115,7 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
   const saved = savedPostIds.includes(post.id);
   const replyCount = commentsLoaded ? comments.length : (post.replies || 0);
   const postUrl = `/app/post/${post.id}`;
-  const canComment = canUsePaidSocialFeatures({ isAdmin, subscription });
+  const canComment = Boolean(user?.id);
 
   useEffect(() => {
     setLiked(Boolean(post.likedByMe));
@@ -152,7 +153,7 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
         const { error } = await supabase.from("post_likes").insert({ user_id: user.id, post_id: post.id });
         if (error && error.code !== "23505") throw error;
         if (!error && post.user_id && post.user_id !== user.id) {
-          rewardApi.rewardLikesReceived(post.user_id).catch(() => {});
+          if (rewardLikesReceived) rewardLikesReceived(post.user_id).catch(() => {});
         }
       } else {
         const { error } = await supabase.from("post_likes").delete().eq("user_id", user.id).eq("post_id", post.id);
@@ -168,32 +169,42 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
   }
 
   async function submitComment() {
-    if (!canComment) {
+    if (!user?.id) {
       setSubscribeOpen(true);
       return;
     }
     const text = sanitizePlainText(comment, 2000);
-    if (!text || !user?.id || busy) return;
+    if (!text || busy) return;
     setComment("");
 
     if (!isSupabaseReady()) return;
-    const { data, error } = await supabase.from("post_replies").insert({
-      post_id: post.id,
-      user_id: user.id,
-      text,
-      parent_id: replyingTo?.id || null,
-    }).select().single();
-    if (error) {
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.from("post_replies").insert({
+        post_id: post.id,
+        user_id: user.id,
+        text,
+        parent_id: replyingTo?.id || null,
+      }).select().single();
+      if (error) {
+        setComment(text);
+        toast.error(error.message || "Nao foi possivel enviar o comentario.");
+        return;
+      }
+      setComments((current) => [...current, data]);
+      setCommentsLoaded(true);
+      setShowComment(true);
+      setReplyingTo(null);
+      toast.success("Comentario publicado.");
+      if (user?.id && rewardComment) {
+        rewardComment(user.id, text).catch(() => {});
+      }
+    } catch (err) {
       setComment(text);
-      toast.error(error.message || "Nao foi possivel enviar o comentario.");
-      return;
+      toast.error(err?.message || "Erro ao publicar comentario.");
+    } finally {
+      setBusy(false);
     }
-    setComments((current) => [...current, data]);
-    setCommentsLoaded(true);
-    setShowComment(true);
-    setReplyingTo(null);
-    toast.success("Comentario publicado.");
-    if (user?.id) rewardApi.rewardComment(user.id, text).catch(() => {});
   }
 
   async function deleteComment(id) {

@@ -10,7 +10,7 @@ import { RichText } from "./RichText";
 import { sanitizePlainText } from "@/lib/sanitize";
 import { toast } from "@/lib/toast";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
-import { rewardApi } from "@/lib/rewards";
+import { useRewards } from "@/app/data/RewardsContext";
 
 const LIMITE_TEXTO = 2000;
 
@@ -46,6 +46,7 @@ function Avatar({ src, fallback }) {
 export function PageComments({ bookId, pageNumber }) {
   const { user, isAdmin } = useAuth();
   const { profiles } = useData();
+  const { rewardComment } = useRewards();
   const confirm = useConfirmDialog();
   const [comentarios, setComentarios] = useState([]);
   const [reacoesPorComentario, setReacoesPorComentario] = useState({});
@@ -126,7 +127,7 @@ export function PageComments({ bookId, pageNumber }) {
       if (error) throw error;
       setComentarios((atual) => [...atual, data]);
       setTexto("");
-      rewardApi.rewardComment(user.id, conteudo).catch(() => {});
+      if (rewardComment) rewardComment(user.id, conteudo).catch(() => {});
     } catch (err) {
       setErro(err?.message || "Não foi possível publicar seu comentário.");
     } finally {

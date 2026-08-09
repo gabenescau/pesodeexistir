@@ -115,8 +115,8 @@ function DashboardTab() {
   const totalAuthors = authors.length;
   const totalPosts = posts.length;
   const totalSubs = subscriptions.length;
-  const monthlySubs = subscriptions.filter((sub) => sub.plan === "ope_club_monthly").length;
-  const annualSubs = subscriptions.filter((sub) => sub.plan === "ope_club_annual").length;
+  const monthlySubs = subscriptions.filter((sub) => sub.plan === "ope_club_monthly" || sub.plan === "monthly" || sub.plan === "leitor").length;
+  const annualSubs = subscriptions.filter((sub) => sub.plan === "ope_club_annual" || sub.plan === "annual" || sub.plan === "pensador").length;
   const activeSubs = subscriptions.filter((sub) => isActiveSubscription(sub)).length;
   const totalFavorites = bookFavorites.length;
   const totalSaved = savedPostIds.length;
@@ -1865,13 +1865,22 @@ function LojaTab() {
     }
 
     try {
-      if (editingId) {
-        const { error } = await supabase.from("shop_products").update(payload).eq("id", editingId);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("shop_products").insert(payload);
-        if (error) throw error;
+      let { error } = editingId
+        ? await supabase.from("shop_products").update(payload).eq("id", editingId)
+        : await supabase.from("shop_products").insert(payload);
+
+      if (error && (error.message?.includes("column") || error.message?.includes("schema cache"))) {
+        const fallbackPayload = { ...payload };
+        if (error.message?.includes("'images'")) delete fallbackPayload.images;
+        if (error.message?.includes("'real_price'")) delete fallbackPayload.real_price;
+
+        const res = editingId
+          ? await supabase.from("shop_products").update(fallbackPayload).eq("id", editingId)
+          : await supabase.from("shop_products").insert(fallbackPayload);
+        error = res.error;
       }
+
+      if (error) throw error;
       setForm(INITIAL_FORM);
       setEditingId(null);
       await load();

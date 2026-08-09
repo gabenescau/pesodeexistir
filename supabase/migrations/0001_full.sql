@@ -395,7 +395,7 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
   provider_subscription_id text,
   provider_customer_id text,
   customer_email text NOT NULL,
-  plan text NOT NULL DEFAULT 'ope_club_monthly' CHECK (plan IN ('ope_club_monthly', 'ope_club_annual')),
+  plan text NOT NULL DEFAULT 'ope_club_monthly' CHECK (plan IN ('ope_club_monthly', 'ope_club_annual', 'monthly', 'annual', 'leitor', 'pensador')),
   status text NOT NULL DEFAULT 'pending' CHECK (
     status IN ('pending', 'active', 'past_due', 'trialing', 'canceled', 'refunded', 'expired')
   ),

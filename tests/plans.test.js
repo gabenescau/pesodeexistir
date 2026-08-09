@@ -14,6 +14,8 @@ test("catalogo decide preco e ciclo no servidor", () => {
   const annual = getPlanByKey("annual");
   assert.equal(annual.price, 34800);
   assert.equal(annual.cycle, "ANNUALLY");
+  assert.equal(getPlanByKey("ope_club_monthly")?.key, "monthly");
+  assert.equal(getPlanByKey("ope_club_annual")?.key, "annual");
   assert.equal(getPlanByKey("plano-inventado"), null);
 });
 

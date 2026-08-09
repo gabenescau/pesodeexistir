@@ -25,7 +25,9 @@ export const PLAN_CATALOG = {
 };
 
 export function getPlanByKey(key) {
-  return PLAN_CATALOG[key] || null;
+  if (!key) return null;
+  if (PLAN_CATALOG[key]) return PLAN_CATALOG[key];
+  return getPlanByCode(key);
 }
 
 export function getPlanByCode(code) {

@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { BarChart3, BookOpen, Image, Plus, Send, UserRound, X } from "@/lib/icons";
 import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
+import { useRewards } from "@/app/data/RewardsContext";
 import { isSupabaseReady, supabase } from "@/app/data/supabase";
 import { canUsePaidSocialFeatures } from "@/lib/entitlements";
 import { handleDoPerfil, normalizar, resolverMencao, tokenizarMencoes } from "@/lib/mentions";
@@ -55,6 +56,7 @@ async function uploadPostImages(files, userId) {
 export function CreatePost({ initialBookId = null, tag = null }) {
   const { user, profile, isAdmin } = useAuth();
   const { addPost, books, authors, profiles, subscription } = useData();
+  const { rewardPost } = useRewards();
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
   const [open, setOpen] = useState(false);
@@ -207,6 +209,7 @@ export function CreatePost({ initialBookId = null, tag = null }) {
       });
       resetComposer();
       setOpen(false);
+      if (user?.id && rewardPost) rewardPost(user.id, "community").catch(() => {});
     } catch (err) {
       if (uploadedPaths.length) {
         await supabase.storage.from(POST_IMAGE_BUCKET).remove(uploadedPaths).catch(() => {});
