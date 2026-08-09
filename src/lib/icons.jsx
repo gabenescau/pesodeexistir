@@ -77,6 +77,8 @@ const ICONS = {
   Mail: Phosphor.EnvelopeSimple,
   MapPin: Phosphor.MapPin,
   Maximize2: Phosphor.CornersOut,
+  Medal: Phosphor.Medal,
+  Trophy: Phosphor.Trophy,
   Phone: Phosphor.Phone,
   Menu: Phosphor.List,
   MenuIcon: Phosphor.List,
@@ -265,6 +267,7 @@ export const Storefront = Phosphor.Storefront;
 export const Target = Phosphor.Crosshair;
 export const Trash2 = Phosphor.Trash;
 export const Trophy = Phosphor.Trophy;
+export const Medal = Phosphor.Medal;
 export const Truck = Phosphor.Truck;
 export const Package = Phosphor.Package;
 export const User = Phosphor.User;

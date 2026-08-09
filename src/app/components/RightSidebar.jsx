@@ -4,6 +4,7 @@ import { useRewards } from "@/app/data/RewardsContext";
 import { levelFromXp } from "@/lib/rewards";
 import { MissionsWidget } from "./MissionsWidget";
 import { ReferralWidget } from "./ReferralWidget";
+import { MonthlyRanking } from "./MonthlyRanking";
 
 function AuthorAvatar({ author }) {
   const src = author.image;
@@ -90,6 +91,8 @@ export function RightSidebar() {
       )}
 
       {wallet && <MissionsWidget />}
+
+      <MonthlyRanking limit={10} />
 
       {wallet && <ReferralWidget />}
 

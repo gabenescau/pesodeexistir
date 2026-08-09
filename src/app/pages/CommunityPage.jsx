@@ -3,6 +3,7 @@ import { isSupabaseReady, supabase } from "../data/supabase";
 import { CreatePost } from "../components/CreatePost";
 import { PostCard } from "../components/PostCard";
 import { RightSidebar } from "../components/RightSidebar";
+import { MonthlyRanking } from "../components/MonthlyRanking";
 import { useData } from "../data/DataContext";
 import { AutocompleteSearch, buildSearchItems } from "@/components/ui/autocomplete";
 
@@ -93,6 +94,8 @@ export function CommunityPage() {
           </div>
           <CreatePost />
         </div>
+
+        <MonthlyRanking limit={10} className="2xl:hidden" />
 
         {/* Filtros por categoria ocultos: ainda nao ha posts suficientes
             marcados com essas tags e a UI exibia "Nada encontrado por aqui"

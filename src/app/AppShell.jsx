@@ -47,7 +47,7 @@ export function AppShell() {
         <Routes>
           <Route path="/" element={<Navigate to="inicio" replace />} />
         {/* Inicio == Comunidade: leitura aberta; postar/comentar exige plano/admin. */}
-        <Route path="inicio" element={<CommunityPage />} />
+        <Route path="inicio" element={<SubscriptionGuard><CommunityPage /></SubscriptionGuard>} />
         {/* Rota legada /comunidade redireciona para /inicio (mesma pagina). */}
         <Route path="comunidade" element={<Navigate to="/app/inicio" replace />} />
         <Route path="biblioteca" element={<SubscriptionGuard><LibraryPage /></SubscriptionGuard>} />
@@ -58,16 +58,16 @@ export function AppShell() {
         <Route path="explorar" element={<SubscriptionGuard><ExplorePage /></SubscriptionGuard>} />
         <Route path="lancamentos" element={<SubscriptionGuard><ReleasesPage /></SubscriptionGuard>} />
         <Route path="sugestoes" element={<SubscriptionGuard><SuggestionsPage /></SubscriptionGuard>} />
-        <Route path="notificacoes" element={<NotificacoesPage />} />
-        <Route path="loja" element={<StorePage />} />
-        <Route path="loja/produto/:id" element={<ProductDetailPage />} />
-        <Route path="missoes" element={<DailyMissionsPage />} />
-        <Route path="indicacoes" element={<ReferralPage />} />
-        <Route path="seasons" element={<SeasonPage />} />
-        <Route path="meus-resgates" element={<MyRedemptionsPage />} />
+        <Route path="notificacoes" element={<SubscriptionGuard><NotificacoesPage /></SubscriptionGuard>} />
+        <Route path="loja" element={<SubscriptionGuard><StorePage /></SubscriptionGuard>} />
+        <Route path="loja/produto/:id" element={<SubscriptionGuard><ProductDetailPage /></SubscriptionGuard>} />
+        <Route path="missoes" element={<SubscriptionGuard><DailyMissionsPage /></SubscriptionGuard>} />
+        <Route path="indicacoes" element={<SubscriptionGuard><ReferralPage /></SubscriptionGuard>} />
+        <Route path="seasons" element={<SubscriptionGuard><SeasonPage /></SubscriptionGuard>} />
+        <Route path="meus-resgates" element={<SubscriptionGuard><MyRedemptionsPage /></SubscriptionGuard>} />
         <Route path="suporte" element={<SupportPage />} />
         <Route path="minha-lista" element={<SubscriptionGuard><MyListPage /></SubscriptionGuard>} />
-        <Route path="post/:id" element={<PostDetailPage />} />
+        <Route path="post/:id" element={<SubscriptionGuard><PostDetailPage /></SubscriptionGuard>} />
         <Route path="planos" element={<SubscribePage />} />
         <Route path="perfil" element={<Navigate to="/app/configuracoes?aba=perfil" replace />} />
         <Route path="perfil/:id" element={<PublicProfilePage />} />

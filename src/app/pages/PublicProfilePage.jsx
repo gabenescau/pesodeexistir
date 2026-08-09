@@ -6,6 +6,7 @@ import { useData } from "../data/DataContext";
 import { FollowButton } from "../components/FollowButton";
 import { CollectionsPanel } from "../components/CollectionsPanel";
 import { PostCard } from "../components/PostCard";
+import { UserTitlePill } from "../components/UserTitlePill";
 import { handleDoPerfil } from "@/lib/mentions";
 import { toast } from "@/lib/toast";
 
@@ -181,7 +182,10 @@ export function PublicProfilePage() {
 
         {/* Nome + handle */}
         <div className="mt-3">
-          <h2 className="text-lg font-bold leading-tight text-[var(--text-primary)]">{nome}</h2>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-lg font-bold leading-tight text-[var(--text-primary)]">{nome}</h2>
+            <UserTitlePill userId={perfil.id} />
+          </div>
           <p className="text-sm text-[var(--text-muted)]">@{handle}</p>
         </div>
 

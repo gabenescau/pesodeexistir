@@ -12,7 +12,6 @@ import { EmojiReactions } from "./EmojiReactions";
 import { PostPoll } from "./PostPoll";
 import { RichText } from "./RichText";
 import { SubscribeModal } from "./SubscribeModal";
-import { UserTitlePill } from "./UserTitlePill";
 import { VerifiedBadge } from "./VerifiedBadge";
 import { sanitizePlainText } from "@/lib/sanitize";
 import { toast } from "@/lib/toast";
@@ -273,7 +272,6 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
                 {post.author || "Leitor"}
               </Link>
               {(post.verified || isVerifiedProfile(authorProfile)) && <VerifiedBadge />}
-              <UserTitlePill userId={post.user_id} />
             </div>
             <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1 text-xs text-[var(--text-muted)]">
               <span className="truncate">@{handle}</span>

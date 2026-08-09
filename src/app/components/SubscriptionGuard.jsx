@@ -7,19 +7,20 @@ import { createCheckout } from "@/lib/abacatepay";
 import { toast } from "@/lib/toast";
 
 const LEITOR_BENEFITS = [
-  "Biblioteca completa de filosofia e literatura",
+  "Biblioteca completa de filosofia",
   "Leitor digital nativo no aplicativo",
-  "Comunidade ativa com feed e discussões",
-  "Ganhe XP e Créditos lendo todos os dias",
-  "Resgate livros e itens na Loja OPE",
+  "Feed ativo para discussões",
+  "Adquira créditos diariamente",
+  "Troque créditos por livros e itens na loja",
 ];
 
 const PENSADOR_BENEFITS = [
-  "Todos os benefícios do Plano Leitor",
-  "Selo exclusivo de Pensador Verificado",
-  "Ranking mensal e bônus de Créditos",
-  "Acesso antecipado aos lançamentos da loja",
-  "Suporte prioritário no WhatsApp",
+  "Todos os benefícios do plano leitor",
+  "Selo de verificado",
+  "Acesso ao ranking mensal",
+  "Acesso às seasons",
+  "Suporte exclusivo WhatsApp",
+  "Acesso antecipado a novos livros",
 ];
 
 function Paywall() {

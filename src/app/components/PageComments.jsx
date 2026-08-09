@@ -7,7 +7,6 @@ import { isSupabaseReady, supabase } from "@/app/data/supabase";
 import { handleDoPerfil } from "@/lib/mentions";
 import { EmojiReactions } from "./EmojiReactions";
 import { RichText } from "./RichText";
-import { UserTitlePill } from "./UserTitlePill";
 import { sanitizePlainText } from "@/lib/sanitize";
 import { toast } from "@/lib/toast";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -213,7 +212,6 @@ export function PageComments({ bookId, pageNumber }) {
                     >
                       {nome}
                     </Link>
-                    <UserTitlePill userId={comentario.user_id} />
                     <span className="truncate text-xs text-[var(--text-muted)]">@{handleDoPerfil(perfil)}</span>
                     <span className="text-xs text-[var(--text-muted)]">· {tempoRelativo(comentario.created_at)}</span>
                   </div>
