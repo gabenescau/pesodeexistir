@@ -73,6 +73,7 @@ export const rewardApi = {
   getMyReferralCode: () => rpc("get_my_referral_code"),
   registerReferral: (code) => rpc("register_referral", { p_referrer_code: code }),
   walletState: () => rpc("wallet_state"),
+  monthlyRanking: (limit = 20) => rpc("monthly_ranking", { p_limit: limit }),
 };
 
 // Normaliza o jsonb de wallet retornado pelo banco em objeto tipado seguro.

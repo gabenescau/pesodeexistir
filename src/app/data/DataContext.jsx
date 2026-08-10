@@ -9,7 +9,6 @@ import { createSignedUrlMap, LIBRARY_BUCKETS, removeLibraryFile } from "@/lib/li
 import { useAuth } from "./AuthContext";
 import { POST_IMAGE_BUCKET } from "@/lib/social";
 import { sanitizePlainText, sanitizeSingleLine } from "@/lib/sanitize";
-import { rewardApi } from "@/lib/rewards";
 
 const DataContext = createContext(null);
 
@@ -759,7 +758,6 @@ export function DataProvider({ children }) {
           likedByMe: false,
           poll,
         }, ...prev]);
-        rewardApi.rewardPost(post.userId, "community").catch(() => {});
       }
       return;
     }
