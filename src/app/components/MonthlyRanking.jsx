@@ -1,12 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { useData } from "@/app/data/DataContext";
-import { isSupabaseReady, supabase } from "@/app/data/supabase";
-import { handleDoPerfil } from "@/lib/mentions";
+import { rewardApi } from "@/lib/rewards";
+import { isSupabaseReady } from "@/app/data/supabase";
 import { Trophy, Medal, Crown, ChevronRight, X } from "@/lib/icons";
 
 export function MonthlyRanking({ limit = 10, preview = false, className = "" }) {
-  const { profiles = [] } = useData() || {};
   const [ranking, setRanking] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -15,55 +13,21 @@ export function MonthlyRanking({ limit = 10, preview = false, className = "" }) 
     let active = true;
 
     async function loadRanking() {
+      if (!isSupabaseReady()) {
+        if (active) setLoading(false);
+        return;
+      }
       try {
-        let fetchedWallets = [];
-        if (isSupabaseReady()) {
-          const { data } = await supabase
-            .from("user_wallets")
-            .select("user_id, xp")
-            .order("xp", { ascending: false })
-            .limit(limit);
-
-          if (data && data.length > 0) {
-            fetchedWallets = data;
-          }
-        }
-
-        let list = [];
-        if (fetchedWallets.length > 0) {
-          list = fetchedWallets.map((w, idx) => {
-            const prof = profiles.find((p) => p.id === w.user_id) || {};
-            return {
-              id: w.user_id,
-              name: prof.name || "Membro OPE",
-              handle: prof.handle || handleDoPerfil(prof),
-              avatar: prof.avatar_url || prof.avatar,
-              xp: w.xp || 0,
-              rank: idx + 1,
-            };
-          });
-        }
-
-        // Se nao houver carteiras ou se houver mais perfis sem carteira
-        if (list.length < limit && profiles.length > 0) {
-          const existingIds = new Set(list.map((i) => i.id));
-          const remainingProfiles = profiles.filter((p) => !existingIds.has(p.id));
-
-          remainingProfiles.slice(0, limit - list.length).forEach((p, idx) => {
-            list.push({
-              id: p.id,
-              name: p.name || "Membro OPE",
-              handle: handleDoPerfil(p),
-              avatar: p.avatar_url || p.avatar,
-              xp: Math.max(120, 850 - (list.length + idx) * 70),
-              rank: list.length + 1,
-            });
-          });
-        }
-
-        // Sort by XP descending
-        list.sort((a, b) => b.xp - a.xp);
-        list = list.map((item, idx) => ({ ...item, rank: idx + 1 }));
+        const result = await rewardApi.monthlyRanking(limit);
+        const list = Array.isArray(result?.list) ? result.list.map((r) => ({
+          id: r.user_id,
+          name: r.name || "Membro OPE",
+          handle: r.handle || r.username || "",
+          avatar: r.avatar || r.avatar_url || "",
+          xp: Number(r.xp) || 0,
+          rank: r.rank,
+          is_me: Boolean(r.is_me),
+        })) : [];
 
         if (active) {
           setRanking(list);
@@ -76,7 +40,7 @@ export function MonthlyRanking({ limit = 10, preview = false, className = "" }) 
 
     loadRanking();
     return () => { active = false; };
-  }, [profiles, limit]);
+  }, [limit]);
 
   const displayList = preview ? ranking.slice(0, 3) : ranking.slice(0, limit);
 
@@ -114,7 +78,7 @@ export function MonthlyRanking({ limit = 10, preview = false, className = "" }) 
             ))}
           </div>
         ) : displayList.length === 0 ? (
-          <p className="text-xs text-[var(--text-muted)] py-4 text-center">Carregando membros do ranking...</p>
+          <p className="text-xs text-[var(--text-muted)] py-4 text-center">Nenhum XP registrado este mês ainda.</p>
         ) : (
           <div className="space-y-2">
             {displayList.map((item) => {

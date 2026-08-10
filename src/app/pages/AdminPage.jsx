@@ -1354,17 +1354,20 @@ function ResgatesTab() {
       return;
     }
     try {
-      const [redResult, prodResult, profResult] = await Promise.all([
+      const [redResult, prodResult, profResult, emailResult] = await Promise.all([
         supabase.from("shop_redemptions").select("*").order("created_at", { ascending: false }).limit(200),
         supabase.from("shop_products").select("id, name, category, credits_cost"),
-        supabase.from("profiles").select("id, name, email, username, avatar"),
+        supabase.from("profiles").select("id, name, username, avatar"),
+        supabase.from("user_emails").select("user_id, email"),
       ]);
       if (redResult.error) throw redResult.error;
       if (prodResult.error) throw prodResult.error;
       if (profResult.error) throw profResult.error;
+      if (emailResult.error) throw emailResult.error;
+      const emailPorId = new Map((emailResult.data || []).map((e) => [e.user_id, e.email]));
       setRedemptions(redResult.data || []);
       setProductsById(Object.fromEntries((prodResult.data || []).map((p) => [p.id, p])));
-      setProfilesById(Object.fromEntries((profResult.data || []).map((p) => [p.id, p])));
+      setProfilesById(Object.fromEntries((profResult.data || []).map((p) => [p.id, { ...p, email: emailPorId.get(p.id) || "" }])));
     } catch (err) {
       setError(err?.message || "Nao foi possivel carregar os resgates.");
     } finally {
