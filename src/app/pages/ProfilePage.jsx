@@ -17,6 +17,7 @@ import {
 import { AchievementsPanel } from "../components/AchievementsPanel";
 import { UserTitlePill } from "../components/UserTitlePill";
 import { VerifiedBadge } from "../components/VerifiedBadge";
+import { secureUpload } from "@/lib/secure-upload";
 
 function Card({ className, children, ...props }) {
   return (
@@ -109,21 +110,14 @@ export function ProfilePage() {
       let avatarUrl = profile.avatar;
 
       if (avatarFile) {
-        const ext = validateAvatarFile(avatarFile);
-        const filePath = `${user.id}/${globalThis.crypto.randomUUID()}.${ext}`;
+        validateAvatarFile(avatarFile);
+        uploadedPath = await secureUpload({
+          file: avatarFile,
+          bucket: "avatars",
+          kind: "avatar",
+        });
 
-        const { error: uploadError } = await supabase.storage
-          .from("avatars")
-          .upload(filePath, avatarFile, {
-            cacheControl: "3600",
-            contentType: avatarFile.type,
-            upsert: false,
-          });
-
-        if (uploadError) throw uploadError;
-        uploadedPath = filePath;
-
-        const { data } = supabase.storage.from("avatars").getPublicUrl(filePath);
+        const { data } = supabase.storage.from("avatars").getPublicUrl(uploadedPath);
         avatarUrl = data.publicUrl;
       }
 

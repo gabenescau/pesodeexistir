@@ -11,12 +11,12 @@ import {
   MAX_POST_IMAGE_BYTES,
   MAX_POST_TEXT,
   POST_IMAGE_BUCKET,
-  safeFileName,
   sanitizePollOptions,
 } from "@/lib/social";
 import { SubscribeModal } from "./SubscribeModal";
 import { VerifiedBadge } from "./VerifiedBadge";
 import { sanitizePlainText, sanitizeSingleLine } from "@/lib/sanitize";
+import { secureUpload } from "@/lib/secure-upload";
 
 const ALLOWED_POST_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
@@ -30,7 +30,7 @@ function Avatar({ src, fallback, className = "size-11" }) {
   );
 }
 
-async function uploadPostImages(files, userId) {
+async function uploadPostImages(files) {
   if (!files.length) return [];
   if (!isSupabaseReady()) throw new Error("Supabase nao configurado.");
 
@@ -40,15 +40,11 @@ async function uploadPostImages(files, userId) {
       throw new Error("Use imagens JPG, PNG, WebP ou GIF.");
     }
     if (file.size > MAX_POST_IMAGE_BYTES) throw new Error("Cada imagem precisa ter no maximo 5 MB.");
-    const id = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    const path = `${userId}/${id}-${safeFileName(file.name)}`;
-    const { error } = await supabase.storage.from(POST_IMAGE_BUCKET).upload(path, file, {
-      cacheControl: "3600",
-      contentType: file.type,
-      upsert: false,
-    });
-    if (error) throw error;
-    uploaded.push(path);
+    uploaded.push(await secureUpload({
+      file,
+      bucket: POST_IMAGE_BUCKET,
+      kind: "post-image",
+    }));
   }
   return uploaded;
 }
@@ -196,7 +192,7 @@ export function CreatePost({ initialBookId = null, tag = null }) {
     setError("");
     let uploadedPaths = [];
     try {
-      uploadedPaths = await uploadPostImages(imageFiles, user.id);
+      uploadedPaths = await uploadPostImages(imageFiles);
       await addPost({
         userId: user?.id,
         text: cleanText || cleanPollQuestion,

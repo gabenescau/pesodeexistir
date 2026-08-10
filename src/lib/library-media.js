@@ -1,4 +1,5 @@
 import { supabase, isSupabaseReady } from "@/app/data/supabase";
+import { secureUpload } from "./secure-upload";
 
 export const LIBRARY_BUCKETS = {
   covers: "covers",
@@ -8,15 +9,6 @@ export const LIBRARY_BUCKETS = {
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_PDF_BYTES = 50 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
-
-function safeFileName(name) {
-  return String(name || "arquivo")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, "-")
-    .replace(/(^-+|-+$)/g, "");
-}
 
 export function validateLibraryFile(file, kind) {
   if (!file) throw new Error("Selecione um arquivo.");
@@ -34,24 +26,9 @@ export function validateLibraryFile(file, kind) {
 }
 
 export async function uploadLibraryFile({ file, bucket, kind }) {
-  if (!isSupabaseReady()) throw new Error("Supabase nao configurado.");
   const validationKind = bucket === LIBRARY_BUCKETS.covers ? "image" : "pdf";
   validateLibraryFile(file, validationKind);
-
-  const { data: authData, error: authError } = await supabase.auth.getUser();
-  const userId = authData?.user?.id;
-  if (authError || !userId) throw new Error("Sessao expirada. Entre novamente.");
-
-  const fileId = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const path = `${userId}/${kind}/${fileId}-${safeFileName(file.name)}`;
-  const { error } = await supabase.storage.from(bucket).upload(path, file, {
-    cacheControl: "3600",
-    contentType: file.type,
-    upsert: false,
-  });
-
-  if (error) throw error;
-  return path;
+  return secureUpload({ file, bucket, kind });
 }
 
 export async function removeLibraryFile(bucket, path) {
