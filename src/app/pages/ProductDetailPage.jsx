@@ -88,7 +88,7 @@ export function ProductDetailPage() {
 
   function handleOpenCheckout() {
     if (selectedPayment === "real") {
-      toast.info("Módulo de Gateway de Pagamento: A integração de pagamento em dinheiro real (Pix / Cartão de Crédito) será conectada em breve.");
+      toast.info("Módulo de Gateway de Pagamento: A integração de pagamento em dinheiro real será conectada em breve.");
       return;
     }
     setCheckoutOpen(true);
@@ -223,7 +223,7 @@ export function ProductDetailPage() {
                       <span className={`text-sm font-medium block leading-tight ${selectedPayment === "real" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)]"}`}>
                         Dinheiro Real
                       </span>
-                      <span className="text-[10px] text-[var(--text-muted)] leading-tight">Visa · Mastercard · Pix</span>
+                      <span className="text-[10px] text-[var(--text-muted)] leading-tight">Visa · Mastercard</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">

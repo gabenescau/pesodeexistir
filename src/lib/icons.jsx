@@ -49,6 +49,7 @@ const ICONS = {
   Crown: Phosphor.Crown,
   Edit3: Phosphor.PencilSimpleLine,
   Eye: Phosphor.Eye,
+  EyeSlash: Phosphor.EyeSlash,
   Feather: Phosphor.Feather,
   FolderOpen: Phosphor.FolderOpen,
   Folder: Phosphor.Folder,
@@ -94,9 +95,7 @@ const ICONS = {
   NotebookPen: Phosphor.Notebook,
   PanelLeftIcon: Phosphor.Sidebar,
   PenLine: Phosphor.PencilLine,
-  PixLogo: Phosphor.PixLogo,
   Plus: Phosphor.Plus,
-  QrCode: Phosphor.QrCode,
   QuoteIcon: Phosphor.Quotes,
   RefreshCw: Phosphor.ArrowsClockwise,
   Search: Phosphor.MagnifyingGlass,
@@ -190,6 +189,7 @@ export const Crown = Phosphor.Crown;
 export const Copy = Phosphor.Copy;
 export const Edit3 = Phosphor.PencilSimpleLine;
 export const Eye = Phosphor.Eye;
+export const EyeSlash = Phosphor.EyeSlash;
 export const Feather = Phosphor.Feather;
 export const Flame = Phosphor.Flame;
 export const Flag = Phosphor.Flag;
@@ -238,9 +238,7 @@ export const MousePointerClick = Phosphor.MouseSimple;
 export const NotebookPen = Phosphor.Notebook;
 export const PanelLeftIcon = Phosphor.Sidebar;
 export const PenLine = Phosphor.PencilLine;
-export const PixLogo = Phosphor.PixLogo;
 export const Plus = Phosphor.Plus;
-export const QrCode = Phosphor.QrCode;
 export const QuoteIcon = Phosphor.Quotes;
 export const RefreshCw = Phosphor.ArrowsClockwise;
 export const Search = Phosphor.MagnifyingGlass;

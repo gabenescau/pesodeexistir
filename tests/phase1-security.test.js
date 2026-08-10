@@ -21,14 +21,14 @@ test("checkout attempt conflict rejects another user and a different plan", () =
   const attempt = {
     user_id: "user-a",
     plan_key: "leitor-monthly",
-    payment_method: "PIX",
+    payment_method: "CARD",
   };
 
   assert.equal(
     getCheckoutAttemptConflict(attempt, {
       userId: "user-b",
       planKey: "leitor-monthly",
-      paymentMethod: "PIX",
+      paymentMethod: "CARD",
     }),
     "forbidden"
   );
@@ -36,7 +36,7 @@ test("checkout attempt conflict rejects another user and a different plan", () =
     getCheckoutAttemptConflict(attempt, {
       userId: "user-a",
       planKey: "pensador-monthly",
-      paymentMethod: "PIX",
+      paymentMethod: "CARD",
     }),
     "pending_conflict"
   );
@@ -44,7 +44,7 @@ test("checkout attempt conflict rejects another user and a different plan", () =
     getCheckoutAttemptConflict(attempt, {
       userId: "user-a",
       planKey: "leitor-monthly",
-      paymentMethod: "PIX",
+      paymentMethod: "CARD",
     }),
     null
   );

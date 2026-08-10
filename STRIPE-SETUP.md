@@ -6,10 +6,10 @@ Configure these for Production and Preview when appropriate:
 
 - `STRIPE_SECRET_KEY`: secret or restricted Stripe API key (`sk_live_...` or `rk_live_...`).
 - `STRIPE_WEBHOOK_SECRET`: signing secret (`whsec_...`) from the production webhook.
-- `STRIPE_PRICE_LEITOR_MONTHLY`: recurring monthly Price ID (`price_...`) in BRL for R$ 19.00.
-- `STRIPE_PRICE_LEITOR_ANNUAL`: recurring yearly Price ID (`price_...`) in BRL for R$ 190.00.
-- `STRIPE_PRICE_PENSADOR_MONTHLY`: recurring monthly Price ID (`price_...`) in BRL for R$ 29.00.
-- `STRIPE_PRICE_PENSADOR_ANNUAL`: recurring yearly Price ID (`price_...`) in BRL for R$ 228.00.
+- `STRIPE_PRICE_LEITOR_MONTHLY`: recurring monthly Price ID in BRL.
+- `STRIPE_PRICE_LEITOR_ANNUAL`: recurring yearly Price ID in BRL.
+- `STRIPE_PRICE_PENSADOR_MONTHLY`: recurring monthly Price ID in BRL.
+- `STRIPE_PRICE_PENSADOR_ANNUAL`: recurring yearly Price ID in BRL.
 - `APP_URL`: `https://pesodeexistir.online`.
 - `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`.
 - `RATE_LIMIT_SECRET`: at least 32 random bytes; keep server-only.
@@ -19,12 +19,10 @@ Never expose `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` or `SUPABASE_SECRET_KE
 
 ## Stripe Dashboard
 
-1. Enable Card and Pix in Payment methods. The app uses Card for recurring subscriptions and Pix for one-time 30/365-day access.
+1. Activate Card in **Settings > Payment methods** in the same Stripe mode used by the configured key.
 2. Create a webhook at `https://pesodeexistir.online/api/stripe-webhook`.
 3. Subscribe it to:
    - `checkout.session.completed`
-   - `checkout.session.async_payment_succeeded`
-   - `checkout.session.async_payment_failed`
    - `checkout.session.expired`
    - `customer.subscription.created`
    - `customer.subscription.updated`
@@ -39,4 +37,4 @@ Test keys must only use test Prices and live keys must only use live Prices.
 
 ## Supabase
 
-Run `supabase/migrations/20260810000000_stripe_billing.sql` before enabling the production checkout. The webhook depends on `stripe_webhook_events` and on the new plan constraints.
+Run the Stripe billing migrations before enabling production checkout. The webhook depends on `stripe_webhook_events` and the checkout concurrency tables.

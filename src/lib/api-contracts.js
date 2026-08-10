@@ -47,7 +47,7 @@ export function parseCheckoutInput(input) {
   const body = objectInput(input);
   const plan = planKey(body.plan || "leitor-monthly");
   const paymentMethod = body.paymentMethod || "CARD";
-  if (paymentMethod !== "CARD" && paymentMethod !== "PIX") {
+  if (paymentMethod !== "CARD") {
     throw new ContractError("Metodo de pagamento invalido");
   }
   const attemptId = requiredString(body.attemptId, "Tentativa de checkout", 100);

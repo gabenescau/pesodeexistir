@@ -52,11 +52,17 @@ export async function syncStripeSubscription(subscription, extra = {}) {
 
   const priceId = subscription?.items?.data?.[0]?.price?.id || null;
   const existing = await findSubscriptionByProviderId(providerSubscriptionId);
+  const requestedPaymentMethod = subscription?.metadata?.payment_method ||
+    existing?.metadata?.payment_method ||
+    "CARD";
+  const paymentMethod = new Set(["CARD", "PIX_AUTOMATICO"]).has(requestedPaymentMethod)
+    ? requestedPaymentMethod
+    : "CARD";
   const metadata = {
     ...existing?.metadata,
     ...(extra.checkoutId ? { checkout_id: extra.checkoutId } : {}),
     ...(priceId ? { price_id: priceId } : {}),
-    payment_method: "CARD",
+    payment_method: paymentMethod,
   };
   const payload = {
     plan: plan.plan,

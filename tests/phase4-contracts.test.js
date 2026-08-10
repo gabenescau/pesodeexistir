@@ -15,17 +15,21 @@ test("checkout contract accepts only bounded server-facing fields", () => {
   assert.deepEqual(
     parseCheckoutInput({
       plan: "leitor-monthly",
-      paymentMethod: "PIX",
+      paymentMethod: "CARD",
       attemptId: "attempt-123456789012",
     }),
     {
       plan: "leitor-monthly",
-      paymentMethod: "PIX",
+      paymentMethod: "CARD",
       attemptId: "attempt-123456789012",
     }
   );
   assert.throws(
     () => parseCheckoutInput({ plan: "leitor-monthly", paymentMethod: "PIX", attemptId: "x" }),
+    (error) => error.status === 400 && error.userSafe === true
+  );
+  assert.throws(
+    () => parseCheckoutInput({ plan: "pensador-annual", paymentMethod: "PIX_AUTOMATICO", attemptId: "attempt-pix-auto-1234" }),
     (error) => error.status === 400 && error.userSafe === true
   );
 });

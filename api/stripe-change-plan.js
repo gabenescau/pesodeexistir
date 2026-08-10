@@ -103,7 +103,7 @@ export default async function handler(req, res) {
     }
 
     if (subscription.provider === "stripe" && !subscription.provider_subscription_id) {
-      return sendClientError(req, res, 409, "O acesso pago por PIX nao e recorrente. Escolha outro plano quando este periodo terminar.");
+      return sendClientError(req, res, 409, "Este acesso nao possui assinatura recorrente para alterar.");
     }
 
     if (subscription.provider === "manual_admin" || subscription.status === "pending") {

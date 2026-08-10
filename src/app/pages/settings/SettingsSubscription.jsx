@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { AlertCircle, CreditCard, Crown, Loader2, QrCode } from "@/lib/icons";
+import { AlertCircle, CreditCard, Crown, Loader2 } from "@/lib/icons";
 import { SettingsLayout, SettingsRow, SettingsSection } from "../../components/SettingsLayout";
 import { useAuth } from "../../data/AuthContext";
 import { useData } from "../../data/DataContext";
@@ -32,7 +32,6 @@ export function SettingsSubscription() {
   const active = isActiveSubscription(subscription);
   const planInfo = planInfoFromCode(subscription?.plan);
   const recurringStripe = subscription?.provider === "stripe" && Boolean(subscription?.provider_subscription_id);
-  const pixAccess = subscription?.provider === "stripe" && !subscription?.provider_subscription_id;
   const statusInfo = STATUS_LABELS[subscription?.status] || { text: "Desconhecido", color: "var(--text-muted)" };
 
   async function handleCancel() {
@@ -80,20 +79,13 @@ export function SettingsSubscription() {
         {!active && !isAdmin ? (
           <div className="mx-4 mb-4 flex items-start gap-3 rounded-[8px] bg-[var(--hover-overlay)] p-3 sm:mx-5">
             <AlertCircle className="mt-0.5 size-4 shrink-0" />
-            <div><p className="text-sm font-medium text-[var(--text-primary)]">Voce ainda nao tem uma assinatura</p><p className="mt-0.5 text-[11px] text-[var(--text-muted)]">Escolha cartao recorrente ou PIX de pagamento unico.</p></div>
+            <div><p className="text-sm font-medium text-[var(--text-primary)]">Voce ainda nao tem uma assinatura</p><p className="mt-0.5 text-[11px] text-[var(--text-muted)]">Escolha um plano para ativar seu acesso recorrente.</p></div>
           </div>
         ) : null}
 
         {active && planInfo ? (
           <div className="border-t border-[var(--border)] px-4 py-3 sm:px-5">
             <PlanBenefitList benefits={planInfo.tierConfig.benefits} separator={planInfo.cycle === "annual"} itemClassName="flex items-start gap-3 text-sm text-[var(--text-secondary)]" iconClassName="mt-0.5 size-4 shrink-0 text-[var(--accent-mint)]" />
-          </div>
-        ) : null}
-
-        {pixAccess && active ? (
-          <div className="mx-4 mb-4 flex items-start gap-3 rounded-[8px] border border-[var(--border)] p-3 sm:mx-5">
-            <QrCode className="mt-0.5 size-4 shrink-0" />
-            <p className="text-xs leading-5 text-[var(--text-muted)]">Este acesso foi pago uma unica vez por PIX. Nao existe renovacao automatica nem assinatura recorrente para cancelar.</p>
           </div>
         ) : null}
 

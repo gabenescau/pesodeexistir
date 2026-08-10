@@ -83,7 +83,7 @@ export default async function handler(req, res) {
       }
     } else if (subscription.provider === "stripe") {
       if (!isAdmin) {
-        return sendClientError(req, res, 409, "O pagamento por PIX nao tem renovacao automatica. Seu acesso termina na data informada e nao ha assinatura recorrente para cancelar.");
+        return sendClientError(req, res, 409, "Este acesso nao possui renovacao automatica para cancelar.");
       }
       updated = await updateSubscription(subscription.id, {
         status: "canceled",

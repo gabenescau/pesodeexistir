@@ -33,7 +33,7 @@ export default async function handler(req, res) {
     const user = await getAuthenticatedUser(req);
     const { plan: planKey, paymentMethod, attemptId } = parseCheckoutInput(req.body);
     const plan = getBillingPlan(planKey);
-    if (!new Set(["CARD", "PIX"]).has(paymentMethod)) {
+    if (paymentMethod !== "CARD") {
       return sendClientError(req, res, 400, "Metodo de pagamento invalido");
     }
     if (!await enforceRateLimit(req, res, {
@@ -55,8 +55,7 @@ export default async function handler(req, res) {
     const siteUrl = getSiteUrl();
     const email = profile?.email || user?.email || "";
     const customerId = await getOrCreateStripeCustomer({ user, email, subscriptions });
-    // A pending checkout is scoped to the same plan and payment method. An
-    // abandoned CARD checkout must not block a new PIX checkout (or vice versa).
+    // A pending checkout is scoped to the user, plan, and payment method.
     let openAttempt = await getOpenCheckoutAttempt(user.id, {
       planKey: plan.key,
       paymentMethod,
@@ -160,36 +159,15 @@ export default async function handler(req, res) {
     };
 
     let checkoutPayload;
-    if (paymentMethod === "CARD") {
-      const priceId = await validatePriceForPlan(plan);
-      checkoutPayload = {
-        ...common,
-        mode: "subscription",
-        excluded_payment_method_types: ["pix"],
-        line_items: [{ price: priceId, quantity: 1 }],
-        subscription_data: { metadata },
-        allow_promotion_codes: true,
-      };
-    } else {
-      checkoutPayload = {
-        ...common,
-        mode: "payment",
-        excluded_payment_method_types: ["card"],
-        line_items: [{
-          price_data: {
-            currency: "brl",
-            unit_amount: plan.price,
-            product_data: {
-              name: `${plan.name} via PIX`,
-              description: `${plan.durationDays} dias de acesso ao OPE Club`,
-              metadata: { plan_key: plan.key },
-            },
-          },
-          quantity: 1,
-        }],
-        payment_intent_data: { metadata },
-      };
-    }
+    const priceId = await validatePriceForPlan(plan);
+    checkoutPayload = {
+      ...common,
+      mode: "subscription",
+      excluded_payment_method_types: ["pix"],
+      line_items: [{ price: priceId, quantity: 1 }],
+      subscription_data: { metadata },
+      allow_promotion_codes: true,
+    };
 
     const session = await stripe.checkout.sessions.create(
       checkoutPayload,

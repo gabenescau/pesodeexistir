@@ -104,15 +104,8 @@ export function getGrantPlan(tier, durationDays) {
 }
 
 export function getCheckoutProduct(plan, paymentMethod) {
-  if (paymentMethod === "CARD") return plan;
-  if (paymentMethod !== "PIX") throw new Error("Metodo de pagamento invalido");
-  return {
-    ...plan,
-    externalId: `${plan.externalId}_pix_one_time`,
-    name: `${plan.name} via PIX`,
-    description: `${plan.durationDays} dias de acesso ao OPE Club via PIX`,
-    cycle: null,
-  };
+  if (paymentMethod !== "CARD") throw new Error("Metodo de pagamento invalido");
+  return plan;
 }
 
 export function getPlanByProductId(productId, products = []) {
@@ -123,7 +116,6 @@ export function getPlanByProductId(productId, products = []) {
 export function getPlanByExternalId(externalId) {
   return (
     CATALOG_LIST.find((plan) => plan.externalId === externalId) ||
-    CATALOG_LIST.find((plan) => `${plan.externalId}_pix_one_time` === externalId) ||
     null
   );
 }

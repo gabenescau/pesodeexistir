@@ -19,7 +19,7 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { FloatingPaths } from "@/components/floating-paths";
-import { ChevronLeftIcon, AtSignIcon, LockIcon, UserIcon, GiftIcon } from "@/lib/icons";
+import { AtSignIcon, ChevronLeftIcon, Eye, EyeSlash, GiftIcon, LockIcon, UserIcon } from "@/lib/icons";
 import { useAuth } from "@/app/data/AuthContext";
 import { supabase, isSupabaseReady } from "@/app/data/supabase";
 import { getSupabaseErrorMessage } from "@/lib/supabase-error";
@@ -38,10 +38,11 @@ export function AuthPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
+  const mode = location.pathname === "/cadastro" ? "signup" : "login";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [mode, setMode] = useState("login");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [failedAttempts, setFailedAttempts] = useState(0);
@@ -139,7 +140,7 @@ export function AuthPage() {
           return;
         }
 
-        setMode("login");
+        navigate(`/entrar${location.search}`, { replace: true });
         setPassword("");
         setError("Conta criada! Confirme seu email pela mensagem enviada pelo Supabase e depois faça login com sua senha.");
       }
@@ -161,31 +162,25 @@ export function AuthPage() {
   };
 
   return (
-    <main className="auth-page relative bg-[var(--bg-canvas)] text-[var(--text-primary)] md:h-screen md:overflow-hidden lg:grid lg:grid-cols-2">
-      <div className="auth-visual-panel relative hidden h-full flex-col border-r border-[var(--border)] bg-[var(--bg-surface)] p-10 lg:flex">
-        <div className="absolute inset-0 bg-linear-to-b from-transparent via-transparent to-[var(--bg-canvas)]" />
-        <div className="flex items-center gap-2 mr-auto">
+    <main className="auth-page relative min-h-screen overflow-hidden bg-[var(--bg-canvas)] text-[var(--text-primary)] lg:grid lg:grid-cols-[minmax(0,1.05fr)_minmax(420px,0.95fr)]">
+      <div className="auth-visual-panel relative hidden min-h-screen flex-col border-r border-[var(--border)] bg-[var(--bg-surface)] p-10 lg:flex xl:p-14">
+        <div className="absolute inset-0 bg-linear-to-br from-[var(--accent-mint)]/8 via-transparent to-[var(--bg-canvas)]" />
+        <div className="relative mr-auto flex items-center gap-2">
           <Logo className="text-[26px] text-[var(--text-primary)]" />
         </div>
 
-        <div className="auth-quote z-10 mt-auto">
-          <blockquote className="space-y-2">
-            <p className="text-xl text-[var(--text-secondary)]">
-              &ldquo;A leitura não acaba quando você fecha o livro.
-              Ela continua nas conversas.&rdquo;
-            </p>
-            <footer className="font-mono font-semibold text-sm text-[var(--accent-mint)]">
-              ~ OPE Club
-            </footer>
-          </blockquote>
+        <div className="relative z-10 mt-auto max-w-xl pb-8">
+          <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accent-mint)]">Biblioteca + comunidade</p>
+          <h2 className="max-w-lg text-4xl font-semibold leading-[1.05] text-[var(--text-primary)] xl:text-5xl">Ideias melhores começam com uma boa leitura.</h2>
+          <p className="mt-5 max-w-md text-base leading-7 text-[var(--text-secondary)]">Entre para ler, conversar e acompanhar uma comunidade que pensa junto.</p>
         </div>
-        <div className="auth-paths absolute inset-0">
+        <div className="auth-paths pointer-events-none absolute inset-0 opacity-70">
           <FloatingPaths position={1} />
           <FloatingPaths position={-1} />
         </div>
       </div>
 
-      <div className="auth-form-panel relative flex min-h-screen flex-col justify-center bg-[var(--bg-canvas)] px-6 sm:px-8">
+      <div className="auth-form-panel relative flex min-h-screen flex-col justify-center bg-[var(--bg-canvas)] px-4 py-10 sm:px-8 lg:px-12">
         <div
           aria-hidden
           className="absolute inset-0 isolate -z-10 opacity-60 contain-strict"
@@ -197,32 +192,28 @@ export function AuthPage() {
 
         <Link
           to="/"
-          className="absolute top-7 left-5 inline-flex items-center gap-1.5 rounded-[50px] border border-[var(--border)] px-3 py-1.5 text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--accent-mint)]"
+          className="absolute top-6 left-4 inline-flex min-h-10 items-center gap-1.5 rounded-full border border-[var(--border)] px-3 text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--accent-mint)] sm:left-8"
         >
           <ChevronLeftIcon className="size-4" />Início
         </Link>
 
-        <div className="auth-form-card mx-auto w-full max-w-sm space-y-4">
+        <div className="auth-form-card mx-auto w-full max-w-md space-y-5">
           <div className="flex items-center gap-2 lg:hidden">
             <Logo className="text-[26px] text-[var(--text-primary)]" />
           </div>
-          <div className="flex flex-col space-y-1">
-            <h1 className="font-bold text-2xl tracking-wide text-[var(--text-primary)]">
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent-mint)]">OPE Club</p>
+            <h1 className="text-3xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-4xl">
               {mode === "login" ? "Entrar" : "Criar conta"}
             </h1>
-            <p className="text-base text-[var(--text-secondary)]">
+            <p className="max-w-sm text-sm leading-6 text-[var(--text-secondary)]">
               {mode === "login"
                 ? "Acesse sua biblioteca e comunidade."
                 : "Crie sua conta no OPE Club."}
             </p>
           </div>
 
-          <form className="space-y-3" onSubmit={handleSubmit}>
-            <p className="text-start text-xs text-[var(--text-muted)]">
-              {mode === "login"
-                ? "Digite seu email e senha para entrar"
-                : "Preencha os dados para criar sua conta"}
-            </p>
+          <form className="space-y-4" onSubmit={handleSubmit}>
 
             {mode === "signup" && (
               <InputGroup>
@@ -233,6 +224,7 @@ export function AuthPage() {
                   maxLength={80}
                   autoComplete="name"
                   onChange={e => setName(e.target.value)}
+                  required
                 />
                 <InputGroupAddon align="inline-start">
                   <UserIcon />
@@ -248,6 +240,7 @@ export function AuthPage() {
                 maxLength={254}
                 autoComplete="email"
                 onChange={e => setEmail(e.target.value)}
+                required
               />
               <InputGroupAddon align="inline-start">
                 <AtSignIcon />
@@ -257,15 +250,27 @@ export function AuthPage() {
             <InputGroup>
               <InputGroupInput
                 placeholder="Sua senha"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 value={password}
                 minLength={mode === "signup" ? PASSWORD_MIN_LENGTH : 1}
                 maxLength={128}
                 autoComplete={mode === "login" ? "current-password" : "new-password"}
                 onChange={e => setPassword(e.target.value)}
+                required
               />
               <InputGroupAddon align="inline-start">
                 <LockIcon />
+              </InputGroupAddon>
+              <InputGroupAddon align="inline-end">
+                <button
+                  type="button"
+                  className="rounded-md p-1.5 text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-mint)]"
+                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                  aria-pressed={showPassword}
+                  onClick={() => setShowPassword((value) => !value)}
+                >
+                  {showPassword ? <EyeSlash /> : <Eye />}
+                </button>
               </InputGroupAddon>
             </InputGroup>
 
@@ -291,20 +296,21 @@ export function AuthPage() {
               </p>
             )}
 
-            <Button className="w-full bg-[var(--accent-mint)] text-white hover:bg-[var(--accent-mint)]" type="submit" disabled={loading}>
+            <Button className="min-h-12 w-full rounded-[10px] bg-[var(--text-primary)] text-[var(--bg-canvas)] hover:bg-[var(--text-primary)]/90" type="submit" disabled={loading}>
               {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
             </Button>
           </form>
 
-          <div className="text-center">
+          <div className="border-t border-[var(--border)] pt-5 text-center">
             <button
+              type="button"
               onClick={() => {
-                setMode(mode === "login" ? "signup" : "login");
+                navigate(`${mode === "login" ? "/cadastro" : "/entrar"}${location.search}`);
                 setError("");
                 setTermsAccepted(false);
                 setMarketingOptIn(false);
               }}
-              className="text-sm text-[var(--text-muted)] underline underline-offset-4 transition-colors hover:text-[var(--accent-mint)]"
+              className="text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--accent-mint)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-mint)]"
             >
               {mode === "login"
                 ? "Não tem conta? Assinar agora"

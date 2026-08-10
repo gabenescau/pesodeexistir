@@ -33,6 +33,12 @@ const SEO_PAGES = {
     type: 'website',
     robots: 'noindex, nofollow',
   },
+  '/cadastro': {
+    title: 'Criar conta | OPE Club',
+    description: 'Crie sua conta para acessar a biblioteca e a comunidade do OPE Club.',
+    type: 'website',
+    robots: 'noindex, nofollow',
+  },
   '/assinar': {
     title: 'Assinar OPE Club | Acesso completo a biblioteca e comunidade',
     description: 'A partir de R$ 14/mes, leia a biblioteca completa de filosofia e literatura, publique na comunidade e participe dos lancamentos semanais.',
@@ -129,6 +135,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/entrar" replace />} />
             <Route path="/entrar" element={<AuthPage />} />
+            <Route path="/cadastro" element={<AuthPage />} />
             <Route path="/assinar" element={<ProtectedRoute><SubscribePage /></ProtectedRoute>} />
             <Route path="/app/*" element={<ProtectedRoute><AppShell /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
