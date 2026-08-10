@@ -5,7 +5,7 @@ import {
   enforceRateLimit,
   getAuthenticatedUser,
   claimCheckoutAttempt,
-  getOpenCheckoutAttempt,
+  getOpenCheckoutAttempts,
   getProfile,
   listUserSubscriptions,
   logAuditEvent,
@@ -55,11 +55,13 @@ export default async function handler(req, res) {
     const siteUrl = getSiteUrl();
     const email = profile?.email || user?.email || "";
     const customerId = await getOrCreateStripeCustomer({ user, email, subscriptions });
-    // A pending checkout is scoped to the user, plan, and payment method.
-    let openAttempt = await getOpenCheckoutAttempt(user.id, {
-      planKey: plan.key,
-      paymentMethod,
-    });
+    // There can be only one open reservation per user. Load it without
+    // filtering by plan first so a second click cannot bypass the database
+    // guard and expose a raw unique-constraint error.
+    const openAttempts = await getOpenCheckoutAttempts(user.id);
+    let openAttempt = openAttempts.find((attempt) =>
+      attempt.plan_key === plan.key && attempt.payment_method === paymentMethod
+    ) || openAttempts[0] || null;
     let effectiveAttemptId = attemptId;
 
     if (openAttempt?.expires_at && Date.parse(openAttempt.expires_at) <= Date.now()) {
@@ -71,16 +73,16 @@ export default async function handler(req, res) {
     }
 
     if (openAttempt) {
-      if (openAttempt.plan_key !== plan.key || openAttempt.payment_method !== paymentMethod) {
-        return sendClientError(req, res, 409, "Ja existe um checkout em processamento para outro plano ou metodo. Aguarde a confirmacao ou a expiracao antes de iniciar outro.");
-      }
-
+      const samePlan = openAttempt.plan_key === plan.key && openAttempt.payment_method === paymentMethod;
       effectiveAttemptId = openAttempt.attempt_id;
       if (openAttempt.stripe_session_id) {
         try {
           const existingSession = await stripe.checkout.sessions.retrieve(openAttempt.stripe_session_id);
           if (existingSession.status === "open" && existingSession.url) {
-            return sendSuccess(req, res, { url: existingSession.url, planKey: plan.key, paymentMethod, reused: true });
+            if (samePlan) {
+              return sendSuccess(req, res, { url: existingSession.url, planKey: plan.key, paymentMethod, reused: true });
+            }
+            return sendClientError(req, res, 409, "Ja existe um checkout em processamento para outro plano. Aguarde a confirmacao ou a expiracao antes de iniciar outro.");
           }
           if (existingSession.status === "complete" && existingSession.payment_status === "paid") {
             return sendClientError(req, res, 409, "Pagamento ja confirmado. Aguarde a sincronizacao da assinatura.");
@@ -94,6 +96,8 @@ export default async function handler(req, res) {
           updated_at: new Date().toISOString(),
         });
         effectiveAttemptId = crypto.randomUUID();
+      } else if (!samePlan) {
+        return sendClientError(req, res, 409, "Ja existe um checkout em processamento para outro plano. Aguarde a confirmacao ou a expiracao antes de iniciar outro.");
       }
     }
 

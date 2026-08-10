@@ -441,6 +441,13 @@ export async function getOpenCheckoutAttempt(userId, { planKey, paymentMethod } 
   return rows?.[0] || null;
 }
 
+export async function getOpenCheckoutAttempts(userId) {
+  const rows = await supabaseRequest(
+    `billing_checkout_attempts?user_id=eq.${encodeURIComponent(userId)}&status=eq.open&order=created_at.desc&limit=10&select=*`
+  );
+  return Array.isArray(rows) ? rows : [];
+}
+
 export async function claimCheckoutAttempt({ attemptId, userId, planKey, paymentMethod }) {
   const existing = await supabaseRequest(
     `billing_checkout_attempts?attempt_id=eq.${encodeURIComponent(attemptId)}&limit=1&select=*`
@@ -471,7 +478,13 @@ export async function claimCheckoutAttempt({ attemptId, userId, planKey, payment
     return { attempt: rows?.[0] || null, reused: false };
   } catch (error) {
     if (Number(error?.status) !== 409) throw error;
-    const open = await getOpenCheckoutAttempt(userId, { planKey, paymentMethod });
+    // The database protects the business rule with a partial unique index on
+    // user_id. Read every open attempt after a race so a different plan does
+    // not leak the raw 23505 response to the client.
+    const openAttempts = await getOpenCheckoutAttempts(userId);
+    const open = openAttempts.find((attempt) =>
+      attempt.plan_key === planKey && attempt.payment_method === paymentMethod
+    ) || openAttempts[0];
     if (open) {
       const conflict = getCheckoutAttemptConflict(open, { userId, planKey, paymentMethod });
       if (conflict === "pending_conflict") {
@@ -482,7 +495,10 @@ export async function claimCheckoutAttempt({ attemptId, userId, planKey, payment
       }
       return { attempt: open, conflict: true };
     }
-    throw error;
+    const pendingError = new Error("Ja existe um checkout em processamento. Aguarde a confirmacao ou sua expiracao.");
+    pendingError.status = 409;
+    pendingError.userSafe = true;
+    throw pendingError;
   }
 }
 

@@ -117,10 +117,12 @@ export function SubscribePage() {
         paymentMethod: "CARD",
         attemptId: window.crypto?.randomUUID?.() || `checkout-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       });
+      setCheckoutMessage("Redirecionando voce para o checkout seguro da Stripe...");
       const result = await authenticatedApiPost("/api/stripe-checkout", checkoutInput);
       if (!result?.url) throw new Error("A Stripe nao retornou o endereco do checkout.");
       window.location.assign(result.url);
     } catch (error) {
+      setCheckoutMessage("");
       toast.error(error?.message || "Nao foi possivel abrir o checkout.");
     } finally {
       setWorking("");
@@ -228,6 +230,8 @@ export function SubscribePage() {
               key={tier.id}
               onClick={() => handlePlanSelection(tier.id)}
               aria-pressed={selected}
+              aria-busy={working === "checkout"}
+              disabled={Boolean(working)}
               className={`min-w-0 rounded-[18px] border p-5 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-mint)] sm:p-7 ${selected ? "border-[var(--accent-mint)] bg-[var(--text-primary)] text-[var(--bg-canvas)] shadow-[0_18px_50px_rgba(0,0,0,0.2)]" : "border-[var(--border)] bg-[var(--bg-card)] hover:-translate-y-0.5 hover:border-[var(--text-muted)]"}`}
             >
               <div className="flex items-start justify-between gap-3">
@@ -252,7 +256,7 @@ export function SubscribePage() {
                 ))}
               </ul>
               <span className={`mt-7 flex min-h-11 items-center justify-center rounded-full px-4 text-sm font-semibold ${selected ? "bg-[var(--bg-canvas)] text-[var(--text-primary)]" : "bg-[var(--text-primary)] text-[var(--bg-card)]"}`}>
-                {active && currentInfo?.tier === tier.id && currentInfo?.cycle === cycle ? "Plano atual" : "Escolher plano"}
+                {working === "checkout" && selected ? <><Loader2 className="mr-2 size-4 animate-spin" /> Redirecionando...</> : active && currentInfo?.tier === tier.id && currentInfo?.cycle === cycle ? "Plano atual" : "Escolher plano"}
               </span>
             </button>
           );
