@@ -22,6 +22,7 @@ import {
   getSiteUrl,
   getStripe,
   integrationIdentifier,
+  expireCheckoutSession,
   validatePriceForPlan,
 } from "../server/stripe.js";
 import { getBillingPlan, hasActiveSubscription } from "../server/domains/billing.js";
@@ -59,9 +60,23 @@ export default async function handler(req, res) {
     // filtering by plan first so a second click cannot bypass the database
     // guard and expose a raw unique-constraint error.
     const openAttempts = await getOpenCheckoutAttempts(user.id);
-    let openAttempt = openAttempts.find((attempt) =>
+    const matchingOpenAttempt = openAttempts.find((attempt) =>
       attempt.plan_key === plan.key && attempt.payment_method === paymentMethod
-    ) || openAttempts[0] || null;
+    );
+    const otherOpenAttempts = openAttempts.filter((attempt) => attempt !== matchingOpenAttempt);
+
+    for (const previousAttempt of otherOpenAttempts) {
+      const expiration = await expireCheckoutSession(previousAttempt.stripe_session_id);
+      if (expiration.paid) {
+        return sendClientError(req, res, 409, "Pagamento ja confirmado. Aguarde a sincronizacao da assinatura.");
+      }
+      await updateCheckoutAttempt(previousAttempt.attempt_id, {
+        status: "expired",
+        updated_at: new Date().toISOString(),
+      });
+    }
+
+    let openAttempt = matchingOpenAttempt || null;
     let effectiveAttemptId = attemptId;
 
     if (openAttempt?.expires_at && Date.parse(openAttempt.expires_at) <= Date.now()) {
@@ -73,16 +88,12 @@ export default async function handler(req, res) {
     }
 
     if (openAttempt) {
-      const samePlan = openAttempt.plan_key === plan.key && openAttempt.payment_method === paymentMethod;
       effectiveAttemptId = openAttempt.attempt_id;
       if (openAttempt.stripe_session_id) {
         try {
           const existingSession = await stripe.checkout.sessions.retrieve(openAttempt.stripe_session_id);
           if (existingSession.status === "open" && existingSession.url) {
-            if (samePlan) {
-              return sendSuccess(req, res, { url: existingSession.url, planKey: plan.key, paymentMethod, reused: true });
-            }
-            return sendClientError(req, res, 409, "Ja existe um checkout em processamento para outro plano. Aguarde a confirmacao ou a expiracao antes de iniciar outro.");
+            return sendSuccess(req, res, { url: existingSession.url, planKey: plan.key, paymentMethod, reused: true });
           }
           if (existingSession.status === "complete" && existingSession.payment_status === "paid") {
             return sendClientError(req, res, 409, "Pagamento ja confirmado. Aguarde a sincronizacao da assinatura.");
@@ -96,8 +107,6 @@ export default async function handler(req, res) {
           updated_at: new Date().toISOString(),
         });
         effectiveAttemptId = crypto.randomUUID();
-      } else if (!samePlan) {
-        return sendClientError(req, res, 409, "Ja existe um checkout em processamento para outro plano. Aguarde a confirmacao ou a expiracao antes de iniciar outro.");
       }
     }
 
@@ -115,6 +124,10 @@ export default async function handler(req, res) {
         paymentMethod,
       });
       if (claimedReusable.conflict && claimedReusable.attempt?.stripe_session_id) {
+        const samePlan = claimedReusable.attempt.plan_key === plan.key && claimedReusable.attempt.payment_method === paymentMethod;
+        if (!samePlan) {
+          return sendClientError(req, res, 409, "Outro checkout esta sendo iniciado. Tente novamente em alguns segundos.");
+        }
         const existingSession = await stripe.checkout.sessions.retrieve(claimedReusable.attempt.stripe_session_id);
         if (existingSession.status === "open" && existingSession.url) {
           return sendSuccess(req, res, { url: existingSession.url, planKey: plan.key, paymentMethod, reused: true });
@@ -134,6 +147,10 @@ export default async function handler(req, res) {
       paymentMethod,
     });
     if (claimed.conflict) {
+      const samePlan = claimed.attempt?.plan_key === plan.key && claimed.attempt?.payment_method === paymentMethod;
+      if (!samePlan) {
+        return sendClientError(req, res, 409, "Outro checkout esta sendo iniciado. Tente novamente em alguns segundos.");
+      }
       if (claimed.attempt?.stripe_session_id) {
         const existingSession = await stripe.checkout.sessions.retrieve(claimed.attempt.stripe_session_id);
         if (existingSession.status === "open" && existingSession.url) {

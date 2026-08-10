@@ -186,6 +186,27 @@ export async function expireOpenCheckoutSessions(customerId, userId, planKey, pa
   return reusable || null;
 }
 
+export async function expireCheckoutSession(sessionId) {
+  if (!sessionId) return { expired: false, paid: false };
+  const stripe = getStripe();
+  try {
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    if (session.status === "complete" && session.payment_status === "paid") {
+      return { expired: false, paid: true };
+    }
+    if (session.status === "open") {
+      await stripe.checkout.sessions.expire(session.id);
+      return { expired: true, paid: false };
+    }
+    return { expired: false, paid: false };
+  } catch (error) {
+    if (error?.code === "resource_missing" || Number(error?.statusCode) === 404) {
+      return { expired: true, paid: false };
+    }
+    throw error;
+  }
+}
+
 export function checkoutIdempotencyKey(userId, planKey, paymentMethod, attemptId) {
   const normalizedAttempt = String(attemptId || "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
   return `ope-checkout-${userId}-${planKey}-${paymentMethod}-${normalizedAttempt}`;

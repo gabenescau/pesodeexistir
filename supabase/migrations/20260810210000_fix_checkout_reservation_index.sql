@@ -1,9 +1,8 @@
 begin;
 
--- The first rollout allowed only one open checkout for the whole user. That
--- index causes a raw 23505 when a new checkout is started before the old
--- reservation has been reconciled. Keep the reservation unique per plan and
--- payment method instead, while preserving idempotency for the same checkout.
+-- Keep one open reservation per user. The API expires the old Stripe session
+-- before creating a checkout for a different plan, so this guard remains
+-- correct during retries and concurrent clicks.
 
 update public.billing_checkout_attempts
    set status = 'expired',
@@ -15,7 +14,7 @@ update public.billing_checkout_attempts
 with ranked as (
   select attempt_id,
          row_number() over (
-           partition by user_id, plan_key, payment_method
+           partition by user_id
            order by created_at desc, attempt_id desc
          ) as row_number
     from public.billing_checkout_attempts
@@ -31,9 +30,10 @@ update public.billing_checkout_attempts attempt
  where attempt.attempt_id in (select attempt_id from duplicates);
 
 drop index if exists public.billing_open_checkout_user_uidx;
+drop index if exists public.billing_open_checkout_pair_uidx;
 
-create unique index if not exists billing_open_checkout_pair_uidx
-  on public.billing_checkout_attempts(user_id, plan_key, payment_method)
+create unique index if not exists billing_open_checkout_user_uidx
+  on public.billing_checkout_attempts(user_id)
  where status = 'open';
 
 create index if not exists billing_checkout_attempts_user_status_idx
