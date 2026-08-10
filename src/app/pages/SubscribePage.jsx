@@ -9,6 +9,7 @@ import { PlanBenefitList } from "@/components/plan-benefit";
 import { CreditCard, Loader2, QrCode, ShieldCheck } from "@/lib/icons";
 import { toast } from "@/lib/toast";
 import { useCancelSurvey } from "@/components/ui/cancel-survey";
+import { parseCheckoutInput, parseSubscriptionInput } from "@/lib/api-contracts";
 
 const PAYMENT_METHODS = {
   CARD: {
@@ -124,9 +125,12 @@ export function SubscribePage() {
     setWorking("checkout");
     try {
       if (canChangePlan) {
-        const result = await authenticatedApiPost("/api/stripe-change-plan", {
+        const changePlanInput = parseSubscriptionInput({
           subscriptionId: visibleSubscription.id,
           plan: selectedPlanKey,
+        });
+        const result = await authenticatedApiPost("/api/stripe-change-plan", {
+          ...changePlanInput,
         });
         toast.success(result.pending
           ? "Alteracao solicitada. O plano muda quando a Stripe confirmar a cobranca."
@@ -134,10 +138,12 @@ export function SubscribePage() {
         return;
       }
 
-      const result = await authenticatedApiPost("/api/stripe-checkout", {
+      const checkoutInput = parseCheckoutInput({
         plan: selectedPlanKey,
         paymentMethod,
+        attemptId: window.crypto?.randomUUID?.() || `checkout-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       });
+      const result = await authenticatedApiPost("/api/stripe-checkout", checkoutInput);
       if (!result?.url) throw new Error("A Stripe nao retornou o endereco do checkout.");
       window.location.assign(result.url);
     } catch (error) {

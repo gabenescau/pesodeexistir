@@ -5,7 +5,6 @@ import { HeartIcon } from "@/components/heart-icon";
 import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
 import { isSupabaseReady, supabase } from "@/app/data/supabase";
-import { canUsePaidSocialFeatures } from "@/lib/entitlements";
 import { handleDoPerfil } from "@/lib/mentions";
 import { isVerifiedProfile, relativeTime } from "@/lib/social";
 import { EmojiReactions } from "./EmojiReactions";
@@ -94,7 +93,7 @@ function CommentItem({ item, canDelete, onDelete, onReply }) {
 export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = false }) {
   const navigate = useNavigate();
   const { user, isAdmin } = useAuth();
-  const { profiles, savedPostIds, toggleSavedPost, subscription } = useData();
+  const { profiles, savedPostIds, toggleSavedPost } = useData();
   const { rewardComment, rewardLikesReceived } = useRewards();
   const confirm = useConfirmDialog();
   const [liked, setLiked] = useState(Boolean(post.likedByMe));

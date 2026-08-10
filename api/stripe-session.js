@@ -4,26 +4,20 @@ import {
   getAuthenticatedUser,
   logAuditEvent,
   logServerError,
+  sendClientError,
   sendError,
+  sendSuccess,
 } from "../server/supabase.js";
 import { fulfillPaidCheckoutSession } from "../server/stripe-sync.js";
 import { getStripe } from "../server/stripe.js";
-
-const SESSION_ID_PATTERN = /^cs_(?:test|live)_[A-Za-z0-9_]{8,240}$/;
+import { parseStripeSessionInput } from "../src/lib/api-contracts.js";
 
 export default async function handler(req, res) {
   if (!allowPost(req, res)) return;
 
   try {
     const user = await getAuthenticatedUser(req);
-    const sessionId = String(req.body?.sessionId || "");
-    if (!SESSION_ID_PATTERN.test(sessionId)) {
-      return res.status(400).json({
-        success: false,
-        error: "Checkout invalido",
-        requestId: req.requestId,
-      });
-    }
+    const { sessionId } = parseStripeSessionInput(req.body);
     if (!await enforceRateLimit(req, res, {
       scope: "stripe_session",
       limit: 20,
@@ -35,11 +29,7 @@ export default async function handler(req, res) {
     const session = await stripe.checkout.sessions.retrieve(sessionId);
     const ownerId = session.metadata?.user_id || session.client_reference_id;
     if (ownerId !== user.id) {
-      return res.status(403).json({
-        success: false,
-        error: "Checkout nao pertence a esta conta",
-        requestId: req.requestId,
-      });
+      return sendClientError(req, res, 403, "Checkout nao pertence a esta conta");
     }
 
     let fulfilled = false;
@@ -55,14 +45,11 @@ export default async function handler(req, res) {
       outcome: fulfilled ? "fulfilled" : session.payment_status,
       provider: "stripe",
     });
-    return res.status(200).json({
-      success: true,
-      data: {
-        status: session.status,
-        paymentStatus: session.payment_status,
-        mode: session.mode,
-        fulfilled,
-      },
+    return sendSuccess(req, res, {
+      status: session.status,
+      paymentStatus: session.payment_status,
+      mode: session.mode,
+      fulfilled,
     });
   } catch (error) {
     logServerError("stripe_session", error, req);

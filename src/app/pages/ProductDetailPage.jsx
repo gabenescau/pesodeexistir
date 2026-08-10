@@ -74,7 +74,8 @@ export function ProductDetailPage() {
           product.id,
           order.customer.name,
           order.customer.email,
-          { linha1: `${order.address.street}, ${order.address.number} — ${order.address.city}/${order.address.state}` }
+          { linha1: `${order.address.street}, ${order.address.number} — ${order.address.city}/${order.address.state}` },
+          order.idempotencyKey
         );
         refresh().catch(() => {});
       } catch (err) {

@@ -187,7 +187,7 @@ function ProductCard({ product, onRedeem }) {
 }
 
 export function StorePage() {
-  const { wallet, products, loading, redeemProduct, refresh } = useRewards();
+  const { wallet, products, loading, error, redeemProduct, refresh } = useRewards();
   const [activeCategory, setActiveCategory] = useState("all");
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -207,7 +207,8 @@ export function StorePage() {
     if (!selectedProduct) return;
     try {
       await redeemProduct(selectedProduct.id, order.customer.name, order.customer.email,
-        { linha1: `${order.address.street}, ${order.address.number} — ${order.address.city}/${order.address.state}` });
+        { linha1: `${order.address.street}, ${order.address.number} — ${order.address.city}/${order.address.state}` },
+        order.idempotencyKey);
       refresh().catch(() => {});
     } catch (err) {
       toast.error(err?.message || "Não foi possível realizar o resgate.");
@@ -225,6 +226,19 @@ export function StorePage() {
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-7xl flex-1 space-y-8">
+
+      {error && (
+        <div role="alert" className="flex flex-col gap-3 rounded-[12px] border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100 sm:flex-row sm:items-center sm:justify-between">
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => refresh().catch(() => {})}
+            className="min-h-10 rounded-[9px] border border-amber-400/40 px-3 font-medium text-amber-100 hover:bg-amber-400/10"
+          >
+            Tentar novamente
+          </button>
+        </div>
+      )}
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
@@ -300,4 +314,3 @@ export function StorePage() {
     </div>
   );
 }
-

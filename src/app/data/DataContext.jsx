@@ -4,27 +4,21 @@ import { loadContent } from "./contentLoader";
 import { pickCurrentSubscription } from "@/lib/subscription";
 import { runSupabaseQuery, runSupabaseQueryAll } from "@/lib/supabase-query";
 import { releaseStatus } from "@/lib/releases";
-import { handleDoPerfil } from "@/lib/mentions";
 import { createSignedUrlMap, LIBRARY_BUCKETS, removeLibraryFile } from "@/lib/library-media";
 import { useAuth } from "./AuthContext";
 import { POST_IMAGE_BUCKET } from "@/lib/social";
 import { sanitizePlainText, sanitizeSingleLine } from "@/lib/sanitize";
 import { authenticatedApiPost } from "@/lib/authenticated-api";
+import {
+  AUTHOR_SELECT,
+  BOOK_SELECT,
+  WEEKLY_RELEASE_SELECT,
+  normalizeAuthors,
+  normalizeBooks,
+} from "./domains/catalog";
+import { POST_SELECT, buildPostViewModels } from "./domains/community";
 
 const DataContext = createContext(null);
-
-function firstFilled(...values) {
-  return values.find((value) => typeof value === "string" && value.trim()) || "";
-}
-
-function normalizeAssetUrl(value, folder) {
-  const raw = firstFilled(value);
-  if (!raw) return "";
-  if (/^(https?:|data:|blob:|\/)/i.test(raw)) return raw;
-  if (raw.startsWith(`${folder}/`)) return `/${raw}`;
-  if (/^[^/]+\.(png|jpe?g|webp|gif|svg)$/i.test(raw)) return `/${folder}/${raw}`;
-  return raw;
-}
 
 export function DataProvider({ children }) {
   const content = useMemo(() => loadContent(), []);
@@ -95,7 +89,7 @@ export function DataProvider({ children }) {
         const currentUserId = user?.id;
         const currentProfileRes = currentUserId && !authProfile
           ? await runSupabaseQuery(
-              () => supabase.from("profiles").select("*").eq("id", currentUserId).maybeSingle(),
+              () => supabase.from("profiles").select("id,name,avatar,avatar_url,username,bio,theme,role,private_profile,reading_activity,show_online_status,xp,credits,referral_code,created_at,updated_at").eq("id", currentUserId).maybeSingle(),
               "carregar perfil atual"
             )
           : { data: authProfile || null, error: null };
@@ -126,38 +120,40 @@ export function DataProvider({ children }) {
         myRatingsRes,
       ] = await Promise.all([
         runSupabaseQueryAll(
-          () => supabase.from("books").select("*, authors(name)").order("created_at", { ascending: false }),
-          "carregar livros"
+          () => supabase.from("books").select(BOOK_SELECT).order("created_at", { ascending: false }),
+          "carregar livros",
+          { maxRows: 2000, maxPages: 8 }
         ),
         runSupabaseQueryAll(
-          () => supabase.from("authors").select("*").order("name"),
-          "carregar autores"
+          () => supabase.from("authors").select(AUTHOR_SELECT).order("name"),
+          "carregar autores",
+          { maxRows: 1000, maxPages: 4 }
         ),
         currentUserId
           ? runSupabaseQuery(
-              () => supabase.from("reading_progress").select("*").eq("user_id", currentUserId),
+              () => supabase.from("reading_progress").select("book_id,progress,current_page,total_pages,updated_at").eq("user_id", currentUserId).limit(5000),
               "carregar progresso"
             )
           : Promise.resolve(emptyResult),
         isCurrentAdmin
           ? runSupabaseQuery(
-              () => supabase.from("subscriptions").select("*").order("created_at", { ascending: false }),
+              () => supabase.from("subscriptions").select("id,user_id,plan,status,provider,provider_product_id,provider_subscription_id,provider_customer_id,provider_order_id,customer_email,current_period_start,current_period_end,cancel_at_period_end,canceled_at,last_payment_at,metadata,created_at,updated_at").order("created_at", { ascending: false }).limit(1000),
               "carregar assinaturas"
             )
           : currentUserId
             ? runSupabaseQuery(
-                () => supabase.from("subscriptions").select("*").eq("user_id", currentUserId).order("created_at", { ascending: false }),
+                () => supabase.from("subscriptions").select("id,user_id,plan,status,provider,provider_product_id,provider_subscription_id,provider_customer_id,provider_order_id,customer_email,current_period_start,current_period_end,cancel_at_period_end,canceled_at,last_payment_at,metadata,created_at,updated_at").eq("user_id", currentUserId).order("created_at", { ascending: false }).limit(20),
                 "carregar assinatura atual"
               )
             : Promise.resolve(emptyResult),
         isCurrentAdmin
           ? runSupabaseQuery(
-              () => supabase.from("profiles").select("*").order("created_at", { ascending: false }),
+              () => supabase.from("profiles").select("id,name,avatar,avatar_url,username,bio,theme,role,private_profile,reading_activity,show_online_status,xp,credits,referral_code,created_at,updated_at").order("created_at", { ascending: false }).limit(1000),
               "carregar perfis"
             )
           : currentUserId
             ? runSupabaseQuery(
-                () => supabase.from("public_profiles").select("*"),
+                () => supabase.rpc("list_public_profiles", { p_ids: null }),
                 "carregar perfis publicos"
               )
             : Promise.resolve({ data: currentProfile ? [currentProfile] : [], error: null }),
@@ -171,54 +167,55 @@ export function DataProvider({ children }) {
           ? runSupabaseQueryAll(
               () => supabase
                 .from("posts")
-                .select("*")
+                .select(POST_SELECT)
                 .order("created_at", { ascending: false }),
-              "carregar posts"
+              "carregar posts",
+              { maxRows: 200, maxPages: 4, pageSize: 100 }
             )
           : Promise.resolve(emptyResult),
         currentUserId
           ? runSupabaseQuery(
-              () => supabase.from("weekly_releases").select("*, books(*, authors(name))").order("release_date", { ascending: true }),
+          () => supabase.from("weekly_releases").select(WEEKLY_RELEASE_SELECT).order("release_date", { ascending: true }).limit(100),
               "carregar lancamentos"
             )
           : Promise.resolve(emptyResult),
         currentUserId
           ? runSupabaseQuery(
-              () => supabase.from("follows").select("follower_id, following_id"),
+              () => supabase.from("follows").select("follower_id, following_id").limit(5000),
               "carregar seguidores"
             )
           : Promise.resolve(emptyResult),
         currentUserId
           ? runSupabaseQuery(
-              () => supabase.from("saved_posts").select("post_id"),
+              () => supabase.from("saved_posts").select("post_id").limit(5000),
               "carregar posts salvos"
             )
           : Promise.resolve(emptyResult),
         currentUserId
           ? runSupabaseQuery(
-              () => supabase.from("categories").select("*").order("sort_order").order("name"),
+              () => supabase.from("categories").select("id,name,sort_order,created_at,updated_at").order("sort_order").order("name").limit(200),
               "carregar categorias"
             )
           : Promise.resolve(emptyResult),
         currentUserId
           ? runSupabaseQuery(
-              () => supabase.from("book_favorites").select("book_id"),
+              () => supabase.from("book_favorites").select("book_id").limit(5000),
               "carregar livros favoritos"
             )
           : Promise.resolve(emptyResult),
         currentUserId
           ? runSupabaseQuery(
-              () => supabase.from("author_favorites").select("author_id"),
+              () => supabase.from("author_favorites").select("author_id").limit(5000),
               "carregar autores favoritos"
             )
           : Promise.resolve(emptyResult),
         runSupabaseQuery(
-          () => supabase.from("book_ratings_public").select("book_id, rating_sum, rating_count"),
+          () => supabase.from("book_ratings_public").select("book_id, rating_sum, rating_count").limit(2000),
           "carregar notas dos livros"
         ),
         currentUserId
           ? runSupabaseQuery(
-              () => supabase.from("book_ratings").select("book_id, rating").eq("user_id", currentUserId),
+              () => supabase.from("book_ratings").select("book_id, rating").eq("user_id", currentUserId).limit(5000),
               "carregar minha nota dos livros"
             )
           : Promise.resolve(emptyResult),
@@ -228,11 +225,11 @@ export function DataProvider({ children }) {
       const [postLikesRes, pollRes] = postIds.length > 0
         ? await Promise.all([
             runSupabaseQuery(
-              () => supabase.from("post_likes").select("post_id,user_id").in("post_id", postIds),
+              () => supabase.from("post_likes").select("post_id,user_id").in("post_id", postIds).limit(5000),
               "carregar curtidas dos posts"
             ),
             runSupabaseQuery(
-              () => supabase.from("post_polls").select("*, post_poll_options(*)").in("post_id", postIds),
+              () => supabase.from("post_polls").select("id,post_id,question,created_at,post_poll_options(id,poll_id,label,sort_order)").in("post_id", postIds).limit(200),
               "carregar enquetes"
             ),
           ])
@@ -240,7 +237,7 @@ export function DataProvider({ children }) {
       const pollIds = pollRes.error ? [] : (pollRes.data || []).map((poll) => poll.id);
       const pollVotesRes = pollIds.length > 0
         ? await runSupabaseQuery(
-            () => supabase.from("post_poll_votes").select("poll_id,option_id,user_id").in("poll_id", pollIds),
+            () => supabase.from("post_poll_votes").select("poll_id,option_id,user_id").in("poll_id", pollIds).limit(10000),
             "carregar votos das enquetes"
           )
         : emptyResult;
@@ -249,7 +246,7 @@ export function DataProvider({ children }) {
       // quando o usuario esta logado; sem usuario, cache fica vazio.
       const collectionsRes = currentUserId
         ? await runSupabaseQuery(
-            () => supabase.from("collections").select("*").order("created_at", { ascending: false }),
+            () => supabase.from("collections").select("id,user_id,name,description,cover_path,is_public,created_at,updated_at").order("created_at", { ascending: false }).limit(200),
             "carregar colecoes"
           )
         : emptyResult;
@@ -258,17 +255,13 @@ export function DataProvider({ children }) {
         : (collectionsRes.data || []).map((c) => c.id);
       const collectionItemsRes = collectionItemIds.length > 0
         ? await runSupabaseQuery(
-            () => supabase.from("collection_items").select("*").in("collection_id", collectionItemIds),
+            () => supabase.from("collection_items").select("id,collection_id,item_type,item_id,position,created_at").in("collection_id", collectionItemIds).limit(2000),
             "carregar itens das colecoes"
           )
         : emptyResult;
       if (!collectionsRes.error) setCollections(collectionsRes.data || []);
       if (!collectionItemsRes.error) setCollectionItems(collectionItemsRes.data || []);
 
-      const localBookById = new Map((content.books || []).map((book) => [book.id, book]));
-      const localBookByTitle = new Map((content.books || []).map((book) => [book.title, book]));
-      const localAuthorById = new Map((content.authors || []).map((author) => [author.id, author]));
-      const localAuthorByName = new Map((content.authors || []).map((author) => [author.name, author]));
       const coverUrlMap = await createSignedUrlMap(
         LIBRARY_BUCKETS.covers,
         [
@@ -283,107 +276,37 @@ export function DataProvider({ children }) {
       let normalizedBooks = [];
 
       if (!booksRes.error) {
-        const progressList = progressRes.error ? [] : progressRes.data || [];
-        normalizedBooks = booksRes.data.map(b => {
-          const userProgress = progressList.find(item => item.book_id === b.id);
-          const localBook = localBookById.get(b.id) || localBookByTitle.get(b.title) || {};
-          const ratingAgg = ratingsByBook[b.id];
-          const nota = ratingAgg && ratingAgg.count > 0
-            ? Math.round((ratingAgg.sum / ratingAgg.count) * 10) / 10
-            : 0;
-          return {
-            ...b,
-            authorId: b.author_id,
-            authorName: b.authors?.name || "",
-            author: b.authors?.name || "",
-            nota,
-            ratingCount: ratingAgg?.count || 0,
-            image: normalizeAssetUrl(
-              firstFilled(coverUrlMap.get(b.image_path), b.image, b.image_url, b.cover_url, b.cover, b.thumbnail_url, localBook.image),
-              "livros"
-            ),
-            pdfFile: firstFilled(b.pdf_path, b.pdf_url),
-            progress: userProgress?.progress ?? 0,
-            currentPage: userProgress?.current_page ?? 1,
-            totalPages: userProgress?.total_pages ?? null,
-          };
+        normalizedBooks = normalizeBooks(booksRes.data, {
+          progress: progressRes.error ? [] : progressRes.data || [],
+          ratingsByBook,
+          coverUrlMap,
+          localBooks: content.books || [],
         });
         setBooks(normalizedBooks);
       }
       else setBooks([]);
 
       if (!authorsRes.error) {
-        setAuthors((authorsRes.data || []).map((author) => {
-          const localAuthor = localAuthorById.get(author.id) || localAuthorByName.get(author.name) || {};
-          return {
-            ...author,
-            image: normalizeAssetUrl(
-              firstFilled(coverUrlMap.get(author.image_path), author.image, author.image_url, author.avatar_url, author.photo_url, localAuthor.image),
-              "autores"
-            ),
-          };
+        setAuthors(normalizeAuthors(authorsRes.data, {
+          coverUrlMap,
+          localAuthors: content.authors || [],
         }));
       }
       else setAuthors([]);
 
       if (!postsRes.error) {
-        const profileList = profilesRes.error ? [] : profilesRes.data || [];
-        const bookList = normalizedBooks.length > 0 ? normalizedBooks : [];
-        const likes = postLikesRes.error ? [] : postLikesRes.data || [];
-        const likesByPost = likes.reduce((acc, like) => {
-          (acc[like.post_id] ||= []).push(like);
-          return acc;
-        }, {});
-        const votes = pollVotesRes.error ? [] : pollVotesRes.data || [];
-        const votesByPoll = votes.reduce((acc, vote) => {
-          (acc[vote.poll_id] ||= []).push(vote);
-          return acc;
-        }, {});
-        const pollsByPost = new Map((pollRes.error ? [] : pollRes.data || []).map((poll) => {
-          const pollVotes = votesByPoll[poll.id] || [];
-          const options = (poll.post_poll_options || [])
-            .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
-            .map((option) => ({
-              ...option,
-              votes: pollVotes.filter((vote) => vote.option_id === option.id).length,
-            }));
-          return [poll.post_id, {
-            ...poll,
-            options,
-            totalVotes: pollVotes.length,
-            myVote: pollVotes.find((vote) => vote.user_id === currentUserId)?.option_id || null,
-          }];
-        }));
         const postImageUrlMap = await createSignedUrlMap(
           POST_IMAGE_BUCKET,
           (postsRes.data || []).flatMap((post) => post.image_paths || [])
         );
-        setPosts(postsRes.data.map(p => {
-          const postProfile = profileList.find(profile => profile.id === p.user_id);
-          const postBook = bookList.find(book => book.id === p.book_id);
-          const postLikes = likesByPost[p.id] || [];
-          return {
-            ...p,
-            images: [
-              ...(p.image_paths || []).map((path) => postImageUrlMap.get(path)).filter(Boolean),
-              ...(p.images || (p.image ? [p.image] : [])),
-            ],
-            author: postProfile?.name || p.author || "Leitor",
-            // Handle vem de profiles.username. Antes vinha de email.split("@"),
-            // o que publicava a parte local do email de todo mundo no feed.
-            handle: handleDoPerfil(postProfile),
-            avatar: firstFilled(postProfile?.avatar, postProfile?.avatar_url, p.avatar) || "L",
-            authorProfile: postProfile || null,
-            verified: Boolean(postProfile?.verified || postProfile?.is_verified || postProfile?.role === "admin"),
-            book: postBook ? {
-              ...postBook,
-              author: postBook.authors?.name || "",
-            } : null,
-            likedByMe: postLikes.some((like) => like.user_id === currentUserId),
-            likes: postLikes.length || p.likes || 0,
-            replies: p.replies || 0,
-            poll: pollsByPost.get(p.id) || null,
-          };
+        setPosts(buildPostViewModels(postsRes.data, {
+          profiles: profilesRes.error ? [] : profilesRes.data || [],
+          books: normalizedBooks,
+          likes: postLikesRes.error ? [] : postLikesRes.data || [],
+          polls: pollRes.error ? [] : pollRes.data || [],
+          votes: pollVotesRes.error ? [] : pollVotesRes.data || [],
+          imageUrlMap: postImageUrlMap,
+          currentUserId,
         }));
       }
       else setPosts([]);

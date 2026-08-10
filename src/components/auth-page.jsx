@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogClose,
   AlertDialogContent,
   AlertDialogDescription,
@@ -69,6 +68,10 @@ export function AuthPage() {
     const cleanName = sanitizeSingleLine(name, 80);
     if (!cleanEmail) return;
     if (!isSupabaseReady()) {
+      if (import.meta.env.PROD) {
+        setError("O servico de autenticacao esta temporariamente indisponivel. Tente novamente em instantes.");
+        return;
+      }
       toast.success("Modo de desenvolvimento local ativado.");
       navigate(location.state?.from?.pathname || "/app/inicio", { replace: true });
       return;

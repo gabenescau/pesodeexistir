@@ -61,12 +61,15 @@ export const rewardApi = {
     rpc("reward_likes_received", { p_owner_id: ownerId }),
   completeDailyMission: () => rpc("complete_daily_mission"),
   completeWeeklyMission: () => rpc("complete_weekly_mission"),
-  redeemProduct: (productId, customerName, customerEmail, address) =>
+  redeemProduct: (productId, customerName, customerEmail, address, idempotencyKey) =>
     rpc("redeem_product", {
       p_product_id: productId,
       p_customer_name: customerName,
       p_customer_email: customerEmail,
-      p_address: address,
+      p_address: {
+        ...(address && typeof address === "object" ? address : {}),
+        idempotency_key: idempotencyKey || globalThis.crypto?.randomUUID?.() || `redeem-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      },
     }),
   referralClaim: (referredUserId) =>
     rpc("referral_claim", { p_referred_user_id: referredUserId }),

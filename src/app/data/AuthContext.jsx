@@ -45,7 +45,7 @@ export function AuthProvider({ children }) {
       const { data, error } = await runSupabaseQuery(
         () => supabase
           .from("profiles")
-          .select("*")
+          .select("id,name,avatar,avatar_url,username,bio,theme,role,private_profile,reading_activity,show_online_status,xp,credits,referral_code,created_at,updated_at")
           .eq("id", userId)
           .maybeSingle(),
         "carregar perfil"
@@ -65,9 +65,11 @@ export function AuthProvider({ children }) {
       setProfile(data);
 
       // Registra o XP/Creditos de login de forma idempotente (o servidor
-      // deduplica por dia). Fire-and-forget: nunca bloqueia a sessao e ignora
-      // erros silenciosamente.
-      rewardApi.rewardLogin().catch(() => {});
+      // deduplica por dia). Fire-and-forget: nunca bloqueia a sessao, mas deixa
+      // evidencia no console para o suporte diagnosticar falhas de recompensa.
+      rewardApi.rewardLogin().catch((error) => {
+        console.warn("Falha ao registrar recompensa de login:", error?.message || error);
+      });
     }
 
     async function restoreSession() {

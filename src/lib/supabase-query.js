@@ -16,19 +16,31 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-const DEFAULT_PAGE_SIZE = 1000;
+const DEFAULT_PAGE_SIZE = 250;
+const MAX_PAGE_SIZE = 500;
+const DEFAULT_MAX_ROWS = 2000;
+const DEFAULT_MAX_PAGES = 20;
 
 // Busca todas as linhas de uma consulta, paginando com .range() em loops.
 // Necessario porque o PostgREST/SignalR limita cada chamada a 1000 linhas por
 // padrao — sem isso listas grandes (livros, autores, posts) aparecem truncadas
 // na UI mesmo com paginacao client-side.
-export async function runSupabaseQueryAll(queryFactory, label, { pageSize = DEFAULT_PAGE_SIZE, retries = 2 } = {}) {
+export async function runSupabaseQueryAll(queryFactory, label, {
+  pageSize = DEFAULT_PAGE_SIZE,
+  retries = 2,
+  maxRows = DEFAULT_MAX_ROWS,
+  maxPages = DEFAULT_MAX_PAGES,
+} = {}) {
   const results = [];
   const seen = new Set();
   let offset = 0;
+  const safePageSize = Math.min(Math.max(Number(pageSize) || DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE);
+  const safeMaxRows = Math.max(Number(maxRows) || DEFAULT_MAX_ROWS, safePageSize);
+  const safeMaxPages = Math.max(Number(maxPages) || DEFAULT_MAX_PAGES, 1);
 
-  for (;;) {
-    const pageFactory = () => queryFactory().range(offset, offset + pageSize - 1);
+  for (let page = 0; page < safeMaxPages && results.length < safeMaxRows; page += 1) {
+    const pageLimit = Math.min(safePageSize, safeMaxRows - results.length);
+    const pageFactory = () => queryFactory().range(offset, offset + pageLimit - 1);
     const result = await runSupabaseQuery(pageFactory, `${label} (paginacao ${offset}+)`, retries);
     const rows = result?.data || [];
     if (result?.error) return result;
@@ -41,11 +53,16 @@ export async function runSupabaseQueryAll(queryFactory, label, { pageSize = DEFA
       results.push(row);
     }
 
-    if (rows.length < pageSize) break;
-    offset += pageSize;
+    if (rows.length < pageLimit) break;
+    offset += pageLimit;
   }
 
-  return { data: results, error: null, count: results.length };
+  return {
+    data: results,
+    error: null,
+    count: results.length,
+    truncated: results.length >= safeMaxRows,
+  };
 }
 
 export async function runSupabaseQuery(queryFactory, label, retries = 2) {

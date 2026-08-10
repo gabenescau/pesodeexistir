@@ -6,6 +6,7 @@ import { useAuth } from "../../data/AuthContext";
 import { useData } from "../../data/DataContext";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { isSupabaseReady, supabase } from "../../data/supabase";
+import { authenticatedApiPost } from "@/lib/authenticated-api";
 import { toast } from "@/lib/toast";
 import { isActiveSubscription } from "@/lib/subscription";
 
@@ -48,16 +49,14 @@ export function SettingsAccount() {
     });
     if (!ok) return;
     try {
-      if (isSupabaseReady()) {
-        await supabase.auth.admin.deleteUser(user.id);
-      }
+      if (!isSupabaseReady() || !user?.id) throw new Error("Sessao indisponivel");
+      await authenticatedApiPost("/api/delete-account", { confirmation: "DELETE_ACCOUNT" });
+      await logout();
+      toast.success("Sua conta foi excluida.");
+      navigate("/");
     } catch {
-      // admin API so funciona com service role; a UI continua orientando o
-      // usuario a contatar o suporte para finalizar a exclusao.
+      toast.error("Nao foi possivel excluir a conta. Tente novamente em instantes.");
     }
-    await logout();
-    toast.success("Sessao encerrada. Entre em contato para concluir a exclusao.");
-    navigate("/");
   }
 
   return (

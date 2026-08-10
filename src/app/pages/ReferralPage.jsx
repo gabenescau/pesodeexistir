@@ -34,11 +34,14 @@ export function ReferralPage() {
   const [referrals, setReferrals] = useState([]);
   const [profilesMap, setProfilesMap] = useState({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState("");
   const [copied, setCopied] = useState(false);
 
   const load = useCallback(async () => {
+    setLoadError("");
     if (!isSupabaseReady()) {
+      if (import.meta.env.PROD) setLoadError("O servico de indicacoes esta temporariamente indisponivel.");
       setLoading(false);
       return;
     }
@@ -57,16 +60,21 @@ export function ReferralPage() {
         .order("created_at", { ascending: false })
         .limit(50),
     ]);
+    if (codeResult.status === "rejected" || referralsResult.status === "rejected") {
+      setLoadError("Nao foi possivel carregar suas indicacoes. Tente novamente.");
+    }
     if (codeResult.status === "fulfilled") setCode(codeResult.value || "");
     const rows = referralsResult.status === "fulfilled" ? (referralsResult.value?.data || []) : [];
     setReferrals(rows);
 
     const referredIds = rows.map((r) => r.referred_user_id).filter(Boolean);
     if (referredIds.length > 0) {
-      const { data: profiles } = await supabase
-        .from("public_profiles")
-        .select("id, name, username, avatar, avatar_url")
-        .in("id", referredIds);
+      const { data: profiles, error: profilesError } = await supabase.rpc("list_public_profiles", {
+        p_ids: referredIds,
+      });
+      if (profilesError) {
+        setLoadError("Indicacoes carregadas, mas os perfis nao puderam ser atualizados.");
+      }
       setProfilesMap((profiles || []).reduce((acc, p) => ({ ...acc, [p.id]: p }), {}));
     } else {
       setProfilesMap({});
@@ -75,7 +83,11 @@ export function ReferralPage() {
   }, [getMyReferralCode]);
 
   useEffect(() => {
-    load();
+    load().catch((error) => {
+      console.warn("Falha ao carregar indicacoes:", error?.message || error);
+      setLoadError("Nao foi possivel carregar suas indicacoes. Tente novamente.");
+      setLoading(false);
+    });
   }, [load]);
 
   const link = code ? `${window.location.origin}/entrar?ref=${code}` : "";
@@ -88,7 +100,7 @@ export function ReferralPage() {
       setCopied(true);
       toast.success("Link de indicação copiado!");
       setTimeout(() => setCopied(false), 2000);
-    }).catch(() => {});
+    }).catch(() => toast.error("Nao foi possivel copiar o link. Tente novamente."));
   };
 
   const handleShareWhatsApp = () => {
@@ -116,6 +128,15 @@ export function ReferralPage() {
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-4xl flex-1 space-y-6">
+
+      {loadError && (
+        <div role="alert" className="flex flex-col gap-3 rounded-[12px] border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100 sm:flex-row sm:items-center sm:justify-between">
+          <span>{loadError}</span>
+          <button type="button" onClick={() => load()} className="min-h-10 rounded-[9px] border border-amber-400/40 px-3 font-medium hover:bg-amber-400/10">
+            Tentar novamente
+          </button>
+        </div>
+      )}
 
       {/* Voltar */}
       <Link

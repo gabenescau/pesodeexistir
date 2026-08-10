@@ -78,7 +78,6 @@ const ICONS = {
   MapPin: Phosphor.MapPin,
   Maximize2: Phosphor.CornersOut,
   Medal: Phosphor.Medal,
-  Trophy: Phosphor.Trophy,
   Phone: Phosphor.Phone,
   Menu: Phosphor.List,
   MenuIcon: Phosphor.List,

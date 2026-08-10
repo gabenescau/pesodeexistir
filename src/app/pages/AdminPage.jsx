@@ -17,7 +17,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DatePicker } from "@/components/ui/date-picker";
 import { BarChart, DonutChart, LineChart } from "@/components/ui/chart";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
-import { useRewards } from "@/app/data/RewardsContext";
 
 const tabs = [
   { id: "dashboard", label: "Dashboard", icon: ChartLine },
@@ -110,7 +109,7 @@ function StatCard({ label, value, hint, icon: Icon }) {
 }
 
 function DashboardTab() {
-  const { books, authors, posts, profiles, subscriptions, weeklyReleases, categories, bookFavorites, authorFavorites, savedPostIds, myCounts } = useData();
+  const { books, authors, posts, profiles, subscriptions, weeklyReleases, categories, bookFavorites, savedPostIds, myCounts } = useData();
 
   const totalUsers = profiles.length;
   const totalBooks = books.length;
@@ -2592,13 +2591,10 @@ const DAILY_MISSIONS = [
 function CreditsTab() {
   const { profiles, subscriptions } = useData();
   const [spentByUser, setSpentByUser] = useState({});
-  const [loadingSpent, setLoadingSpent] = useState(true);
 
   useEffect(() => {
     let active = true;
-    setLoadingSpent(true);
     if (!isSupabaseReady()) {
-      setLoadingSpent(false);
       return;
     }
     supabase
@@ -2613,7 +2609,6 @@ function CreditsTab() {
           }
         }
         setSpentByUser(totals);
-        setLoadingSpent(false);
       });
     return () => { active = false; };
   }, []);

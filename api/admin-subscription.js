@@ -1,4 +1,5 @@
 import { getGrantPlan, getPlanByCode } from "../server/plans.js";
+import { parseAdminSubscriptionInput } from "../src/lib/api-contracts.js";
 import {
   allowPost,
   enforceRateLimit,
@@ -7,9 +8,10 @@ import {
   listUserSubscriptions,
   logAuditEvent,
   logServerError,
-  requireUuid,
   requireAdmin,
+  sendClientError,
   sendError,
+  sendSuccess,
   updateSubscription,
 } from "../server/supabase.js";
 
@@ -114,8 +116,7 @@ export default async function handler(req, res) {
       windowSeconds: 300,
       userId: user.id,
     })) return;
-    const { action, userId, email, plan = "leitor", durationDays = 30 } = req.body || {};
-    requireUuid(userId, "userId");
+    const { action, userId, email, plan, durationDays } = parseAdminSubscriptionInput(req.body);
 
     let updated;
     if (action === "grant") {
@@ -129,7 +130,7 @@ export default async function handler(req, res) {
     } else if (action === "set_duration") {
       updated = await setManualDuration({ admin: user, userId, durationDays });
     } else {
-      return res.status(400).json({ success: false, error: "Acao invalida" });
+      return sendClientError(req, res, 400, "Acao invalida");
     }
 
     logAuditEvent(`admin.subscription.${action}`, req, {
@@ -138,7 +139,7 @@ export default async function handler(req, res) {
       outcome: "success",
       provider: updated?.provider,
     });
-    return res.status(200).json({ success: true, data: updated });
+    return sendSuccess(req, res, updated);
   } catch (error) {
     logServerError("admin_subscription", error, req);
     return sendError(req, res, error, "Erro interno na gestao de assinatura");

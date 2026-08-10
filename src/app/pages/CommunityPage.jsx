@@ -9,8 +9,8 @@ import { AutocompleteSearch, buildSearchItems } from "@/components/ui/autocomple
 
 export function CommunityPage() {
   const { posts = [], deletePost, loading = false, books = [], authors = [], categories = [] } = useData() || {};
-  const [filter, setFilter] = useState("Todos");
-  const [busca, setBusca] = useState("");
+  const [filter] = useState("Todos");
+  const [busca] = useState("");
   const [reacoes, setReacoes] = useState([]);
   const [visibleCount, setVisibleCount] = useState(20);
 

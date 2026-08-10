@@ -3,7 +3,7 @@ import { useMemo } from "react";
 function base64ToBlobUrl(base64, mimeType = "application/pdf") {
   try {
     const byteChars = atob(base64);
-    const byteNums = new Array(byteChars.length);
+    const byteNums = Array.from({ length: byteChars.length });
     for (let i = 0; i < byteChars.length; i++) {
       byteNums[i] = byteChars.charCodeAt(i);
     }

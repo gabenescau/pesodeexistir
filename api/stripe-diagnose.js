@@ -5,6 +5,7 @@ import {
   logServerError,
   requireAdmin,
   sendError,
+  sendSuccess,
 } from "../server/supabase.js";
 import { getStripe } from "../server/stripe.js";
 import { PLAN_CATALOG } from "../server/plans.js";
@@ -94,18 +95,15 @@ export default async function handler(req, res) {
       prices.push(entry);
     }
 
-    return res.status(200).json({
-      success: true,
-      data: {
-        mode,
-        keyPrefix: keyPrefix ? `${keyPrefix}...` : null,
-        keyWarning,
-        webhookPrefix: webhookSecret ? `${webhookPrefix}...` : null,
-        webhookWarning,
-        secretKeyConfigured: Boolean(secretKey),
-        webhookSecretConfigured: Boolean(webhookSecret),
-        prices,
-      },
+    return sendSuccess(req, res, {
+      mode,
+      keyPrefix: keyPrefix ? `${keyPrefix}...` : null,
+      keyWarning,
+      webhookPrefix: webhookSecret ? `${webhookPrefix}...` : null,
+      webhookWarning,
+      secretKeyConfigured: Boolean(secretKey),
+      webhookSecretConfigured: Boolean(webhookSecret),
+      prices,
     });
   } catch (error) {
     logServerError("stripe_diagnose", error, req);

@@ -148,6 +148,18 @@ export async function expireOpenCheckoutSessions(customerId, userId, planKey, pa
     limit: 30,
   });
   const owned = sessions.data.filter((session) => session.metadata?.user_id === userId);
+  const paid = owned.find((session) =>
+    session.status === "complete" &&
+    session.payment_status === "paid" &&
+    session.metadata?.plan_key === planKey &&
+    session.metadata?.payment_method === paymentMethod
+  );
+  if (paid) {
+    const error = new Error("Pagamento ja confirmado. Aguarde a sincronizacao da assinatura.");
+    error.status = 409;
+    error.userSafe = true;
+    throw error;
+  }
   const reusable = owned.find((session) =>
     session.status === "open" &&
     session.metadata?.plan_key === planKey &&
@@ -174,9 +186,21 @@ export async function expireOpenCheckoutSessions(customerId, userId, planKey, pa
   return reusable || null;
 }
 
-export function checkoutIdempotencyKey(userId, planKey, paymentMethod) {
-  const minuteBucket = Math.floor(Date.now() / 60000);
-  return `ope-checkout-${userId}-${planKey}-${paymentMethod}-${minuteBucket}`;
+export function checkoutIdempotencyKey(userId, planKey, paymentMethod, attemptId) {
+  const normalizedAttempt = String(attemptId || "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
+  return `ope-checkout-${userId}-${planKey}-${paymentMethod}-${normalizedAttempt}`;
+}
+
+// A tentativa e uma reserva de negocio, nao apenas uma chave de idempotencia.
+// O endpoint deve recusar tanto IDs de outra conta quanto a troca de plano
+// enquanto ainda existe um checkout aberto para o mesmo usuario.
+export function getCheckoutAttemptConflict(attempt, { userId, planKey, paymentMethod }) {
+  if (!attempt) return null;
+  if (attempt.user_id !== userId) return "forbidden";
+  if (attempt.plan_key !== planKey || attempt.payment_method !== paymentMethod) {
+    return "pending_conflict";
+  }
+  return null;
 }
 
 export function integrationIdentifier(...seedParts) {

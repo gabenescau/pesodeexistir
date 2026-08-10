@@ -8,7 +8,6 @@ import { handleDoPerfil } from "@/lib/mentions";
 import { EmojiReactions } from "./EmojiReactions";
 import { RichText } from "./RichText";
 import { sanitizePlainText } from "@/lib/sanitize";
-import { toast } from "@/lib/toast";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useRewards } from "@/app/data/RewardsContext";
 

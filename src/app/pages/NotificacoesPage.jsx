@@ -1,9 +1,8 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Bell, ChatCircle, Heart, UserPlus } from "@/lib/icons";
+import { Bell, Heart, UserPlus } from "@/lib/icons";
 import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
-import { handleDoPerfil } from "@/lib/mentions";
 import { relativeTime as tempoRelativoPost } from "@/lib/social";
 
 const NOTIFICACOES_PAGE_SIZE = 20;

@@ -10,7 +10,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { toast } from "@/lib/toast";
 
 // useConfirmDialog: hook que retorna uma funcao `ask(options)` que abre o
 // AlertDialog e devolve uma Promise<boolean>. Resolve true se o usuario

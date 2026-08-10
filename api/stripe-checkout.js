@@ -1,12 +1,19 @@
+import crypto from "node:crypto";
+import { parseCheckoutInput } from "../src/lib/api-contracts.js";
 import {
   allowPost,
   enforceRateLimit,
   getAuthenticatedUser,
+  claimCheckoutAttempt,
+  getOpenCheckoutAttempt,
   getProfile,
   listUserSubscriptions,
   logAuditEvent,
   logServerError,
+  sendClientError,
+  updateCheckoutAttempt,
   sendError,
+  sendSuccess,
 } from "../server/supabase.js";
 import {
   checkoutIdempotencyKey,
@@ -17,26 +24,17 @@ import {
   integrationIdentifier,
   validatePriceForPlan,
 } from "../server/stripe.js";
-import { getPlanByKey } from "../server/plans.js";
-
-const ACTIVE_STATUSES = new Set(["active", "trialing", "past_due"]);
-
-function hasActiveSubscription(list) {
-  return (list || []).some((sub) => ACTIVE_STATUSES.has(sub.status));
-}
+import { getBillingPlan, hasActiveSubscription } from "../server/domains/billing.js";
 
 export default async function handler(req, res) {
   if (!allowPost(req, res)) return;
 
   try {
     const user = await getAuthenticatedUser(req);
-    const { plan: planKey = "leitor-monthly", paymentMethod = "CARD" } = req.body || {};
-    const plan = getPlanByKey(planKey);
-    if (!plan) {
-      return res.status(400).json({ success: false, error: "Plano invalido", requestId: req.requestId });
-    }
+    const { plan: planKey, paymentMethod, attemptId } = parseCheckoutInput(req.body);
+    const plan = getBillingPlan(planKey);
     if (!new Set(["CARD", "PIX"]).has(paymentMethod)) {
-      return res.status(400).json({ success: false, error: "Metodo de pagamento invalido", requestId: req.requestId });
+      return sendClientError(req, res, 400, "Metodo de pagamento invalido");
     }
     if (!await enforceRateLimit(req, res, {
       scope: "stripe_checkout",
@@ -50,17 +48,51 @@ export default async function handler(req, res) {
       user.id ? listUserSubscriptions(user.id) : Promise.resolve([]),
     ]);
     if (hasActiveSubscription(subscriptions)) {
-      return res.status(409).json({
-        success: false,
-        error: "Voce ja possui uma assinatura ativa. Use a pagina de assinatura para gerenciar.",
-        requestId: req.requestId,
-      });
+      return sendClientError(req, res, 409, "Voce ja possui um acesso ativo. Use a pagina de assinatura para gerenciar ou aguarde a data de termino.");
     }
 
     const stripe = getStripe();
     const siteUrl = getSiteUrl();
     const email = profile?.email || user?.email || "";
     const customerId = await getOrCreateStripeCustomer({ user, email, subscriptions });
+    let openAttempt = await getOpenCheckoutAttempt(user.id);
+    let effectiveAttemptId = attemptId;
+
+    if (openAttempt?.expires_at && Date.parse(openAttempt.expires_at) <= Date.now()) {
+      await updateCheckoutAttempt(openAttempt.attempt_id, {
+        status: "expired",
+        updated_at: new Date().toISOString(),
+      });
+      openAttempt = null;
+    }
+
+    if (openAttempt) {
+      if (openAttempt.plan_key !== plan.key || openAttempt.payment_method !== paymentMethod) {
+        return sendClientError(req, res, 409, "Ja existe um checkout em processamento para outro plano ou metodo. Aguarde a confirmacao ou a expiracao antes de iniciar outro.");
+      }
+
+      effectiveAttemptId = openAttempt.attempt_id;
+      if (openAttempt.stripe_session_id) {
+        try {
+          const existingSession = await stripe.checkout.sessions.retrieve(openAttempt.stripe_session_id);
+          if (existingSession.status === "open" && existingSession.url) {
+            return sendSuccess(req, res, { url: existingSession.url, planKey: plan.key, paymentMethod, reused: true });
+          }
+          if (existingSession.status === "complete" && existingSession.payment_status === "paid") {
+            return sendClientError(req, res, 409, "Pagamento ja confirmado. Aguarde a sincronizacao da assinatura.");
+          }
+        } catch (error) {
+          if (error?.code !== "resource_missing" && Number(error?.statusCode) !== 404) throw error;
+        }
+
+        await updateCheckoutAttempt(openAttempt.attempt_id, {
+          status: "expired",
+          updated_at: new Date().toISOString(),
+        });
+        effectiveAttemptId = crypto.randomUUID();
+      }
+    }
+
     const reusable = await expireOpenCheckoutSessions(
       customerId,
       user.id,
@@ -68,10 +100,33 @@ export default async function handler(req, res) {
       paymentMethod
     );
     if (reusable) {
-      return res.status(200).json({
-        success: true,
-        data: { url: reusable.url, planKey: plan.key, paymentMethod, reused: true },
+      const claimedReusable = await claimCheckoutAttempt({
+        attemptId: effectiveAttemptId,
+        userId: user.id,
+        planKey: plan.key,
+        paymentMethod,
       });
+      if (claimedReusable.conflict && claimedReusable.attempt?.stripe_session_id) {
+        const existingSession = await stripe.checkout.sessions.retrieve(claimedReusable.attempt.stripe_session_id);
+        if (existingSession.status === "open" && existingSession.url) {
+          return sendSuccess(req, res, { url: existingSession.url, planKey: plan.key, paymentMethod, reused: true });
+        }
+        return sendClientError(req, res, 409, "Ja existe um checkout em processamento. Aguarde a confirmacao ou sua expiracao.");
+      }
+      await updateCheckoutAttempt(claimedReusable.attempt.attempt_id, {
+        stripe_session_id: reusable.id,
+        expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+      });
+      return sendSuccess(req, res, { url: reusable.url, planKey: plan.key, paymentMethod, reused: true });
+    }
+    const claimed = await claimCheckoutAttempt({
+      attemptId: effectiveAttemptId,
+      userId: user.id,
+      planKey: plan.key,
+      paymentMethod,
+    });
+    if (claimed.conflict) {
+      return sendClientError(req, res, 409, "Ja existe um checkout em processamento. Aguarde a confirmacao ou sua expiracao.");
     }
 
     const metadata = {
@@ -124,18 +179,19 @@ export default async function handler(req, res) {
 
     const session = await stripe.checkout.sessions.create(
       checkoutPayload,
-      { idempotencyKey: checkoutIdempotencyKey(user.id, plan.key, paymentMethod) }
+      { idempotencyKey: checkoutIdempotencyKey(user.id, plan.key, paymentMethod, effectiveAttemptId) }
     );
+    await updateCheckoutAttempt(effectiveAttemptId, {
+      stripe_session_id: session.id,
+      expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+    });
 
     logAuditEvent("subscription.checkout.created", req, {
       actorId: user.id,
       outcome: "success",
       provider: "stripe",
     });
-    return res.status(200).json({
-      success: true,
-      data: { url: session.url, planKey: plan.key, paymentMethod },
-    });
+    return sendSuccess(req, res, { url: session.url, planKey: plan.key, paymentMethod, attemptId: effectiveAttemptId });
   } catch (error) {
     logServerError("stripe_checkout", error, req);
     return sendError(req, res, error, "Nao foi possivel iniciar a assinatura");

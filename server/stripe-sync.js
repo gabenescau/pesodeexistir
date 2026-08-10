@@ -1,5 +1,6 @@
 import {
   insertSubscription,
+  markCheckoutAttemptBySession,
   supabaseRequest,
   updateSubscription,
 } from "./supabase.js";
@@ -91,11 +92,13 @@ export async function fulfillPaidCheckoutSession(stripe, session) {
     const subscription = await stripe.subscriptions.retrieve(session.subscription, {
       expand: ["items.data.price"],
     });
-    return syncStripeSubscription(subscription, {
+    const synced = await syncStripeSubscription(subscription, {
       userId: session.metadata?.user_id,
       checkoutId: session.id,
       email: session.customer_details?.email || "",
     });
+    await markCheckoutAttemptBySession(session.id, "completed");
+    return synced;
   }
 
   if (session.mode !== "payment" || session.payment_status !== "paid") return null;
@@ -130,27 +133,38 @@ export async function fulfillPaidCheckoutSession(stripe, session) {
     },
   };
 
-  if (existing) return updateSubscription(existing.id, payload);
+  if (existing) {
+    const updated = await updateSubscription(existing.id, payload);
+    await markCheckoutAttemptBySession(session.id, "completed");
+    return updated;
+  }
   const userId = session.metadata?.user_id;
   if (!userId) return null;
 
   try {
-    return await insertSubscription({
+    const inserted = await insertSubscription({
       ...payload,
       user_id: userId,
       created_at: paidAt.toISOString(),
     });
+    await markCheckoutAttemptBySession(session.id, "completed");
+    return inserted;
   } catch (error) {
     if (Number(error?.status) !== 409) throw error;
     const concurrent = await findSubscriptionByCheckoutId(session.id);
-    return concurrent ? updateSubscription(concurrent.id, payload) : null;
+    const updated = concurrent ? await updateSubscription(concurrent.id, payload) : null;
+    if (updated) await markCheckoutAttemptBySession(session.id, "completed");
+    return updated;
   }
 }
 
 export async function markCheckoutFailed(session, status = "expired") {
   const existing = await findSubscriptionByCheckoutId(session?.id);
-  if (!existing || existing.status !== "pending") return null;
-  return updateSubscription(existing.id, { status });
+  const updated = existing && existing.status === "pending"
+    ? await updateSubscription(existing.id, { status })
+    : null;
+  await markCheckoutAttemptBySession(session?.id, "expired");
+  return updated;
 }
 
 export async function syncStripeInvoice(stripe, invoice, paid) {
@@ -180,4 +194,19 @@ export async function cancelDeletedStripeSubscription(subscription) {
     cancel_at_period_end: false,
     canceled_at: isoTime(subscription.canceled_at) || new Date().toISOString(),
   });
+}
+
+export function clearPendingPlanMetadata(metadata = {}) {
+  const next = { ...metadata };
+  delete next.requested_plan;
+  delete next.change_mode;
+  delete next.changed_at;
+  return next;
+}
+
+export async function clearExpiredPendingPlan(providerSubscriptionId) {
+  const existing = await findSubscriptionByProviderId(stableString(providerSubscriptionId));
+  if (!existing) return null;
+  const metadata = clearPendingPlanMetadata(existing.metadata);
+  return updateSubscription(existing.id, { metadata });
 }

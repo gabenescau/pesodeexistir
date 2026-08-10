@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, Check, ChevronRight, X, MapPin, User, Phone, Mail, Package } from "@/lib/icons";
 import { isSupabaseReady, supabase } from "../data/supabase";
+import { useAuth } from "../data/AuthContext";
 
 const STEPS = ["Dados", "Endereço", "Confirmação"];
 
@@ -69,6 +70,7 @@ function Field({ label, value, onChange, type = "text", placeholder, icon: Icon,
 }
 
 export function CheckoutModal({ isOpen, onClose, product, paymentMethod = "credits", onConfirm }) {
+  const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     name: "", email: "", phone: "",
@@ -122,7 +124,8 @@ export function CheckoutModal({ isOpen, onClose, product, paymentMethod = "credi
       setLoading(true);
       try {
         const order = {
-          id: `order-${Date.now()}`,
+          id: `order-${crypto.randomUUID()}`,
+          idempotencyKey: crypto.randomUUID(),
           productId: product.id,
           productName: product.name,
           productCategory: product.category,
@@ -145,27 +148,28 @@ export function CheckoutModal({ isOpen, onClose, product, paymentMethod = "credi
         // Persiste o pedido: banco primeiro (fonte da aba "Pedidos" do admin),
         // fallback localStorage se o Supabase nao estiver configurado.
         if (isSupabaseReady()) {
-          try {
-            await supabase.from("orders").insert({
-              product_id: product.id || null,
-              product_name: product.name,
-              product_category: product.category || null,
-              payment_method,
-              credits_cost: paymentMethod === "credits" ? product.credits_cost : null,
-              real_price: paymentMethod === "real" ? (product.real_price || null) : null,
-              customer: { name: form.name, email: form.email, phone: form.phone },
-              address: {
-                cep: form.cep,
-                street: form.street,
-                number: form.number,
-                complement: form.complement,
-                neighborhood: form.neighborhood,
-                city: form.city,
-                state: form.state,
-              },
-            });
-          } catch {}
+          if (!user?.id) throw new Error("Sessao obrigatoria para criar o pedido");
+          const { data, error } = await supabase.rpc("create_shop_order", {
+            p_product_id: product.id || null,
+            p_payment_method: paymentMethod,
+            p_customer: { name: form.name, email: form.email, phone: form.phone },
+            p_address: {
+              cep: form.cep,
+              street: form.street,
+              number: form.number,
+              complement: form.complement,
+              neighborhood: form.neighborhood,
+              city: form.city,
+              state: form.state,
+            },
+            p_idempotency_key: order.idempotencyKey,
+          });
+          if (error) throw error;
+          if (data?.id) order.id = data.id;
         } else {
+          if (import.meta.env.PROD) {
+            throw new Error("O servico de pedidos esta temporariamente indisponivel.");
+          }
           try {
             const existing = JSON.parse(localStorage.getItem("ope_orders") || "[]");
             existing.unshift(order);

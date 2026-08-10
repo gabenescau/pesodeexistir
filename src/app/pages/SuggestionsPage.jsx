@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, Lightbulb, MessageSquare, Plus, Send, Trash2, X 
 import { HeartIcon } from "@/components/heart-icon";
 import { useAuth } from "@/app/data/AuthContext";
 import { supabase, isSupabaseReady } from "../data/supabase";
+import { authenticatedApiPost, authenticatedApiRequest } from "@/lib/authenticated-api";
 import { sanitizePlainText, sanitizeSingleLine } from "@/lib/sanitize";
 import { toast } from "@/lib/toast";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -15,44 +16,6 @@ const columns = [
 ];
 
 const categoryOptions = ["Biblioteca", "Comunidade", "Leitura", "Planos", "Perfil"];
-
-// Likes por sessao (localStorage). Servidor-sync pede migration nova;
-// ate la, o contador reflete quantas pessoas *neste navegador* curtiram.
-const LIKES_STORAGE_KEY = "ope:suggestion-likes";
-function carregarLikes() {
-  if (typeof window === "undefined") return {};
-  try {
-    return JSON.parse(window.localStorage.getItem(LIKES_STORAGE_KEY) || "{}");
-  } catch {
-    return {};
-  }
-}
-function salvarLikes(mapa) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(LIKES_STORAGE_KEY, JSON.stringify(mapa));
-  } catch {
-    // localStorage bloqueado: ignora.
-  }
-}
-
-async function authenticatedApiPost(path, payload) {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const accessToken = sessionData?.session?.access_token;
-  if (!accessToken) throw new Error("Sua sessao expirou. Entre novamente.");
-
-  const response = await fetch(path, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-  const body = await response.json();
-  if (!body.success) throw new Error(body.error || "Nao foi possivel concluir a operacao.");
-  return body.data;
-}
 
 function statusIndex(status) {
   return Math.max(0, columns.findIndex((column) => column.id === status));
@@ -167,7 +130,7 @@ function SuggestionForm({ open, onClose, onCreated }) {
       const { data, error: insertError } = await supabase
         .from("suggestions")
         .insert(payload)
-        .select("*")
+        .select("id,user_id,title,description,category,status,author_name,comment_count,created_at,updated_at")
         .single();
       if (insertError) throw insertError;
       onCreated(data);
@@ -249,20 +212,24 @@ export function SuggestionsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [movingId, setMovingId] = useState("");
   const [error, setError] = useState("");
-  const [likes, setLikes] = useState(() => carregarLikes());
+  const [likes, setLikes] = useState({});
+  const [likeCounts, setLikeCounts] = useState({});
+  const [likingId, setLikingId] = useState("");
 
-  function toggleLike(suggestion) {
-    setLikes((atual) => {
-      const prox = { ...atual };
-      const liked = !!prox[suggestion.id];
-      if (liked) {
-        delete prox[suggestion.id];
-      } else {
-        prox[suggestion.id] = true;
-      }
-      salvarLikes(prox);
-      return prox;
-    });
+  async function toggleLike(suggestion) {
+    if (!suggestion?.id || likingId) return;
+    setLikingId(suggestion.id);
+    try {
+      const result = await authenticatedApiPost("/api/suggestion-likes", {
+        suggestionId: suggestion.id,
+      });
+      setLikes((current) => ({ ...current, [suggestion.id]: result.liked }));
+      setLikeCounts((current) => ({ ...current, [suggestion.id]: result.likeCount }));
+    } catch (err) {
+      toast.error(err?.message || "Nao foi possivel atualizar a curtida.");
+    } finally {
+      setLikingId("");
+    }
   }
 
   useEffect(() => {
@@ -272,12 +239,19 @@ export function SuggestionsPage() {
       setError("");
       try {
         if (!isSupabaseReady()) throw new Error("Supabase nao configurado.");
-        const { data, error: queryError } = await supabase
-          .from("suggestions")
-          .select("*")
-          .order("created_at", { ascending: false });
+        const [{ data, error: queryError }, likeData] = await Promise.all([
+          supabase
+            .from("suggestions")
+            .select("id,user_id,title,description,category,status,author_name,comment_count,created_at,updated_at")
+            .order("created_at", { ascending: false }),
+          authenticatedApiRequest("/api/suggestion-likes"),
+        ]);
         if (queryError) throw queryError;
-        if (alive) setSuggestions(data || []);
+        if (alive) {
+          setSuggestions(data || []);
+          setLikes(Object.fromEntries((likeData?.likedIds || []).map((id) => [id, true])));
+          setLikeCounts(Object.fromEntries((likeData?.counts || []).map((item) => [item.suggestion_id, item.like_count])));
+        }
       } catch (err) {
         if (alive) setError(err?.message || "Nao foi possivel carregar sugestoes.");
       } finally {
@@ -386,12 +360,12 @@ export function SuggestionsPage() {
                     key={suggestion.id}
                     suggestion={suggestion}
                     canManage={canManageContent}
-                    moving={movingId === suggestion.id}
+                    moving={movingId === suggestion.id || likingId === suggestion.id}
                     onMove={moveSuggestion}
                     onDelete={deleteSuggestion}
                     onLike={toggleLike}
                     liked={!!likes[suggestion.id]}
-                    likeCount={(suggestion.like_count || 0) + (likes[suggestion.id] ? 1 : 0)}
+                    likeCount={likeCounts[suggestion.id] ?? suggestion.like_count ?? 0}
                   />
                 ))
               ) : (

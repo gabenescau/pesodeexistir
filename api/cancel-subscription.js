@@ -6,19 +6,20 @@ import {
   getSubscription,
   logAuditEvent,
   logServerError,
-  requireUuid,
+  sendClientError,
   sendError,
+  sendSuccess,
   updateSubscription,
 } from "../server/supabase.js";
 import { getStripe } from "../server/stripe.js";
+import { parseSubscriptionIdInput } from "../src/lib/api-contracts.js";
 
 export default async function handler(req, res) {
   if (!allowPost(req, res)) return;
 
   try {
     const user = await getAuthenticatedUser(req);
-    const { subscriptionId, immediate = false } = req.body || {};
-    requireUuid(subscriptionId, "subscriptionId");
+    const { subscriptionId, immediate } = parseSubscriptionIdInput(req.body);
     if (!await enforceRateLimit(req, res, {
       scope: "cancel_subscription",
       limit: 8,
@@ -31,15 +32,15 @@ export default async function handler(req, res) {
       getSubscription(subscriptionId),
     ]);
     if (!subscription) {
-      return res.status(404).json({ success: false, error: "Assinatura nao encontrada" });
+      return sendClientError(req, res, 404, "Assinatura nao encontrada");
     }
 
     const isAdmin = profile?.role === "admin";
     if (!isAdmin && subscription.user_id !== user.id) {
-      return res.status(403).json({ success: false, error: "Operacao nao permitida" });
+      return sendClientError(req, res, 403, "Operacao nao permitida");
     }
     if (!["active", "past_due", "trialing"].includes(subscription.status)) {
-      return res.status(409).json({ success: false, error: "A assinatura nao esta ativa" });
+      return sendClientError(req, res, 409, "A assinatura nao esta ativa");
     }
 
     const now = new Date().toISOString();
@@ -50,7 +51,9 @@ export default async function handler(req, res) {
       // Usuario comum cancela no fim do periodo (cancel_at_period_end).
       const stripe = getStripe();
       if (immediate && isAdmin) {
-        await stripe.subscriptions.cancel(subscription.provider_subscription_id);
+        await stripe.subscriptions.cancel(subscription.provider_subscription_id, {
+          idempotencyKey: `ope-cancel-${subscription.provider_subscription_id}-immediate`,
+        });
         updated = await updateSubscription(subscription.id, {
           status: "canceled",
           cancel_at_period_end: false,
@@ -65,7 +68,8 @@ export default async function handler(req, res) {
       } else {
         const remote = await stripe.subscriptions.update(
           subscription.provider_subscription_id,
-          { cancel_at_period_end: true }
+          { cancel_at_period_end: true },
+          { idempotencyKey: `ope-cancel-${subscription.provider_subscription_id}-period-end` }
         );
         updated = await updateSubscription(subscription.id, {
           cancel_at_period_end: Boolean(remote.cancel_at_period_end),
@@ -79,10 +83,7 @@ export default async function handler(req, res) {
       }
     } else if (subscription.provider === "stripe") {
       if (!isAdmin) {
-        return res.status(409).json({
-          success: false,
-          error: "O pagamento por PIX nao tem renovacao automatica. Seu acesso termina na data informada e nao ha assinatura recorrente para cancelar.",
-        });
+        return sendClientError(req, res, 409, "O pagamento por PIX nao tem renovacao automatica. Seu acesso termina na data informada e nao ha assinatura recorrente para cancelar.");
       }
       updated = await updateSubscription(subscription.id, {
         status: "canceled",
@@ -96,6 +97,9 @@ export default async function handler(req, res) {
       });
     } else {
       // Provedores locais (manual_admin, legados): encerra imediatamente no banco.
+      if (!isAdmin) {
+        return sendClientError(req, res, 403, "Somente administradores podem cancelar assinaturas manuais.");
+      }
       updated = await updateSubscription(subscription.id, {
         status: "canceled",
         cancel_at_period_end: false,
@@ -114,7 +118,7 @@ export default async function handler(req, res) {
       outcome: "success",
       provider: subscription.provider,
     });
-    return res.status(200).json({ success: true, data: updated });
+    return sendSuccess(req, res, updated);
   } catch (error) {
     logServerError("cancel_subscription", error, req);
     return sendError(req, res, error, "Erro interno ao cancelar assinatura");

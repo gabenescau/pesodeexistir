@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { BarChart3, BookOpen, Image, Plus, Send, UserRound, X } from "@/lib/icons";
+import { BarChart3, Image, Plus, Send, UserRound, X } from "@/lib/icons";
 import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
 import { useRewards } from "@/app/data/RewardsContext";

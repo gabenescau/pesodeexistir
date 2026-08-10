@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { hasPermission, normalizeRole, PERMISSIONS } from "../src/lib/rbac.js";
+import { getCheckoutAttemptConflict } from "./stripe.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_PUBLIC_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
@@ -11,9 +12,6 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3
 const PRODUCTION_ORIGINS = new Set([
   "https://pesodeexistir.online",
   "https://www.pesodeexistir.online",
-  "https://app.pesodeexistir.online",
-  "https://ope.club",
-  "https://www.ope.club",
 ]);
 
 function allowedOrigins() {
@@ -82,6 +80,7 @@ export function requireUuid(value, fieldName = "id") {
   if (!isUuid(value)) {
     const error = new Error(`${fieldName} invalido`);
     error.status = 400;
+    error.userSafe = true;
     throw error;
   }
   return value;
@@ -144,10 +143,9 @@ export function sendError(req, res, error, fallback = "Erro interno") {
   const safeStatus = Number.isFinite(status) && status >= 400 && status < 500 ? status : 500;
   const isProviderError =
     String(error?.message || "").startsWith("Supabase:");
-  // Erros 4xx do proprio app e erros marcados como userSafe (config errada com
-  // diagnostico acionavel) podem ir ao front. Internals 5xx e erros de provedor
-  // (Supabase) ficam genericos.
-  const message = (safeStatus < 500 || error?.userSafe) && !isProviderError
+  // Somente mensagens explicitamente marcadas pelo servidor podem voltar ao
+  // browser. Status 4xx nao transforma uma excecao interna em texto publico.
+  const message = error?.userSafe && !isProviderError
     ? String(error?.message || fallback)
     : fallback;
 
@@ -158,12 +156,31 @@ export function sendError(req, res, error, fallback = "Erro interno") {
   });
 }
 
+export function sendSuccess(req, res, data = null, status = 200, extra = {}) {
+  return res.status(status).json({
+    success: true,
+    data,
+    ...extra,
+    requestId: req?.requestId || null,
+  });
+}
+
+export function sendClientError(req, res, status, message, extra = {}) {
+  return res.status(status).json({
+    success: false,
+    error: message,
+    ...extra,
+    requestId: req?.requestId || null,
+  });
+}
+
 export async function getAuthenticatedUser(req) {
   requireConfig();
   const token = getBearerToken(req);
   if (!token) {
     const error = new Error("Sessao obrigatoria");
     error.status = 401;
+    error.userSafe = true;
     throw error;
   }
 
@@ -177,6 +194,7 @@ export async function getAuthenticatedUser(req) {
   if (!response.ok) {
     const error = new Error("Sessao invalida ou expirada");
     error.status = 401;
+    error.userSafe = true;
     throw error;
   }
 
@@ -206,8 +224,19 @@ export async function supabaseRequest(path, options = {}) {
 }
 
 function getClientAddress(req) {
-  const forwarded = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
-  return forwarded || req.socket?.remoteAddress || "unknown";
+  // Em Vercel, estes headers sao preenchidos pelo proxy da plataforma. Fora
+  // dela, nao confiamos em X-Forwarded-For enviado pelo proprio cliente.
+  const isTrustedProxy = process.env.VERCEL === "1" || Boolean(req.headers["x-vercel-id"]);
+  if (isTrustedProxy) {
+    const realIp = String(req.headers["x-real-ip"] || "").trim();
+    if (realIp) return realIp;
+    const forwarded = String(req.headers["x-forwarded-for"] || "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean)[0];
+    if (forwarded) return forwarded;
+  }
+  return req.socket?.remoteAddress || "unknown";
 }
 
 async function consumeRateLimit({ scope, limit, windowSeconds, rawIdentifier }) {
@@ -299,7 +328,10 @@ export async function enforceRateLimit(req, res, {
       scope,
       message: String(error?.message || "indisponivel").slice(0, 300),
     }));
-    if (process.env.RATE_LIMIT_FAIL_OPEN !== "true") {
+    const allowFailOpenInDevelopment =
+      process.env.NODE_ENV !== "production" &&
+      process.env.RATE_LIMIT_FAIL_OPEN === "true";
+    if (!allowFailOpenInDevelopment) {
       res.status(503).json({
         success: false,
         error: "Servico temporariamente indisponivel.",
@@ -325,6 +357,7 @@ export async function requireAdmin(user) {
   if (!isAdmin) {
     const error = new Error("Acesso restrito a administradores");
     error.status = 403;
+    error.userSafe = true;
     throw error;
   }
   return profile;
@@ -336,6 +369,7 @@ export async function requirePermission(user, permission) {
   if (!hasPermission(role, permission)) {
     const error = new Error("Voce nao tem permissao para esta operacao");
     error.status = 403;
+    error.userSafe = true;
     throw error;
   }
   return profile;
@@ -375,6 +409,107 @@ export async function insertSubscription(payload) {
     body: JSON.stringify(payload),
   });
   return rows?.[0] || null;
+}
+
+export async function deleteAuthUser(userId) {
+  requireConfig();
+  requireUuid(userId, "userId");
+  const response = await fetchWithTimeout(
+    `${SUPABASE_URL}/auth/v1/admin/users/${encodeURIComponent(userId)}`,
+    {
+      method: "DELETE",
+      headers: getServiceHeaders(),
+    }
+  );
+  if (!response.ok) {
+    const error = new Error(`Supabase: ${await response.text()}`);
+    error.status = response.status;
+    throw error;
+  }
+}
+
+export async function getOpenCheckoutAttempt(userId) {
+  const rows = await supabaseRequest(
+    `billing_checkout_attempts?user_id=eq.${encodeURIComponent(userId)}&status=eq.open&order=created_at.desc&limit=1&select=*`
+  );
+  return rows?.[0] || null;
+}
+
+export async function claimCheckoutAttempt({ attemptId, userId, planKey, paymentMethod }) {
+  const existing = await supabaseRequest(
+    `billing_checkout_attempts?attempt_id=eq.${encodeURIComponent(attemptId)}&limit=1&select=*`
+  );
+  if (existing?.[0]) {
+    const conflict = getCheckoutAttemptConflict(existing[0], { userId, planKey, paymentMethod });
+    if (conflict === "forbidden") {
+      const error = new Error("Tentativa de checkout nao pertence a esta conta");
+      error.status = 403;
+      error.userSafe = true;
+      throw error;
+    }
+    if (conflict === "pending_conflict" || existing[0].status !== "open") {
+      const error = new Error("Ja existe um checkout em processamento. Aguarde a confirmacao ou sua expiracao.");
+      error.status = 409;
+      error.userSafe = true;
+      throw error;
+    }
+    return { attempt: existing[0], reused: true };
+  }
+
+  try {
+    const rows = await supabaseRequest("billing_checkout_attempts", {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({ attempt_id: attemptId, user_id: userId, plan_key: planKey, payment_method: paymentMethod }),
+    });
+    return { attempt: rows?.[0] || null, reused: false };
+  } catch (error) {
+    if (Number(error?.status) !== 409) throw error;
+    const open = await getOpenCheckoutAttempt(userId);
+    if (open) {
+      const conflict = getCheckoutAttemptConflict(open, { userId, planKey, paymentMethod });
+      if (conflict === "pending_conflict") {
+        const pendingError = new Error("Ja existe um checkout em processamento. Aguarde a confirmacao ou sua expiracao.");
+        pendingError.status = 409;
+        pendingError.userSafe = true;
+        throw pendingError;
+      }
+      return { attempt: open, conflict: true };
+    }
+    throw error;
+  }
+}
+
+export async function expireOpenCheckoutAttempts(userId) {
+  await supabaseRequest(
+    `billing_checkout_attempts?user_id=eq.${encodeURIComponent(userId)}&status=eq.open`,
+    {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ status: "expired", updated_at: new Date().toISOString() }),
+    }
+  );
+}
+
+export async function updateCheckoutAttempt(attemptId, payload) {
+  const rows = await supabaseRequest(
+    `billing_checkout_attempts?attempt_id=eq.${encodeURIComponent(attemptId)}`,
+    {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({ ...payload, updated_at: new Date().toISOString() }),
+    }
+  );
+  return rows?.[0] || null;
+}
+
+export async function markCheckoutAttemptBySession(sessionId, status) {
+  if (!sessionId) return null;
+  const rows = await supabaseRequest(
+    `billing_checkout_attempts?stripe_session_id=eq.${encodeURIComponent(sessionId)}&limit=1&select=attempt_id`
+  );
+  const attemptId = rows?.[0]?.attempt_id;
+  return attemptId ? updateCheckoutAttempt(attemptId, { status }) : null;
 }
 
 export function allowPost(req, res) {

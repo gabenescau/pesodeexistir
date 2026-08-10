@@ -13,17 +13,28 @@ export function RewardsProvider({ children }) {
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState([]);
   const [myRedemptions, setMyRedemptions] = useState([]);
+  const [error, setError] = useState("");
   const loadedRef = useRef(false);
 
   const refresh = useCallback(async () => {
-    const state = await rewardApi.walletState();
-    setWallet(normalizeWalletState(state));
-    return state;
+    try {
+      const state = await rewardApi.walletState();
+      setWallet(normalizeWalletState(state));
+      setError("");
+      return state;
+    } catch (cause) {
+      setError("Nao foi possivel atualizar sua carteira. Tente novamente.");
+      throw cause;
+    }
   }, []);
 
   const loadProducts = useCallback(async () => {
     const { supabase, isSupabaseReady } = await import("./supabase");
     if (!isSupabaseReady()) {
+      if (import.meta.env.PROD) {
+        setProducts([]);
+        throw new Error("Catalogo da loja indisponivel");
+      }
       let localProducts = [];
       try {
         const stored = localStorage.getItem("ope_shop_products_dev");
@@ -116,7 +127,7 @@ export function RewardsProvider({ children }) {
     }
     const { data, error } = await supabase
       .from("shop_products")
-      .select("*")
+      .select("id,name,description,category,credits_cost,real_price,min_months_active,image_url,images,active,external_sku,created_at,updated_at")
       .eq("active", true)
       .order("credits_cost", { ascending: true });
     if (error) throw error;
@@ -132,7 +143,7 @@ export function RewardsProvider({ children }) {
     }
     const { data, error } = await supabase
       .from("shop_redemptions")
-      .select("*")
+      .select("id,user_id,product_id,credits_spent,status,customer_name,customer_email,address_json,tracking_code,notes,created_at,updated_at")
       .order("created_at", { ascending: false })
       .limit(100);
     if (error) throw error;
@@ -143,6 +154,7 @@ export function RewardsProvider({ children }) {
   useEffect(() => {
     if (!isAuthenticated || !user?.id) {
       setWallet(null);
+      setError("");
       setProducts([]);
       setMyRedemptions([]);
       loadedRef.current = false;
@@ -150,8 +162,14 @@ export function RewardsProvider({ children }) {
     }
     if (loadedRef.current) return;
     loadedRef.current = true;
+    setError("");
     setLoading(true);
     Promise.allSettled([refresh(), loadProducts(), loadMyRedemptions()])
+      .then((results) => {
+        if (results.some((result) => result.status === "rejected")) {
+          setError("Nao foi possivel atualizar sua carteira ou a loja. Tente novamente.");
+        }
+      })
       .finally(() => setLoading(false));
   }, [isAuthenticated, user?.id, refresh, loadProducts, loadMyRedemptions]);
 
@@ -201,8 +219,8 @@ export function RewardsProvider({ children }) {
     return raw;
   }, [applyRpcResult]);
 
-  const redeemProduct = useCallback(async (productId, customerName, customerEmail, address) => {
-    const raw = await rewardApi.redeemProduct(productId, customerName, customerEmail, address);
+  const redeemProduct = useCallback(async (productId, customerName, customerEmail, address, idempotencyKey) => {
+    const raw = await rewardApi.redeemProduct(productId, customerName, customerEmail, address, idempotencyKey);
     if (raw?.wallet) applyRpcResult(raw.wallet);
     await loadMyRedemptions();
     return raw;
@@ -233,6 +251,7 @@ export function RewardsProvider({ children }) {
   const value = useMemo(() => ({
     wallet,
     loading,
+    error,
     products,
     myRedemptions,
     refresh,
@@ -251,7 +270,7 @@ export function RewardsProvider({ children }) {
     referralClaim,
     addCredits,
   }), [
-    wallet, loading, products, myRedemptions, refresh, loadProducts, loadMyRedemptions,
+    wallet, loading, error, products, myRedemptions, refresh, loadProducts, loadMyRedemptions,
     rewardLogin, reportReading, rewardPost, rewardComment, rewardLikesReceived,
     completeDailyMission, completeWeeklyMission, redeemProduct,
     getMyReferralCode, registerReferral, referralClaim, addCredits,

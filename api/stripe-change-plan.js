@@ -1,4 +1,5 @@
 import { getPlanByKey } from "../server/plans.js";
+import { parseSubscriptionInput } from "../src/lib/api-contracts.js";
 import {
   allowPost,
   enforceRateLimit,
@@ -7,8 +8,9 @@ import {
   getSubscription,
   logAuditEvent,
   logServerError,
-  requireUuid,
+  sendClientError,
   sendError,
+  sendSuccess,
   updateSubscription,
 } from "../server/supabase.js";
 import { getStripe, validatePriceForPlan } from "../server/stripe.js";
@@ -22,11 +24,10 @@ export default async function handler(req, res) {
 
   try {
     const user = await getAuthenticatedUser(req);
-    const { subscriptionId, plan: planKey } = req.body || {};
-    requireUuid(subscriptionId, "subscriptionId");
+    const { subscriptionId, plan: planKey } = parseSubscriptionInput(req.body);
     const plan = getPlanByKey(planKey);
     if (!plan) {
-      return res.status(400).json({ success: false, error: "Plano invalido", requestId: req.requestId });
+      return sendClientError(req, res, 400, "Plano invalido");
     }
     if (!await enforceRateLimit(req, res, {
       scope: "stripe_change_plan",
@@ -40,14 +41,20 @@ export default async function handler(req, res) {
       getSubscription(subscriptionId),
     ]);
     if (!subscription) {
-      return res.status(404).json({ success: false, error: "Assinatura nao encontrada" });
+      return sendClientError(req, res, 404, "Assinatura nao encontrada");
     }
     const isAdmin = profile?.role === "admin";
     if (!isAdmin && subscription.user_id !== user.id) {
-      return res.status(403).json({ success: false, error: "Operacao nao permitida" });
+      return sendClientError(req, res, 403, "Operacao nao permitida");
+    }
+    if (subscription.status === "pending" && !isAdmin) {
+      return sendClientError(req, res, 403, "A assinatura ainda esta pendente. Aguarde a confirmacao do pagamento.");
     }
     if (subscription.plan === plan.plan) {
-      return res.status(409).json({ success: false, error: "Ja e o plano atual" });
+      return sendClientError(req, res, 409, "Ja e o plano atual");
+    }
+    if (subscription.metadata?.requested_plan === plan.plan) {
+      return sendSuccess(req, res, { pending: true, subscriptionId: subscription.id, requestedPlan: plan.plan });
     }
 
     const now = new Date().toISOString();
@@ -60,13 +67,15 @@ export default async function handler(req, res) {
       );
       const item = remote?.items?.data?.[0];
       if (!item?.id) {
-        return res.status(409).json({ success: false, error: "Assinatura no Stripe sem itens" });
+        return sendClientError(req, res, 409, "Assinatura no Stripe sem itens");
       }
       const newPriceId = await validatePriceForPlan(plan);
       const changed = await stripe.subscriptions.update(remote.id, {
         items: [{ id: item.id, price: newPriceId }],
         payment_behavior: "pending_if_incomplete",
         proration_behavior: "always_invoice",
+      }, {
+        idempotencyKey: `ope-plan-change-${remote.id}-${plan.key}-${remote.current_period_start || "current"}`,
       });
       await updateSubscription(subscription.id, {
         metadata: {
@@ -86,24 +95,21 @@ export default async function handler(req, res) {
         fromPlan: subscription.plan,
         toPlan: plan.plan,
       });
-      return res.status(200).json({
-        success: true,
-        data: {
-          pending: Boolean(changed.pending_update),
-          subscriptionId: subscription.id,
-          requestedPlan: plan.plan,
-        },
+      return sendSuccess(req, res, {
+        pending: Boolean(changed.pending_update),
+        subscriptionId: subscription.id,
+        requestedPlan: plan.plan,
       });
     }
 
     if (subscription.provider === "stripe" && !subscription.provider_subscription_id) {
-      return res.status(409).json({
-        success: false,
-        error: "O acesso pago por PIX nao e recorrente. Escolha outro plano quando este periodo terminar.",
-      });
+      return sendClientError(req, res, 409, "O acesso pago por PIX nao e recorrente. Escolha outro plano quando este periodo terminar.");
     }
 
     if (subscription.provider === "manual_admin" || subscription.status === "pending") {
+      if (!isAdmin) {
+        return sendClientError(req, res, 403, "Somente administradores podem alterar assinaturas manuais ou pendentes.");
+      }
       const updated = await updateSubscription(subscription.id, {
         plan: plan.plan,
         metadata: {
@@ -122,10 +128,10 @@ export default async function handler(req, res) {
         fromPlan: subscription.plan,
         toPlan: plan.plan,
       });
-      return res.status(200).json({ success: true, data: updated });
+      return sendSuccess(req, res, updated);
     }
 
-    return res.status(409).json({ success: false, error: "Nao foi possivel trocar o plano desta assinatura" });
+    return sendClientError(req, res, 409, "Nao foi possivel trocar o plano desta assinatura");
   } catch (error) {
     logServerError("stripe_change_plan", error, req);
     return sendError(req, res, error, "Erro interno ao trocar de plano");

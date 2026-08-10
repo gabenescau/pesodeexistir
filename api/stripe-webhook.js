@@ -2,6 +2,9 @@ import {
   logAuditEvent,
   logServerError,
   prepareResponse,
+  sendClientError,
+  sendError,
+  sendSuccess,
   supabaseRequest,
 } from "../server/supabase.js";
 import { getStripe } from "../server/stripe.js";
@@ -9,6 +12,7 @@ import {
   cancelDeletedStripeSubscription,
   fulfillPaidCheckoutSession,
   markCheckoutFailed,
+  clearExpiredPendingPlan,
   syncStripeInvoice,
   syncStripeSubscription,
 } from "../server/stripe-sync.js";
@@ -46,51 +50,34 @@ async function readRawBody(req) {
 }
 
 async function claimEvent(event) {
-  const rows = await supabaseRequest(
-    "stripe_webhook_events?on_conflict=event_id",
-    {
-      method: "POST",
-      headers: { "Prefer": "resolution=ignore-duplicates,return=representation" },
-      body: JSON.stringify({
-        event_id: String(event.id).slice(0, 255),
-        event_type: String(event.type || "unknown").slice(0, 255),
-        subscription_id: String(
-          event.data?.object?.subscription || event.data?.object?.id || ""
-        ).slice(0, 255) || null,
-        status: "processing",
-      }),
-    }
-  );
-  return Array.isArray(rows) && rows.length > 0;
+  const result = await supabaseRequest("rpc/claim_stripe_webhook_event", {
+    method: "POST",
+    body: JSON.stringify({
+      p_event_id: String(event.id).slice(0, 255),
+      p_event_type: String(event.type || "unknown").slice(0, 255),
+      p_subscription_id: String(
+        event.data?.object?.subscription || event.data?.object?.id || ""
+      ).slice(0, 255) || null,
+    }),
+  });
+  return Boolean(result?.claimed);
 }
 
 async function finishEvent(eventId) {
-  await supabaseRequest(
-    `stripe_webhook_events?event_id=eq.${encodeURIComponent(eventId)}`,
-    {
-      method: "PATCH",
-      headers: { "Prefer": "return=minimal" },
-      body: JSON.stringify({ status: "processed", processed_at: new Date().toISOString() }),
-    }
-  );
+  await supabaseRequest("rpc/finish_stripe_webhook_event", {
+    method: "POST",
+    body: JSON.stringify({ p_event_id: String(eventId).slice(0, 255) }),
+  });
 }
 
 async function releaseEvent(eventId, error) {
-  await supabaseRequest(
-    `stripe_webhook_events?event_id=eq.${encodeURIComponent(eventId)}`,
-    {
-      method: "PATCH",
-      headers: { "Prefer": "return=minimal" },
-      body: JSON.stringify({
-        status: "failed",
-        last_error: String(error?.message || "Erro desconhecido").slice(0, 500),
-      }),
-    }
-  ).catch(() => null);
-  await supabaseRequest(
-    `stripe_webhook_events?event_id=eq.${encodeURIComponent(eventId)}&status=eq.failed`,
-    { method: "DELETE", headers: { "Prefer": "return=minimal" } }
-  ).catch(() => null);
+  await supabaseRequest("rpc/fail_stripe_webhook_event", {
+    method: "POST",
+    body: JSON.stringify({
+      p_event_id: String(eventId).slice(0, 255),
+      p_error: String(error?.message || "Erro desconhecido").slice(0, 500),
+    }),
+  }).catch(() => null);
 }
 
 async function processEvent(stripe, event) {
@@ -109,7 +96,16 @@ async function processEvent(stripe, event) {
       const current = await stripe.subscriptions.retrieve(object.id, {
         expand: ["items.data.price"],
       });
-      return syncStripeSubscription(current, { userId: current.metadata?.user_id });
+      const synced = await syncStripeSubscription(current, { userId: current.metadata?.user_id });
+      await clearExpiredPendingPlan(object.id);
+      return synced;
+    }
+    case "customer.subscription.pending_update_expired": {
+      const current = await stripe.subscriptions.retrieve(object.id, {
+        expand: ["items.data.price"],
+      });
+      await syncStripeSubscription(current, { userId: current.metadata?.user_id });
+      return clearExpiredPendingPlan(object.id);
     }
     case "customer.subscription.deleted":
       return cancelDeletedStripeSubscription(object);
@@ -117,6 +113,8 @@ async function processEvent(stripe, event) {
     case "invoice.payment_succeeded":
       return syncStripeInvoice(stripe, object, true);
     case "invoice.payment_failed":
+      return syncStripeInvoice(stripe, object, false);
+    case "invoice.payment_action_required":
       return syncStripeInvoice(stripe, object, false);
     default:
       return null;
@@ -126,7 +124,7 @@ async function processEvent(stripe, event) {
 export default async function handler(req, res) {
   prepareResponse(req, res);
   if (req.method !== "POST") {
-    return res.status(405).json({ success: false, error: "Metodo nao permitido" });
+    return sendClientError(req, res, 405, "Metodo nao permitido");
   }
 
   let eventId = null;
@@ -153,7 +151,7 @@ export default async function handler(req, res) {
 
     eventId = event.id;
     if (!await claimEvent(event)) {
-      return res.status(200).json({ success: true, duplicate: true });
+      return sendSuccess(req, res, null, 200, { duplicate: true });
     }
 
     await processEvent(stripe, event);
@@ -163,16 +161,12 @@ export default async function handler(req, res) {
       outcome: event.type,
       provider: "stripe",
     });
-    return res.status(200).json({ success: true });
+    return sendSuccess(req, res);
   } catch (error) {
     if (eventId) await releaseEvent(eventId, error);
     logServerError("stripe_webhook", error, req);
     const status = [400, 413].includes(Number(error?.status)) ? Number(error.status) : 500;
-    return res.status(status).json({
-      success: false,
-      error: status === 400 ? error.message : "Erro interno ao processar webhook",
-      requestId: req.requestId,
-    });
+    if (status === 400) return sendClientError(req, res, status, error.message);
+    return sendError(req, res, error, "Erro interno ao processar webhook");
   }
 }
-
