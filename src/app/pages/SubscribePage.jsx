@@ -1,242 +1,283 @@
-import { useState } from "react";
-import { useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
+import { authenticatedApiPost } from "@/lib/authenticated-api";
+import { CYCLES, TIERS, formatBRL, getTierPlanKey, planInfoFromCode } from "@/lib/plans";
 import { getCurrentSubscription, isActiveSubscription } from "@/lib/subscription";
-import { PLANS } from "@/lib/plans";
 import { PlanBenefitList } from "@/components/plan-benefit";
+import { CreditCard, Loader2, QrCode, ShieldCheck } from "@/lib/icons";
 import { toast } from "@/lib/toast";
 import { useCancelSurvey } from "@/components/ui/cancel-survey";
+
+const PAYMENT_METHODS = {
+  CARD: {
+    id: "CARD",
+    label: "Cartao",
+    description: "Renovacao automatica e gerenciamento pela Stripe",
+    icon: CreditCard,
+  },
+  PIX: {
+    id: "PIX",
+    label: "PIX",
+    description: "Pagamento unico por QR Code, sem renovacao automatica",
+    icon: QrCode,
+  },
+};
+
+const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 export function SubscribePage() {
   const { user, isAdmin } = useAuth();
   const { subscription, cancelSubscription } = useData();
   const navigate = useNavigate();
-  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const checkoutState = searchParams.get("checkout");
+  const checkoutSessionId = searchParams.get("session_id");
   const cancelSurvey = useCancelSurvey();
-  const [loading, setLoading] = useState(true);
-  const [cancelError, setCancelError] = useState("");
-  const [cancelling, setCancelling] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState("monthly");
+  const requestedTier = searchParams.get("plan");
+  const [tierId, setTierId] = useState(TIERS[requestedTier] ? requestedTier : "pensador");
+  const [cycle, setCycle] = useState("monthly");
+  const [paymentMethod, setPaymentMethod] = useState("CARD");
   const [currentSubscription, setCurrentSubscription] = useState(null);
-  const isAppPlansRoute = location.pathname.startsWith("/app/planos");
+  const [loading, setLoading] = useState(true);
+  const [working, setWorking] = useState("");
+  const [checkoutMessage, setCheckoutMessage] = useState("");
+
   const visibleSubscription = currentSubscription || subscription;
-  const hasActivePlan = isAdmin || isActiveSubscription(visibleSubscription);
-  const hasActiveSubscription = isActiveSubscription(visibleSubscription);
+  const active = isActiveSubscription(visibleSubscription);
+  const currentInfo = planInfoFromCode(visibleSubscription?.plan);
+  const selectedTier = TIERS[tierId];
+  const selectedPlanKey = getTierPlanKey(tierId, cycle);
+  const selectedPrice = cycle === "annual" ? selectedTier.annualPrice : selectedTier.monthlyPrice;
+  const isCurrentPlan = active && currentInfo?.tier === tierId && currentInfo?.cycle === cycle;
+  const isRecurringStripe = visibleSubscription?.provider === "stripe" && Boolean(visibleSubscription?.provider_subscription_id);
+  const isPixAccess = visibleSubscription?.provider === "stripe" && !visibleSubscription?.provider_subscription_id;
+  const canChangePlan = active && isRecurringStripe && !isCurrentPlan;
+
+  const priceCaption = useMemo(() => {
+    if (cycle === "annual") {
+      return `${formatBRL(selectedPrice)} por ano (${formatBRL(Math.round(selectedPrice / 12))}/mes)`;
+    }
+    return `${formatBRL(selectedPrice)} por mes`;
+  }, [cycle, selectedPrice]);
 
   useEffect(() => {
     if (!user) {
       navigate("/entrar");
       return;
     }
+    let cancelled = false;
+    getCurrentSubscription(user.id).then((value) => {
+      if (cancelled) return;
+      setCurrentSubscription(value);
+      setLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [navigate, user]);
 
-    if (isAdmin && !isAppPlansRoute) {
-      navigate("/app/inicio");
+  useEffect(() => {
+    if (checkoutState === "canceled") {
+      toast.info("Checkout cancelado. Nenhuma cobranca foi feita.");
+      setSearchParams({}, { replace: true });
+      return;
+    }
+    if (checkoutState !== "success" || !checkoutSessionId || !user) return;
+
+    let cancelled = false;
+    async function confirmCheckout() {
+      setWorking("confirm");
+      setCheckoutMessage("Confirmando o pagamento com a Stripe...");
+      try {
+        for (let attempt = 0; attempt < 12; attempt += 1) {
+          const result = await authenticatedApiPost("/api/stripe-session", { sessionId: checkoutSessionId });
+          if (result.fulfilled) {
+            toast.success("Pagamento confirmado. Seu acesso esta ativo.");
+            window.location.replace("/app/inicio?payment=success");
+            return;
+          }
+          if (result.status === "expired") throw new Error("O checkout expirou sem pagamento.");
+          if (attempt < 11) await sleep(2500);
+          if (cancelled) return;
+        }
+        setCheckoutMessage("O pagamento ainda esta sendo processado. Esta pagina pode ser atualizada em alguns instantes.");
+      } catch (error) {
+        if (!cancelled) {
+          setCheckoutMessage("");
+          toast.error(error?.message || "Nao foi possivel confirmar o pagamento.");
+        }
+      } finally {
+        if (!cancelled) setWorking("");
+      }
+    }
+    confirmCheckout();
+    return () => { cancelled = true; };
+  }, [checkoutSessionId, checkoutState, setSearchParams, user]);
+
+  async function handlePrimaryAction() {
+    if (working || isCurrentPlan) return;
+    if (isPixAccess && active) {
+      toast.info("Seu PIX concede acesso ate a data exibida. Um novo plano pode ser comprado depois desse periodo.");
       return;
     }
 
-    getCurrentSubscription(user.id).then((sub) => {
-      setCurrentSubscription(sub);
-      if (!isAppPlansRoute && isActiveSubscription(sub)) {
-        navigate("/app/inicio");
+    setWorking("checkout");
+    try {
+      if (canChangePlan) {
+        const result = await authenticatedApiPost("/api/stripe-change-plan", {
+          subscriptionId: visibleSubscription.id,
+          plan: selectedPlanKey,
+        });
+        toast.success(result.pending
+          ? "Alteracao solicitada. O plano muda quando a Stripe confirmar a cobranca."
+          : "Plano alterado com sucesso.");
         return;
       }
-      setLoading(false);
-    });
-  }, [user, isAdmin, isAppPlansRoute, navigate]);
 
-  function handleSubscribe() {
-    navigate("/app/planos");
+      const result = await authenticatedApiPost("/api/stripe-checkout", {
+        plan: selectedPlanKey,
+        paymentMethod,
+      });
+      if (!result?.url) throw new Error("A Stripe nao retornou o endereco do checkout.");
+      window.location.assign(result.url);
+    } catch (error) {
+      toast.error(error?.message || "Nao foi possivel abrir o checkout.");
+    } finally {
+      setWorking("");
+    }
   }
 
   async function handleCancel() {
-    if (!visibleSubscription || cancelling) return;
-    const resultado = await cancelSurvey.perguntar();
-    if (!resultado?.confirmado) return;
-    setCancelling(true);
-    setCancelError("");
+    if (!visibleSubscription || working) return;
+    const answer = await cancelSurvey.perguntar();
+    if (!answer?.confirmado) return;
+    setWorking("cancel");
     try {
       const updated = await cancelSubscription(visibleSubscription.id);
-      setCurrentSubscription(updated || { ...visibleSubscription, status: "canceled" });
-      toast.success("Assinatura cancelada. O acesso continua ate o fim do ciclo.");
-    } catch (e) {
-      const message = e?.message || "Nao foi possivel cancelar a assinatura.";
-      setCancelError(message);
-      toast.error(message);
+      setCurrentSubscription(updated);
+      toast.success("A renovacao foi cancelada. O acesso continua ate o fim do ciclo.");
+    } catch (error) {
+      toast.error(error?.message || "Nao foi possivel cancelar a assinatura.");
     } finally {
-      setCancelling(false);
+      setWorking("");
     }
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="size-6 border-2 border-[var(--border)] border-t-[var(--text-primary)] rounded-full animate-spin" />
-      </div>
-    );
+    return <div className="flex min-h-[50dvh] items-center justify-center"><Loader2 className="size-6 animate-spin" /></div>;
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12" style={{ background: "var(--bg-page)" }}>
-      <div className="max-w-4xl w-full space-y-8">
-        <div className="text-center">
-          <h1 className="text-[32px] font-[600] leading-[40px] tracking-[-1.28px] text-[var(--text-primary)]">
-            Escolha seu plano
-          </h1>
-          <p className="text-[16px] mt-2" style={{ color: "var(--text-muted)" }}>
-            Assine o OPE Club e tenha acesso completo à biblioteca e comunidade
-          </p>
-          {hasActivePlan && !isAdmin && (
-            <p className="mx-auto mt-4 max-w-xl rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-sm" style={{ color: "var(--text-secondary)" }}>
-              "Voce ja tem um plano ativo. Esta tela fica disponivel para consultar ou renovar seu acesso."
-            </p>
-          )}
-        </div>
+    <main className="mx-auto w-full max-w-5xl px-3 py-5 sm:px-6 sm:py-8">
+      <header className="mb-6">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--accent-mint)]">OPE Club</p>
+        <h1 className="mt-1 text-2xl font-semibold text-[var(--text-primary)] sm:text-3xl">Escolha como voce quer participar</h1>
+        <p className="mt-2 max-w-2xl text-sm text-[var(--text-muted)]">Planos e valores sao validados no servidor. O pagamento acontece no Checkout seguro da Stripe.</p>
+      </header>
 
-        {!isAdmin && (hasActivePlan || visibleSubscription) && (
-          <div className="mx-auto max-w-2xl rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-[var(--shadow-sm)]">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-[0.08em] text-[var(--text-muted)]">Plano atual</p>
-                <h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">
-                  {isAdmin ? "Acesso administrativo" : visibleSubscription?.plan === "ope_club_annual" ? "OPE Club Anual" : "OPE Club Mensal"}
-                </h2>
-                <p className="mt-1 text-sm text-[var(--text-muted)]">
-                  {isAdmin
-                    ? "Admins podem revisar os planos e gerenciar usuarios pelo painel."
-                    : visibleSubscription?.current_period_end
-                      ? `Valido ate ${new Date(visibleSubscription.current_period_end).toLocaleDateString("pt-BR")}`
-                      : "Assinatura vinculada a sua conta."}
-                </p>
+      {checkoutMessage ? (
+        <div className="mb-5 flex items-start gap-3 rounded-[8px] border border-[var(--border)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-secondary)]">
+          {working === "confirm" ? <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin" /> : <ShieldCheck className="mt-0.5 size-4 shrink-0" />}
+          {checkoutMessage}
+        </div>
+      ) : null}
+
+      {(active || isAdmin) && (
+        <section className="mb-5 flex flex-col gap-3 border-y border-[var(--border)] py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs uppercase text-[var(--text-muted)]">Plano atual</p>
+            <p className="mt-1 font-semibold text-[var(--text-primary)]">{isAdmin ? "Acesso administrativo" : currentInfo?.tierLabel || "OPE Club"}</p>
+            {!isAdmin && visibleSubscription?.current_period_end ? (
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
+                {isPixAccess ? "Acesso pago por PIX ate " : visibleSubscription.cancel_at_period_end ? "Renovacao cancelada, acesso ate " : "Proximo ciclo em "}
+                {new Date(visibleSubscription.current_period_end).toLocaleDateString("pt-BR")}
+              </p>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => navigate("/app/configuracoes?aba=assinatura")} className="min-h-11 rounded-[8px] border border-[var(--border)] px-4 text-sm text-[var(--text-primary)]">Gerenciar</button>
+            {!isAdmin && isRecurringStripe && !visibleSubscription.cancel_at_period_end ? (
+              <button type="button" onClick={handleCancel} disabled={Boolean(working)} className="min-h-11 rounded-[8px] border border-[var(--border)] px-4 text-sm text-red-400 disabled:opacity-50">
+                {working === "cancel" ? "Cancelando..." : "Cancelar renovacao"}
+              </button>
+            ) : null}
+          </div>
+        </section>
+      )}
+
+      <div className="mb-5 grid gap-4 sm:grid-cols-2">
+        {Object.values(TIERS).map((tier) => {
+          const selected = tier.id === tierId;
+          return (
+            <button
+              type="button"
+              key={tier.id}
+              onClick={() => setTierId(tier.id)}
+              aria-pressed={selected}
+              className={`min-w-0 rounded-[8px] border p-5 text-left transition-colors ${selected ? "border-[var(--accent-mint)] bg-[var(--hover-overlay)]" : "border-[var(--border)] bg-[var(--bg-card)]"}`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="text-lg font-semibold text-[var(--text-primary)]">{tier.label}</h2>
+                  <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">{tier.description}</p>
+                </div>
+                {tier.id === "pensador" ? <span className="shrink-0 rounded-full bg-[var(--accent-mint)]/10 px-2 py-1 text-[10px] font-semibold uppercase text-[var(--accent-mint)]">Completo</span> : null}
               </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => navigate("/app/configuracoes")}
-                  className="rounded-full border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-primary)] transition-colors hover:bg-[var(--hover-overlay)]"
-                >
-                  Configuracoes
-                </button>
-                {isAdmin && (
-                  <button
-                    type="button"
-                    onClick={() => navigate("/app/admin")}
-                    className="rounded-full bg-[var(--text-primary)] px-4 py-2 text-sm font-medium text-[var(--bg-card)] transition-opacity hover:opacity-90"
-                  >
-                    Painel admin
-                  </button>
-                )}
-                {!isAdmin && isActiveSubscription(visibleSubscription) && (
-                  <button
-                    type="button"
-                    onClick={handleCancel}
-                    disabled={cancelling}
-                    className="rounded-full border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-primary)] transition-colors hover:border-[var(--border-strong)] disabled:opacity-50"
-                  >
-                    {cancelling ? "Cancelando..." : "Cancelar assinatura"}
-                  </button>
-                )}
+              <p className="mt-4 text-2xl font-semibold text-[var(--text-primary)]">{formatBRL(cycle === "annual" ? tier.annualPrice : tier.monthlyPrice)}</p>
+              <p className="text-xs text-[var(--text-muted)]">{cycle === "annual" ? "por ano" : "por mes"}</p>
+            </button>
+          );
+        })}
+      </div>
+
+      <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="min-w-0 rounded-[8px] border border-[var(--border)] bg-[var(--bg-card)] p-4 sm:p-6">
+          <div className="grid grid-cols-2 gap-2" aria-label="Ciclo do plano">
+            {Object.values(CYCLES).map((item) => (
+              <button key={item.id} type="button" onClick={() => setCycle(item.id)} aria-pressed={cycle === item.id} className={`min-h-11 rounded-[8px] px-3 text-sm font-medium ${cycle === item.id ? "bg-[var(--text-primary)] text-[var(--bg-card)]" : "border border-[var(--border)] text-[var(--text-primary)]"}`}>
+                {item.label}{item.id === "annual" ? ` - ${selectedTier.annualDiscountPercent}%` : ""}
+              </button>
+            ))}
+          </div>
+
+          {!active && !isAdmin ? (
+            <div className="mt-5">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">Forma de pagamento</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {Object.values(PAYMENT_METHODS).map((method) => {
+                  const Icon = method.icon;
+                  return (
+                    <button key={method.id} type="button" onClick={() => setPaymentMethod(method.id)} aria-pressed={paymentMethod === method.id} className={`flex min-h-16 items-center gap-3 rounded-[8px] border p-3 text-left ${paymentMethod === method.id ? "border-[var(--accent-mint)] bg-[var(--hover-overlay)]" : "border-[var(--border)]"}`}>
+                      <Icon className="size-5 shrink-0 text-[var(--text-primary)]" />
+                      <span className="min-w-0"><strong className="block text-sm text-[var(--text-primary)]">{method.label}</strong><span className="block text-[11px] leading-4 text-[var(--text-muted)]">{method.description}</span></span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
-            {cancelError && <p className="mt-3 text-xs text-red-400">{cancelError}</p>}
+          ) : null}
+
+          <div className="mt-6">
+            <h3 className="text-sm font-semibold text-[var(--text-primary)]">Incluido no {selectedTier.label}</h3>
+            <PlanBenefitList benefits={selectedTier.benefits} itemClassName="mt-3 flex items-start gap-2 text-sm text-[var(--text-secondary)]" iconClassName="mt-0.5 size-4 shrink-0 text-[var(--accent-mint)]" />
           </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
-          {Object.values(PLANS).map((plan) => {
-            const isSelected = selectedPlan === plan.id;
-            const isAnnual = plan.id === "annual";
-            const isCurrent = visibleSubscription?.plan === (
-              plan.id === "annual" ? "ope_club_annual" : "ope_club_monthly"
-            );
-
-            return (
-              <div
-                key={plan.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => setSelectedPlan(plan.id)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    setSelectedPlan(plan.id);
-                  }
-                }}
-                className={`relative text-left w-full rounded-[16px] p-8 transition-all ${
-                  isSelected
-                    ? "border-2 border-[var(--accent-mint)] shadow-[0_0_0_1px_var(--accent-mint)]"
-                    : "border border-[var(--border)]"
-                }`}
-                style={{
-                  background: "var(--bg-card)",
-                  boxShadow: isSelected ? "var(--shadow-md)" : undefined,
-                }}
-              >
-                {isAnnual && (
-                  <span className="absolute -top-3 right-6 rounded-full bg-[var(--accent-mint)] px-3 py-1 text-[11px] font-[600] uppercase tracking-[0.1em] text-white">
-                    {plan.discountText}
-                  </span>
-                )}
-
-                <div className="text-[20px] font-[600] tracking-[-0.8px] text-[var(--text-primary)]">
-                  {plan.label}
-                </div>
-                <p className="text-[13px] mt-1" style={{ color: "var(--text-muted)" }}>
-                  {plan.description}
-                </p>
-
-                <div className="mt-4 flex items-baseline gap-1">
-                  <span className="text-[36px] font-[700] tracking-[-1.44px] text-[var(--text-primary)]">
-                    {isAnnual ? `R$ ${plan.monthlyEquivalent}` : plan.priceFormatted}
-                  </span>
-                  <span className="text-[14px]" style={{ color: "var(--text-muted)" }}>
-                    /mês
-                  </span>
-                </div>
-
-                {isAnnual ? (
-                  <p className="text-[13px] mt-1 font-[500]" style={{ color: "var(--text-muted)" }}>
-                    <span className="line-through">R$ {plan.monthlyEquivalent * 2}.00/mês</span>
-                    <span className="ml-1.5">cobrados uma vez por ano — R$ {plan.monthlyEquivalent * 12}.00</span>
-                  </p>
-                ) : (
-                  <p className="text-[13px] mt-1 font-[500]" style={{ color: "var(--text-muted)" }}>
-                    Cobrança mensal · cancele quando quiser
-                  </p>
-                )}
-
-                <ul className="mt-6 space-y-2.5">
-                  <PlanBenefitList
-                    benefits={plan.benefits}
-                    separator={isAnnual}
-                    itemClassName="flex items-center gap-2 text-[13px] text-[var(--text-secondary)]"
-                    iconClassName="size-3.5 shrink-0 text-[var(--accent-mint)]"
-                  />
-                </ul>
-
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleSubscribe();
-                  }}
-                  disabled={hasActiveSubscription && isCurrent}
-                  className={`mt-6 w-full py-3 rounded-[100px] text-[14px] font-[500] leading-[20px] transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                    isSelected
-                      ? "bg-[var(--text-primary)] text-[var(--bg-card)] hover:opacity-90"
-                      : "border border-[var(--border)] text-[var(--text-primary)] hover:bg-[var(--hover-overlay)]"
-                  }`}
-                >
-                  {hasActiveSubscription && isCurrent
-                    ? "Plano atual"
-                    : `Assinar ${plan.label}`}
-                </button>
-              </div>
-            );
-          })}
         </div>
-      </div>
+
+        <aside className="h-fit rounded-[8px] border border-[var(--border)] bg-[var(--bg-card)] p-5">
+          <p className="text-xs uppercase text-[var(--text-muted)]">Resumo</p>
+          <h2 className="mt-2 text-lg font-semibold text-[var(--text-primary)]">{selectedTier.label} {CYCLES[cycle].label}</h2>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">{priceCaption}</p>
+          <p className="mt-4 text-xs leading-5 text-[var(--text-muted)]">
+            {active ? (isRecurringStripe ? "A Stripe calcula a diferenca proporcional e so confirma a mudanca depois da cobranca." : "Seu acesso atual foi comprado por PIX e nao possui renovacao automatica.") : paymentMethod === "PIX" ? "Pagamento unico. O acesso comeca quando a Stripe confirmar o PIX." : "Assinatura recorrente. Voce pode cancelar a renovacao quando quiser."}
+          </p>
+          <button type="button" onClick={handlePrimaryAction} disabled={Boolean(working) || isCurrentPlan || isAdmin || (active && !isRecurringStripe)} className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-[8px] bg-[var(--text-primary)] px-4 text-sm font-semibold text-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-50">
+            {working === "checkout" ? <Loader2 className="size-4 animate-spin" /> : null}
+            {isAdmin ? "Acesso administrativo" : isCurrentPlan ? "Plano atual" : active && !isRecurringStripe ? "Disponivel ao fim do acesso" : canChangePlan ? "Alterar plano" : `Pagar com ${PAYMENT_METHODS[paymentMethod].label}`}
+          </button>
+          <div className="mt-3 flex items-center justify-center gap-2 text-[11px] text-[var(--text-muted)]"><ShieldCheck className="size-3.5" /> Checkout hospedado pela Stripe</div>
+        </aside>
+      </section>
       {cancelSurvey.dialog}
-    </div>
+    </main>
   );
 }

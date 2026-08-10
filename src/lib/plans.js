@@ -1,37 +1,91 @@
-export const PLANS = {
-  monthly: {
-    id: "monthly",
+export const CYCLES = {
+  monthly: { id: "monthly", label: "Mensal" },
+  annual: { id: "annual", label: "Anual" },
+};
+
+export const TIERS = {
+  leitor: {
+    id: "leitor",
     label: "Plano Leitor",
-    price: 1900,
-    priceFormatted: "R$ 19",
-    period: "/mês",
-    description: "Tudo para iniciar sua jornada de leitura",
-    externalId: "ope_club_monthly_subscription_v1",
+    description: "Acesso completo ao aplicativo, comunidade e loja",
+    monthlyPrice: 1900,
+    annualPrice: 19000,
+    annualDiscountPercent: 17,
+    planCodes: {
+      monthly: "ope_club_leitor_monthly",
+      annual: "ope_club_leitor_annual",
+    },
     benefits: [
-      { text: "Biblioteca completa de filosofia" },
-      { text: "Leitor digital nativo no aplicativo" },
-      { text: "Feed ativo para discussões" },
-      { text: "Adquira créditos diariamente" },
-      { text: "Troque créditos por livros e itens na loja" },
+      { text: "Leitor digital nativo no app" },
+      { text: "Biblioteca completa de filosofia e classicos" },
+      { text: "Rede social com feed e comentarios ilimitados" },
+      { text: "XP e Creditos OPE por leitura" },
+      { text: "Resgate de livros e roupas na Loja OPE" },
+      { text: "Frete gratis nos resgates fisicos" },
+      { text: "Missoes diarias, semanais e Seasons" },
+      { text: "Leitura offline e sincronizacao" },
     ],
   },
-  annual: {
-    id: "annual",
+  pensador: {
+    id: "pensador",
     label: "Plano Pensador",
-    price: 2900,
-    priceFormatted: "R$ 29",
-    period: "/mês",
-    description: "Experiência completa com vantagens exclusivas",
-    externalId: "ope_club_annual_subscription_v1",
-    monthlyEquivalent: 29,
-    discountText: "Mais Popular",
+    description: "Ranking competitivo e beneficios exclusivos",
+    monthlyPrice: 2900,
+    annualPrice: 22800,
+    annualDiscountPercent: 34,
+    planCodes: {
+      monthly: "ope_club_pensador_monthly",
+      annual: "ope_club_pensador_annual",
+    },
     benefits: [
-      { text: "Todos os benefícios do plano leitor" },
-      { text: "Selo de verificado", icon: "verified", annualOnly: true },
-      { text: "Acesso ao ranking mensal", annualOnly: true },
-      { text: "Acesso às seasons", annualOnly: true },
-      { text: "Suporte exclusivo WhatsApp", annualOnly: true },
-      { text: "Acesso antecipado a novos livros", annualOnly: true },
+      { text: "Todos os beneficios do Plano Leitor" },
+      { text: "Acesso ao Ranking Mensal de XP", exclusive: true },
+      { text: "Selo de Pensador verificado", icon: "verified", exclusive: true },
+      { text: "Multiplicador de Creditos OPE", exclusive: true },
+      { text: "Acesso antecipado aos drops", exclusive: true },
+      { text: "Prioridade para novos autores e livros", exclusive: true },
+      { text: "Suporte VIP direto no WhatsApp", exclusive: true },
     ],
   },
 };
+
+const LEGACY_CODE_ALIASES = {
+  ope_club_monthly: "ope_club_leitor_monthly",
+  ope_club_annual: "ope_club_leitor_annual",
+  monthly: "ope_club_leitor_monthly",
+  annual: "ope_club_leitor_annual",
+  leitor: "ope_club_leitor_monthly",
+  pensador: "ope_club_pensador_monthly",
+};
+
+export function getTierPlanKey(tierId, cycle) {
+  return `${tierId}-${cycle}`;
+}
+
+export function formatBRL(cents) {
+  return (cents / 100).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
+export function planInfoFromCode(planCode) {
+  if (!planCode) return null;
+  const normalized = LEGACY_CODE_ALIASES[planCode] || planCode;
+  for (const tier of Object.values(TIERS)) {
+    for (const cycle of Object.keys(tier.planCodes)) {
+      if (tier.planCodes[cycle] === normalized) {
+        return { tier: tier.id, tierLabel: tier.label, cycle, tierConfig: tier };
+      }
+    }
+  }
+  return null;
+}
+
+export function planPriceLabel(planCode) {
+  const info = planInfoFromCode(planCode);
+  if (!info) return "-";
+  return info.cycle === "annual"
+    ? `${formatBRL(info.tierConfig.annualPrice)} / ano`
+    : `${formatBRL(info.tierConfig.monthlyPrice)} / mes`;
+}

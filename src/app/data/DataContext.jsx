@@ -9,26 +9,9 @@ import { createSignedUrlMap, LIBRARY_BUCKETS, removeLibraryFile } from "@/lib/li
 import { useAuth } from "./AuthContext";
 import { POST_IMAGE_BUCKET } from "@/lib/social";
 import { sanitizePlainText, sanitizeSingleLine } from "@/lib/sanitize";
+import { authenticatedApiPost } from "@/lib/authenticated-api";
 
 const DataContext = createContext(null);
-
-async function authenticatedApiPost(path, payload) {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const accessToken = sessionData?.session?.access_token;
-  if (!accessToken) throw new Error("Sua sessao expirou. Entre novamente.");
-
-  const response = await fetch(path, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-  const body = await response.json();
-  if (!body.success) throw new Error(body.error || "Nao foi possivel concluir a operacao.");
-  return body.data;
-}
 
 function firstFilled(...values) {
   return values.find((value) => typeof value === "string" && value.trim()) || "";
@@ -775,28 +758,9 @@ export function DataProvider({ children }) {
   // SUBSCRIPTIONS
   const cancelSubscription = useCallback(async (id) => {
     if (isSupabase) {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
-
-      if (!accessToken) {
-        throw new Error("Sua sessao expirou. Entre novamente para cancelar.");
-      }
-
-      const res = await fetch("/api/cancel-subscription", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ subscriptionId: id }),
+      const updated = await authenticatedApiPost("/api/cancel-subscription", {
+        subscriptionId: id,
       });
-      const body = await res.json();
-
-      if (!body.success) {
-        throw new Error(body.error || "Erro ao cancelar assinatura.");
-      }
-
-      const updated = body.data;
       setSubscriptions((prev) => prev.map((sub) => sub.id === updated.id ? updated : sub));
       setSubscription((prev) => prev?.id === updated.id ? updated : prev);
       return updated;
@@ -804,111 +768,44 @@ export function DataProvider({ children }) {
     setSubscription(prev => prev && prev.id === id ? { ...prev, status: "canceled" } : prev);
   }, [isSupabase]);
 
-  const upsertUserSubscription = useCallback(async ({ userId, email, plan = "ope_club_monthly", status = "active", durationDays = 30 }) => {
+  const upsertUserSubscription = useCallback(async ({ userId, email, plan = "ope_club_leitor_monthly", durationDays = 30 }) => {
     if (!isSupabase || !userId) return null;
-
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + Number(durationDays) * 24 * 60 * 60 * 1000).toISOString();
-    const dbPlan = plan === "annual" || plan === "ope_club_annual" ? "ope_club_annual" : "ope_club_monthly";
-
-    try {
-      const data = await authenticatedApiPost("/api/admin-subscription", {
-        action: "grant",
-        userId,
-        email,
-        plan: dbPlan === "ope_club_annual" ? "annual" : "monthly",
-        durationDays: Number(durationDays),
-      });
-      setSubscriptions((prev) => [data, ...prev.filter((s) => s.id !== data.id)]);
-      if (userId === user?.id) setSubscription(data);
-      return data;
-    } catch (err) {
-      const payload = {
-        user_id: userId,
-        customer_email: email || null,
-        plan: dbPlan,
-        status: "active",
-        provider: "manual_admin",
-        current_period_end: expiresAt,
-        updated_at: now.toISOString(),
-      };
-
-      const { data, error } = await supabase
-        .from("subscriptions")
-        .upsert(payload, { onConflict: "user_id" })
-        .select("*")
-        .maybeSingle();
-
-      if (error || !data) {
-        const { data: inserted, error: insertErr } = await supabase
-          .from("subscriptions")
-          .insert(payload)
-          .select("*")
-          .single();
-
-        if (insertErr) throw new Error(insertErr.message || "Erro ao adicionar assinatura.");
-        setSubscriptions((prev) => [inserted, ...prev.filter((s) => s.id !== inserted.id)]);
-        if (userId === user?.id) setSubscription(inserted);
-        return inserted;
-      }
-
-      setSubscriptions((prev) => [data, ...prev.filter((s) => s.id !== data.id)]);
-      if (userId === user?.id) setSubscription(data);
-      return data;
-    }
+    const data = await authenticatedApiPost("/api/admin-subscription", {
+      action: "grant",
+      userId,
+      email,
+      plan,
+      durationDays: Number(durationDays),
+    });
+    setSubscriptions((prev) => [data, ...prev.filter((s) => s.id !== data.id)]);
+    if (userId === user?.id) setSubscription(data);
+    return data;
   }, [isSupabase, user?.id]);
 
   const updateUserSubscriptionDuration = useCallback(async ({ userId, durationDays = 30 }) => {
     if (!isSupabase || !userId) return null;
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + Number(durationDays) * 24 * 60 * 60 * 1000).toISOString();
-
-    try {
-      const data = await authenticatedApiPost("/api/admin-subscription", {
-        action: "set_duration",
-        userId,
-        durationDays: Number(durationDays),
-      });
-      setSubscriptions((prev) => prev.map((sub) => sub.id === data.id ? data : sub));
-      if (userId === user?.id) setSubscription(data);
-      return data;
-    } catch {
-      const { data, error } = await supabase
-        .from("subscriptions")
-        .update({ current_period_end: expiresAt, status: "active", updated_at: now.toISOString() })
-        .eq("user_id", userId)
-        .select("*")
-        .maybeSingle();
-
-      if (error) throw new Error(error.message || "Erro ao alterar duração.");
-      if (data) {
-        setSubscriptions((prev) => prev.map((s) => s.id === data.id ? data : s));
-        if (userId === user?.id) setSubscription(data);
-      }
-      return data;
-    }
+    const data = await authenticatedApiPost("/api/admin-subscription", {
+      action: "set_duration",
+      userId,
+      durationDays: Number(durationDays),
+    });
+    setSubscriptions((prev) => prev.map((sub) => sub.id === data.id ? data : sub));
+    if (userId === user?.id) setSubscription(data);
+    return data;
   }, [isSupabase, user?.id]);
 
   const removeUserSubscription = useCallback(async (userId) => {
     if (!isSupabase || !userId) return;
-    try {
-      await authenticatedApiPost("/api/admin-subscription", {
-        action: "cancel",
-        userId,
-      });
-    } catch {
-      const { error } = await supabase
-        .from("subscriptions")
-        .update({ status: "canceled", updated_at: new Date().toISOString() })
-        .eq("user_id", userId);
-
-      if (error) {
-        await supabase.from("subscriptions").delete().eq("user_id", userId);
-      }
-    }
-    setSubscriptions((prev) => prev.filter((s) => s.user_id !== userId));
-    if (userId === user?.id) setSubscription(null);
-  }, [isSupabase, user?.id]);
+    const current = pickCurrentSubscription(subscriptions, userId);
+    if (!current?.id) throw new Error("Usuario nao possui assinatura para remover.");
+    const updated = await authenticatedApiPost("/api/cancel-subscription", {
+      subscriptionId: current.id,
+      immediate: true,
+    });
+    setSubscriptions((prev) => prev.map((sub) => sub.id === updated.id ? updated : sub));
+    if (userId === user?.id) setSubscription(updated);
+    return updated;
+  }, [isSupabase, subscriptions, user?.id]);
 
   const addWeeklyRelease = useCallback(async ({ bookId, releaseDate, note, visible = true }) => {
     if (!isSupabase) return null;

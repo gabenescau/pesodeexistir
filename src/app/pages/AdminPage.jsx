@@ -5,6 +5,7 @@ import { isSupabaseReady, supabase } from "../data/supabase";
 import { toast } from "@/lib/toast";
 import { Plus, Trash2, Edit3, Check, Crown, BookOpen, Users, MessageSquare, ShieldAlert, Sparkles, FolderOpen, RefreshCw, ChartLine, Gift, Truck, Flag, Wallet, Package } from "@/lib/icons";
 import { isActiveSubscription, pickCurrentSubscription } from "@/lib/subscription";
+import { planInfoFromCode } from "@/lib/plans";
 import {
   LIBRARY_BUCKETS,
   removeLibraryFile,
@@ -116,8 +117,8 @@ function DashboardTab() {
   const totalAuthors = authors.length;
   const totalPosts = posts.length;
   const totalSubs = subscriptions.length;
-  const monthlySubs = subscriptions.filter((sub) => sub.plan === "ope_club_monthly" || sub.plan === "monthly" || sub.plan === "leitor").length;
-  const annualSubs = subscriptions.filter((sub) => sub.plan === "ope_club_annual" || sub.plan === "annual" || sub.plan === "pensador").length;
+  const monthlySubs = subscriptions.filter((sub) => planInfoFromCode(sub.plan)?.cycle === "monthly").length;
+  const annualSubs = subscriptions.filter((sub) => planInfoFromCode(sub.plan)?.cycle === "annual").length;
   const activeSubs = subscriptions.filter((sub) => isActiveSubscription(sub)).length;
   const totalFavorites = bookFavorites.length;
   const totalSaved = savedPostIds.length;
@@ -337,7 +338,7 @@ function SubscriptionsTab() {
             {subscriptions.map(s => (
               <tr key={s.id} className="border-b border-[var(--border)] hover:bg-[var(--hover-overlay)] transition-colors">
                 <td className="py-3 pr-4 text-[var(--text-secondary)]">{s.customer_email || s.email || "Sem email"}</td>
-                <td className="py-3 pr-4 text-[var(--text-primary)]">{s.plan || "OPE Club"}</td>
+                <td className="py-3 pr-4 text-[var(--text-primary)]">{planInfoFromCode(s.plan)?.tierLabel || s.plan || "OPE Club"}</td>
                 <td className="py-3 pr-4 text-[var(--text-primary)]">{s.provider || "manual"}</td>
                 <td className="py-3 pr-4 text-[var(--text-secondary)]">
                   {s.current_period_end ? new Date(s.current_period_end).toLocaleDateString("pt-BR") : "-"}
@@ -350,8 +351,8 @@ function SubscriptionsTab() {
                   </span>
                 </td>
                 <td className="py-3 pr-4 text-xs text-[var(--text-secondary)]">
-                  {s.metadata?.pending_plan
-                    ? `${s.metadata.pending_plan === "ope_club_annual" ? "Anual" : "Mensal"} no proximo ciclo`
+                  {s.metadata?.requested_plan
+                    ? `${planInfoFromCode(s.metadata.requested_plan)?.tierLabel || "Novo plano"} solicitado`
                     : "-"}
                 </td>
                 <td className="py-3">
@@ -397,7 +398,7 @@ function UsersTab() {
       await upsertUserSubscription({
         userId: profile.id,
         email: profile.email,
-        plan: planByUser[profile.id] || "ope_club_monthly",
+        plan: planByUser[profile.id] || "ope_club_leitor_monthly",
         status: "active",
         durationDays: durationByUser[profile.id] || 30,
       });
@@ -464,6 +465,7 @@ function UsersTab() {
         <TableBody>
           {visibleProfiles.map((profile) => {
               const sub = getSub(profile.id);
+              const subPlanInfo = planInfoFromCode(sub?.plan);
               const active = isActiveSubscription(sub);
               const daysRemaining = sub?.current_period_end
                 ? Math.max(0, Math.ceil((new Date(sub.current_period_end) - new Date()) / (1000 * 60 * 60 * 24)))
@@ -502,7 +504,7 @@ function UsersTab() {
                         : "bg-red-500/10 text-red-400 border border-red-500/20"
                     }`}>
                       {active
-                        ? (sub?.plan === "ope_club_annual" ? "Anual (Pensador)" : "Mensal (Leitor)")
+                        ? `${subPlanInfo?.tierLabel || "OPE Club"} ${subPlanInfo?.cycle === "annual" ? "Anual" : "Mensal"}`
                         : "Sem plano ativo"}
                     </span>
                   </TableCell>
@@ -518,12 +520,14 @@ function UsersTab() {
                   </TableCell>
                   <TableCell>
                     <select
-                      value={planByUser[profile.id] || "ope_club_monthly"}
+                      value={planByUser[profile.id] || "ope_club_leitor_monthly"}
                       onChange={(e) => setPlanByUser((prev) => ({ ...prev, [profile.id]: e.target.value }))}
                       className="rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1 text-xs text-[var(--text-primary)] disabled:opacity-50"
                     >
-                      <option value="ope_club_monthly">Mensal (Leitor)</option>
-                      <option value="ope_club_annual">Anual (Pensador)</option>
+                      <option value="ope_club_leitor_monthly">Leitor Mensal</option>
+                      <option value="ope_club_leitor_annual">Leitor Anual</option>
+                      <option value="ope_club_pensador_monthly">Pensador Mensal</option>
+                      <option value="ope_club_pensador_annual">Pensador Anual</option>
                     </select>
                   </TableCell>
                   <TableCell>

@@ -11,6 +11,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3
 const PRODUCTION_ORIGINS = new Set([
   "https://pesodeexistir.online",
   "https://www.pesodeexistir.online",
+  "https://app.pesodeexistir.online",
   "https://ope.club",
   "https://www.ope.club",
 ]);
@@ -132,17 +133,21 @@ export function logServerError(context, error, req) {
     context,
     requestId: req?.requestId || null,
     errorName: error?.name || "Error",
-    status: Number(error?.status) || 500,
+    status: Number(error?.statusCode ?? error?.status) || 500,
     message: redactedMessage.slice(0, 500),
   }));
 }
 
 export function sendError(req, res, error, fallback = "Erro interno") {
-  const status = Number(error?.status);
-  const safeStatus = status >= 400 && status < 500 ? status : 500;
+  // StripeError expoe statusCode; erros internos do repo usam status.
+  const status = Number(error?.statusCode ?? error?.status);
+  const safeStatus = Number.isFinite(status) && status >= 400 && status < 500 ? status : 500;
   const isProviderError =
     String(error?.message || "").startsWith("Supabase:");
-  const message = safeStatus < 500 && !isProviderError
+  // Erros 4xx do proprio app e erros marcados como userSafe (config errada com
+  // diagnostico acionavel) podem ir ao front. Internals 5xx e erros de provedor
+  // (Supabase) ficam genericos.
+  const message = (safeStatus < 500 || error?.userSafe) && !isProviderError
     ? String(error?.message || fallback)
     : fallback;
 

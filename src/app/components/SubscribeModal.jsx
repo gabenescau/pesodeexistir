@@ -1,15 +1,15 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/app/data/AuthContext";
-import { PLANS } from "@/lib/plans";
+import { TIERS, formatBRL } from "@/lib/plans";
 import { Check, Lock, X } from "@/lib/icons";
 
-const BENEFITS = [
-  "Acesso completo à biblioteca",
+const DEFAULT_BENEFITS = [
+  "Acesso completo a biblioteca",
   "Comunidade exclusiva de leitores",
-  "Comentários e clubes de leitura",
-  "Lançamentos semanais",
-  "Sem anúncios",
+  "Comentarios e clubes de leitura",
+  "Lancamentos semanais",
+  "Sem anuncios",
 ];
 
 export function SubscribeModal({
@@ -18,105 +18,52 @@ export function SubscribeModal({
   dismissible = true,
   title = "Conteudo exclusivo para assinantes",
   description = "Assine o OPE Club para desbloquear a biblioteca e a comunidade.",
-  benefits = BENEFITS,
+  benefits = DEFAULT_BENEFITS,
 }) {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [selectedPlan, setSelectedPlan] = useState("monthly");
+  const [selectedPlan, setSelectedPlan] = useState("pensador");
 
   if (!open) return null;
 
-  function irParaPlanos() {
+  function goToPlans() {
     if (!user) {
       navigate("/entrar");
       return;
     }
-    navigate("/app/planos");
+    navigate(`/app/planos?plan=${selectedPlan}`);
   }
 
-  const plan = PLANS[selectedPlan];
+  const plan = TIERS[selectedPlan];
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <button
-        type="button"
-        aria-label="Fechar"
-        onClick={dismissible ? onClose : undefined}
-        className="absolute inset-0 z-0 cursor-default bg-black/60 backdrop-blur-sm"
-      />
-
-      <div
-        role="dialog"
-        aria-modal="true"
-        className="relative z-10 max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-[var(--shadow-sm)]"
-      >
-        {dismissible && (
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Fechar"
-            className="absolute right-3 top-3 z-20 flex size-8 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]"
-          >
-            <X className="size-4" />
+    <div className="fixed inset-0 z-[60] flex items-end justify-center p-0 sm:items-center sm:p-4">
+      <button type="button" aria-label="Fechar" onClick={dismissible ? onClose : undefined} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div role="dialog" aria-modal="true" aria-labelledby="subscribe-title" className="relative z-10 max-h-[92dvh] w-full overflow-y-auto rounded-t-[8px] border border-[var(--border)] bg-[var(--bg-card)] shadow-[var(--shadow-sm)] sm:max-w-lg sm:rounded-[8px]">
+        {dismissible ? (
+          <button type="button" onClick={onClose} aria-label="Fechar" className="absolute right-3 top-3 flex size-11 items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--hover-overlay)]">
+            <X className="size-5" />
           </button>
-        )}
+        ) : null}
+        <div className="px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-8 text-center sm:px-6 sm:pb-6">
+          <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-[8px] bg-[var(--hover-overlay)]"><Lock className="size-6" /></div>
+          <h2 id="subscribe-title" className="pr-8 text-lg font-semibold text-[var(--text-primary)] sm:pr-0">{title}</h2>
+          <p className="mt-1 text-sm text-[var(--text-muted)]">{description}</p>
 
-        <div className="px-6 pb-6 pt-8 text-center">
-          <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-[var(--text-primary)]/10">
-            <Lock className="size-6 text-[var(--text-primary)]" />
-          </div>
-          <h2 className="text-lg font-semibold text-[var(--text-primary)]">{title}</h2>
-          <p className="mt-1 text-sm text-[var(--text-muted)]">
-            {description}
-          </p>
-
-          <div className="mt-5 grid grid-cols-2 gap-3">
-            {Object.values(PLANS).map((p) => (
-              <button
-                key={p.id}
-                onClick={() => setSelectedPlan(p.id)}
-                className={`relative rounded-xl p-4 text-left transition-all ${
-                  selectedPlan === p.id
-                    ? "border-2 border-[var(--accent-mint)]"
-                    : "border border-[var(--border)]"
-                }`}
-                style={{ background: selectedPlan === p.id ? "var(--hover-overlay)" : "transparent" }}
-              >
-                {p.id === "annual" && (
-                  <span className="absolute -top-2 right-2 rounded-full bg-[var(--accent-mint)] px-2 py-0.5 text-[9px] font-[600] uppercase tracking-[0.08em] text-white">
-                    {p.discountText}
-                  </span>
-                )}
-                <div className="text-[13px] font-[600] text-[var(--text-primary)]">{p.label}</div>
-                <div className="mt-1 flex items-baseline gap-0.5">
-                  <span className="text-[20px] font-[700] tracking-[-0.8px] text-[var(--text-primary)]">
-                    {p.priceFormatted}
-                  </span>
-                  <span className="text-[11px] text-[var(--text-muted)]">{p.period}</span>
-                </div>
-                {p.id === "annual" && (
-                  <div className="text-[11px] font-[500] text-[var(--accent-mint)] mt-0.5">
-                    R$ {p.monthlyEquivalent}/mês
-                  </div>
-                )}
+          <div className="mt-5 grid grid-cols-2 gap-2">
+            {Object.values(TIERS).map((item) => (
+              <button key={item.id} type="button" onClick={() => setSelectedPlan(item.id)} aria-pressed={selectedPlan === item.id} className={`min-w-0 rounded-[8px] border p-3 text-left ${selectedPlan === item.id ? "border-[var(--accent-mint)] bg-[var(--hover-overlay)]" : "border-[var(--border)]"}`}>
+                <span className="block truncate text-sm font-semibold text-[var(--text-primary)]">{item.label}</span>
+                <span className="mt-1 block text-lg font-bold text-[var(--text-primary)]">{formatBRL(item.monthlyPrice)}<small className="text-[10px] font-normal text-[var(--text-muted)]">/mes</small></span>
               </button>
             ))}
           </div>
 
           <ul className="mt-5 space-y-2.5 text-left">
-            {benefits.map((b) => (
-              <li key={b} className="flex items-center gap-2.5 text-sm text-[var(--text-secondary)]">
-                <Check className="size-4 shrink-0 text-[var(--accent-mint)]" strokeWidth={2.5} />
-                {b}
-              </li>
+            {benefits.map((benefit) => (
+              <li key={benefit} className="flex items-start gap-2.5 text-sm text-[var(--text-secondary)]"><Check className="mt-0.5 size-4 shrink-0 text-[var(--accent-mint)]" />{benefit}</li>
             ))}
           </ul>
-
-          <button
-            onClick={irParaPlanos}
-            className="mt-6 w-full rounded-full bg-[var(--text-primary)] px-5 py-3 text-sm font-medium text-[var(--bg-card)] transition-opacity hover:opacity-90"
-          >
-            Assinar {plan.label}
-          </button>
+          <button type="button" onClick={goToPlans} className="mt-6 min-h-12 w-full rounded-[8px] bg-[var(--text-primary)] px-5 text-sm font-medium text-[var(--bg-card)]">Ver {plan.label}</button>
         </div>
       </div>
     </div>

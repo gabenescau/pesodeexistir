@@ -1,4 +1,4 @@
-import { getPlanByKey } from "../server/plans.js";
+import { getGrantPlan, getPlanByCode } from "../server/plans.js";
 import {
   allowPost,
   enforceRateLimit,
@@ -31,12 +31,18 @@ function validateDuration(value) {
   return days;
 }
 
-async function grantManual({ admin, userId, email, planKey, durationDays }) {
-  const plan = getPlanByKey(planKey);
-  if (!plan) throw new Error("Plano invalido");
+async function grantManual({ admin, userId, email, plan, durationDays }) {
   const days = validateDuration(durationDays);
+  const planRecord = getPlanByCode(plan) || getGrantPlan(plan, days);
+  if (!planRecord) throw new Error("Plano invalido");
   const subscriptions = await listUserSubscriptions(userId);
   const current = activeSubscription(subscriptions);
+
+  if (current?.provider === "stripe") {
+    const error = new Error("Use upgrade/downgrade ou cancelamento oficial para esta assinatura Stripe");
+    error.status = 409;
+    throw error;
+  }
 
   const now = new Date();
   const base = current?.current_period_end && new Date(current.current_period_end) > now
@@ -47,7 +53,7 @@ async function grantManual({ admin, userId, email, planKey, durationDays }) {
   const payload = {
     user_id: userId,
     customer_email: email || current?.customer_email || "",
-    plan: plan.plan,
+    plan: planRecord.plan,
     status: "active",
     current_period_start: current?.current_period_start || now.toISOString(),
     current_period_end: end.toISOString(),
@@ -57,7 +63,7 @@ async function grantManual({ admin, userId, email, planKey, durationDays }) {
     provider_customer_id: null,
     provider_subscription_id: null,
     metadata: {
-      ...(current?.metadata || {}),
+      ...current?.metadata,
       source: "admin_panel",
       duration_days_added: days,
       granted_by: admin.id,
@@ -76,7 +82,7 @@ async function setManualDuration({ admin, userId, durationDays }) {
   const current = activeSubscription(await listUserSubscriptions(userId));
   if (!current) throw new Error("Usuario nao possui assinatura ativa");
   if (current.provider !== "manual_admin") {
-    const error = new Error("Dias manuais nao alteram uma assinatura de outro provedor");
+    const error = new Error("Dias manuais nao alteram uma assinatura cobrada por provedor de pagamento");
     error.status = 409;
     throw error;
   }
@@ -88,7 +94,7 @@ async function setManualDuration({ admin, userId, durationDays }) {
     current_period_start: now.toISOString(),
     current_period_end: end.toISOString(),
     metadata: {
-      ...(current.metadata || {}),
+      ...current.metadata,
       duration_days: days,
       duration_changed_by: admin.id,
       duration_changed_at: now.toISOString(),
@@ -108,7 +114,7 @@ export default async function handler(req, res) {
       windowSeconds: 300,
       userId: user.id,
     })) return;
-    const { action, userId, email, plan = "monthly", durationDays = 30 } = req.body || {};
+    const { action, userId, email, plan = "leitor", durationDays = 30 } = req.body || {};
     requireUuid(userId, "userId");
 
     let updated;
@@ -117,7 +123,7 @@ export default async function handler(req, res) {
         admin: user,
         userId,
         email,
-        planKey: plan,
+        plan,
         durationDays,
       });
     } else if (action === "set_duration") {

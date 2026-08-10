@@ -12,6 +12,17 @@ export const ACTIVE_SUBSCRIPTION_STATUSES = [
   "succeeded",
 ];
 
+// Codigos legados (modelo antigo de 2 planos) apontando para o equivalente atual.
+const LEGACY_PLAN_CODE_ALIASES = {
+  ope_club_monthly: "ope_club_leitor_monthly",
+  ope_club_annual: "ope_club_leitor_annual",
+};
+
+export function normalizePlanCode(planCode) {
+  if (!planCode) return planCode;
+  return LEGACY_PLAN_CODE_ALIASES[planCode] || planCode;
+}
+
 function getSubscriptionEndDate(sub) {
   return sub?.current_period_end || sub?.ends_at || sub?.expires_at || sub?.expiration_date || null;
 }
@@ -41,7 +52,9 @@ export function isActiveSubscription(sub) {
 }
 
 export function pickCurrentSubscription(list = [], userId) {
-  const userSubscriptions = (list || []).filter((sub) => !userId || sub.user_id === userId);
+  const userSubscriptions = (list || [])
+    .map((sub) => ({ ...sub, plan: normalizePlanCode(sub.plan) }))
+    .filter((sub) => !userId || sub.user_id === userId);
 
   const activeSubscription = userSubscriptions
     .filter(isActiveSubscription)
