@@ -6,20 +6,10 @@ import { authenticatedApiPost } from "@/lib/authenticated-api";
 import { CYCLES, TIERS, formatBRL, getTierPlanKey, planInfoFromCode } from "@/lib/plans";
 import { getCurrentSubscription, isActiveSubscription } from "@/lib/subscription";
 import { PlanBenefitList } from "@/components/plan-benefit";
-import { AlertDialog, AlertDialogClose, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { CreditCard, Loader2, ShieldCheck } from "@/lib/icons";
+import { Loader2, ShieldCheck } from "@/lib/icons";
 import { toast } from "@/lib/toast";
 import { useCancelSurvey } from "@/components/ui/cancel-survey";
 import { parseCheckoutInput, parseSubscriptionInput } from "@/lib/api-contracts";
-
-const PAYMENT_METHODS = {
-  CARD: {
-    id: "CARD",
-    label: "Cartao",
-    description: "Renovacao automatica e gerenciamento pela Stripe",
-    icon: CreditCard,
-  },
-};
 
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
@@ -35,8 +25,6 @@ export function SubscribePage() {
   const requestedCycle = searchParams.get("ciclo");
   const [tierId, setTierId] = useState(TIERS[requestedTier] ? requestedTier : "pensador");
   const [cycle, setCycle] = useState(CYCLES[requestedCycle] ? requestedCycle : "monthly");
-  const [paymentMethod, setPaymentMethod] = useState("CARD");
-  const [paymentDialogPlan, setPaymentDialogPlan] = useState(null);
   const [currentSubscription, setCurrentSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState("");
@@ -47,9 +35,6 @@ export function SubscribePage() {
   const currentInfo = planInfoFromCode(visibleSubscription?.plan);
   const selectedTier = TIERS[tierId];
   const isRecurringStripe = visibleSubscription?.provider === "stripe" && Boolean(visibleSubscription?.provider_subscription_id);
-  const paymentDialogTier = paymentDialogPlan ? TIERS[paymentDialogPlan] : null;
-  const paymentDialogPlanKey = paymentDialogPlan ? getTierPlanKey(paymentDialogPlan, cycle) : null;
-  const isPlanChangeDialog = Boolean(active && isRecurringStripe && paymentDialogPlanKey && currentInfo && paymentDialogPlanKey !== `${currentInfo.tier}-${currentInfo.cycle}`);
 
   useEffect(() => {
     if (!user) {
@@ -103,8 +88,12 @@ export function SubscribePage() {
     return () => { cancelled = true; };
   }, [checkoutSessionId, checkoutState, setSearchParams, user]);
 
-  async function handlePlanAction(planKey, selectedPaymentMethod) {
+  async function handlePlanAction(planKey) {
     if (working) return;
+    if (active && !isRecurringStripe) {
+      toast.info("Seu acesso atual continua valido ate a data exibida. Depois disso, escolha um novo plano.");
+      return;
+    }
     setWorking("checkout");
     try {
       const currentPlanKey = currentInfo ? `${currentInfo.tier}-${currentInfo.cycle}` : null;
@@ -125,7 +114,7 @@ export function SubscribePage() {
 
       const checkoutInput = parseCheckoutInput({
         plan: planKey,
-        paymentMethod: selectedPaymentMethod,
+        paymentMethod: "CARD",
         attemptId: window.crypto?.randomUUID?.() || `checkout-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       });
       const result = await authenticatedApiPost("/api/stripe-checkout", checkoutInput);
@@ -138,19 +127,12 @@ export function SubscribePage() {
     }
   }
 
-  function openPaymentMenu(nextTierId) {
+  function handlePlanSelection(nextTierId) {
     setTierId(nextTierId);
-    if (isAdmin || (active && !isRecurringStripe) || (active && currentInfo?.tier === nextTierId && currentInfo?.cycle === cycle)) {
+    if (isAdmin || (active && currentInfo?.tier === nextTierId && currentInfo?.cycle === cycle)) {
       return;
     }
-    setPaymentDialogPlan(nextTierId);
-  }
-
-  async function choosePaymentMethod(methodId) {
-    if (!paymentDialogPlanKey || working) return;
-    setPaymentMethod(methodId);
-    setPaymentDialogPlan(null);
-    await handlePlanAction(paymentDialogPlanKey, methodId);
+    void handlePlanAction(getTierPlanKey(nextTierId, cycle));
   }
 
   async function handleCancel() {
@@ -244,7 +226,7 @@ export function SubscribePage() {
             <button
               type="button"
               key={tier.id}
-              onClick={() => openPaymentMenu(tier.id)}
+              onClick={() => handlePlanSelection(tier.id)}
               aria-pressed={selected}
               className={`min-w-0 rounded-[18px] border p-5 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-mint)] sm:p-7 ${selected ? "border-[var(--accent-mint)] bg-[var(--text-primary)] text-[var(--bg-canvas)] shadow-[0_18px_50px_rgba(0,0,0,0.2)]" : "border-[var(--border)] bg-[var(--bg-card)] hover:-translate-y-0.5 hover:border-[var(--text-muted)]"}`}
             >
@@ -281,50 +263,12 @@ export function SubscribePage() {
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-sm font-semibold text-[var(--text-primary)]">{selectedTier.label} inclui</h3>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">Escolha um plano acima para selecionar a forma de pagamento.</p>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">Escolha um plano acima para abrir o Checkout seguro da Stripe.</p>
           </div>
           <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]"><ShieldCheck className="size-4 text-[var(--accent-mint)]" /> Checkout seguro da Stripe</div>
         </div>
         <PlanBenefitList benefits={selectedTier.benefits} itemClassName="mt-4 flex items-start gap-2 text-sm text-[var(--text-secondary)]" iconClassName="mt-0.5 size-4 shrink-0 text-[var(--accent-mint)]" />
       </section>
-      <AlertDialog open={Boolean(paymentDialogTier)} onOpenChange={(open) => { if (!open) setPaymentDialogPlan(null); }}>
-        <AlertDialogContent className="max-w-lg rounded-t-[20px] p-5 sm:rounded-[20px] sm:p-6">
-          <AlertDialogHeader>
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--accent-mint)]">Forma de pagamento</p>
-            <AlertDialogTitle className="mt-1 text-xl">{paymentDialogTier?.label} {CYCLES[cycle].label}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {isPlanChangeDialog ? "A troca de uma assinatura ativa precisa ser confirmada pelo cartão." : "Escolha como deseja concluir seu acesso no Checkout hospedado da Stripe."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          {isPlanChangeDialog ? (
-            <div className="rounded-[10px] border border-[var(--accent-mint)]/30 bg-[var(--accent-mint)]/8 p-3 text-xs leading-5 text-[var(--text-secondary)]">
-              O cartão mantém a renovação automática e permite alterar o plano com confirmação da Stripe.
-            </div>
-          ) : null}
-          <div className="grid gap-3 sm:grid-cols-2">
-            {Object.values(PAYMENT_METHODS).map((method) => {
-              const Icon = method.icon;
-              const disabled = isPlanChangeDialog && method.id !== "CARD";
-              return (
-                <button
-                  key={method.id}
-                  type="button"
-                  disabled={disabled || Boolean(working)}
-                  onClick={() => choosePaymentMethod(method.id)}
-                  aria-pressed={paymentMethod === method.id}
-                  className={`flex min-h-28 flex-col items-start justify-between gap-3 rounded-[12px] border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-mint)] ${disabled ? "cursor-not-allowed border-[var(--border)] opacity-45" : paymentMethod === method.id ? "border-[var(--accent-mint)] bg-[var(--hover-overlay)]" : "border-[var(--border)] hover:border-[var(--text-muted)]"}`}
-                >
-                  <span className="flex size-9 items-center justify-center rounded-full bg-[var(--hover-overlay)] text-[var(--text-primary)]"><Icon className="size-5" /></span>
-                  <span><strong className="block text-sm text-[var(--text-primary)]">{method.label}</strong><span className="mt-1 block text-xs leading-4 text-[var(--text-muted)]">{method.description}</span></span>
-                </button>
-              );
-            })}
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogClose>Voltar</AlertDialogClose>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
       {cancelSurvey.dialog}
     </main>
   );

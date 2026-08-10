@@ -18,8 +18,7 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@/components/ui/input-group";
-import { FloatingPaths } from "@/components/floating-paths";
-import { AtSignIcon, ChevronLeftIcon, Eye, EyeSlash, GiftIcon, LockIcon, UserIcon } from "@/lib/icons";
+import { AtSignIcon, Eye, EyeSlash, GiftIcon, LockIcon, UserIcon } from "@/lib/icons";
 import { useAuth } from "@/app/data/AuthContext";
 import { supabase, isSupabaseReady } from "@/app/data/supabase";
 import { getSupabaseErrorMessage } from "@/lib/supabase-error";
@@ -162,25 +161,8 @@ export function AuthPage() {
   };
 
   return (
-    <main className="auth-page relative min-h-screen overflow-hidden bg-[var(--bg-canvas)] text-[var(--text-primary)] lg:grid lg:grid-cols-[minmax(0,1.05fr)_minmax(420px,0.95fr)]">
-      <div className="auth-visual-panel relative hidden min-h-screen flex-col border-r border-[var(--border)] bg-[var(--bg-surface)] p-10 lg:flex xl:p-14">
-        <div className="absolute inset-0 bg-linear-to-br from-[var(--accent-mint)]/8 via-transparent to-[var(--bg-canvas)]" />
-        <div className="relative mr-auto flex items-center gap-2">
-          <Logo className="text-[26px] text-[var(--text-primary)]" />
-        </div>
-
-        <div className="relative z-10 mt-auto max-w-xl pb-8">
-          <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accent-mint)]">Biblioteca + comunidade</p>
-          <h2 className="max-w-lg text-4xl font-semibold leading-[1.05] text-[var(--text-primary)] xl:text-5xl">Ideias melhores começam com uma boa leitura.</h2>
-          <p className="mt-5 max-w-md text-base leading-7 text-[var(--text-secondary)]">Entre para ler, conversar e acompanhar uma comunidade que pensa junto.</p>
-        </div>
-        <div className="auth-paths pointer-events-none absolute inset-0 opacity-70">
-          <FloatingPaths position={1} />
-          <FloatingPaths position={-1} />
-        </div>
-      </div>
-
-      <div className="auth-form-panel relative flex min-h-screen flex-col justify-center bg-[var(--bg-canvas)] px-4 py-10 sm:px-8 lg:px-12">
+    <main className="auth-page relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--bg-canvas)] px-4 py-8 text-[var(--text-primary)] sm:px-6">
+      <div className="auth-form-panel relative flex min-h-[calc(100vh-4rem)] w-full max-w-[460px] flex-col justify-center bg-[var(--bg-canvas)]">
         <div
           aria-hidden
           className="absolute inset-0 isolate -z-10 opacity-60 contain-strict"
@@ -190,16 +172,10 @@ export function AuthPage() {
           <div className="absolute top-0 right-0 h-320 w-60 -translate-y-87.5 rounded-full bg-[radial-gradient(50%_50%_at_50%_50%,--theme(--color-foreground/.04)_0,--theme(--color-foreground/.01)_80%,transparent_100%)]" />
         </div>
 
-        <Link
-          to="/"
-          className="absolute top-6 left-4 inline-flex min-h-10 items-center gap-1.5 rounded-full border border-[var(--border)] px-3 text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--accent-mint)] sm:left-8"
-        >
-          <ChevronLeftIcon className="size-4" />Início
-        </Link>
-
-        <div className="auth-form-card mx-auto w-full max-w-md space-y-5">
-          <div className="flex items-center gap-2 lg:hidden">
+        <div className="auth-form-card mx-auto w-full space-y-6">
+          <div className="flex items-center justify-between">
             <Logo className="text-[26px] text-[var(--text-primary)]" />
+            <Link to="/" className="text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]">Voltar</Link>
           </div>
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent-mint)]">OPE Club</p>
@@ -213,11 +189,15 @@ export function AuthPage() {
             </p>
           </div>
 
-          <form className="space-y-4" onSubmit={handleSubmit}>
+          <form className="space-y-5" onSubmit={handleSubmit}>
 
             {mode === "signup" && (
-              <InputGroup>
+              <label className="block space-y-2" htmlFor="auth-name">
+                <span className="block text-xs font-medium text-[var(--text-secondary)]">Nome</span>
+              <InputGroup className="h-12 rounded-[10px] border-[var(--border)] bg-[var(--bg-surface)] focus-within:border-[var(--accent-mint)] focus-within:ring-2 focus-within:ring-[var(--accent-mint)]/20">
                 <InputGroupInput
+                  id="auth-name"
+                  className="h-full text-sm placeholder:text-[var(--text-muted)]"
                   placeholder="Seu nome"
                   type="text"
                   value={name}
@@ -230,10 +210,15 @@ export function AuthPage() {
                   <UserIcon />
                 </InputGroupAddon>
               </InputGroup>
+              </label>
             )}
 
-            <InputGroup>
+            <label className="block space-y-2" htmlFor="auth-email">
+              <span className="block text-xs font-medium text-[var(--text-secondary)]">Email</span>
+            <InputGroup className="h-12 rounded-[10px] border-[var(--border)] bg-[var(--bg-surface)] focus-within:border-[var(--accent-mint)] focus-within:ring-2 focus-within:ring-[var(--accent-mint)]/20">
               <InputGroupInput
+                id="auth-email"
+                className="h-full text-sm placeholder:text-[var(--text-muted)]"
                 placeholder="seu@email.com"
                 type="email"
                 value={email}
@@ -246,9 +231,14 @@ export function AuthPage() {
                 <AtSignIcon />
               </InputGroupAddon>
             </InputGroup>
+            </label>
 
-            <InputGroup>
+            <label className="block space-y-2" htmlFor="auth-password">
+              <span className="block text-xs font-medium text-[var(--text-secondary)]">Senha</span>
+            <InputGroup className="h-12 rounded-[10px] border-[var(--border)] bg-[var(--bg-surface)] focus-within:border-[var(--accent-mint)] focus-within:ring-2 focus-within:ring-[var(--accent-mint)]/20">
               <InputGroupInput
+                id="auth-password"
+                className="h-full text-sm placeholder:text-[var(--text-muted)]"
                 placeholder="Sua senha"
                 type={showPassword ? "text" : "password"}
                 value={password}
@@ -273,11 +263,16 @@ export function AuthPage() {
                 </button>
               </InputGroupAddon>
             </InputGroup>
+            </label>
 
             {mode === "signup" && (
-              <InputGroup>
+              <label className="block space-y-2" htmlFor="auth-referral">
+                <span className="block text-xs font-medium text-[var(--text-secondary)]">Codigo de indicacao <span className="font-normal text-[var(--text-muted)]">(opcional)</span></span>
+              <InputGroup className="h-12 rounded-[10px] border-[var(--border)] bg-[var(--bg-surface)] focus-within:border-[var(--accent-mint)] focus-within:ring-2 focus-within:ring-[var(--accent-mint)]/20">
                 <InputGroupInput
-                  placeholder="Código de indicação (opcional)"
+                  id="auth-referral"
+                  className="h-full text-sm placeholder:text-[var(--text-muted)]"
+                  placeholder="Digite o codigo"
                   type="text"
                   value={referralCode}
                   maxLength={40}
@@ -288,6 +283,31 @@ export function AuthPage() {
                   <GiftIcon />
                 </InputGroupAddon>
               </InputGroup>
+              </label>
+            )}
+
+            {mode === "signup" && (
+              <div className="space-y-3 pt-1">
+                <label className="flex items-start gap-3 text-left text-xs leading-5 text-[var(--text-muted)]">
+                  <Checkbox
+                    checked={termsAccepted}
+                    onCheckedChange={(value) => setTermsAccepted(value === true)}
+                    className="mt-0.5"
+                    required
+                  />
+                  <span>
+                    Li e aceito os <TermsDialog trigger={<span className="cursor-pointer underline underline-offset-4 hover:text-[var(--accent-mint)]">Termos de Servico</span>} /> e a <PrivacyDialog trigger={<span className="cursor-pointer underline underline-offset-4 hover:text-[var(--accent-mint)]">Politica de Privacidade</span>} /> do OPE Club.
+                  </span>
+                </label>
+                <label className="flex items-start gap-3 text-left text-xs leading-5 text-[var(--text-muted)]">
+                  <Checkbox
+                    checked={marketingOptIn}
+                    onCheckedChange={(value) => setMarketingOptIn(value === true)}
+                    className="mt-0.5"
+                  />
+                  <span>Quero receber novidades e recomendacoes por email. <span className="text-[var(--text-muted)]">(opcional)</span></span>
+                </label>
+              </div>
             )}
 
             {error && (
@@ -317,48 +337,6 @@ export function AuthPage() {
                 : "Já tem conta? Acessar conta"}
             </button>
           </div>
-
-          {mode === "signup" && (
-            <div className="space-y-3 pt-2">
-              <label className="flex items-start gap-3 text-left text-xs text-[var(--text-muted)]">
-                <Checkbox
-                  checked={termsAccepted}
-                  onCheckedChange={(value) => setTermsAccepted(value === true)}
-                  className="mt-0.5"
-                  required
-                />
-                <span>
-                  Li e aceito os{" "}
-                  <TermsDialog
-                    trigger={
-                      <span className="cursor-pointer underline underline-offset-4 hover:text-[var(--accent-mint)]">
-                        Termos de Servico
-                      </span>
-                    }
-                  />
-                  {" "}e a{" "}
-                  <PrivacyDialog
-                    trigger={
-                      <span className="cursor-pointer underline underline-offset-4 hover:text-[var(--accent-mint)]">
-                        Politica de Privacidade
-                      </span>
-                    }
-                  />
-                  {" "}do OPE Club, em conformidade com a Lei Geral de Protecao de Dados (LGPD - Lei 13.709/2018).
-                </span>
-              </label>
-              <label className="flex items-start gap-3 text-left text-xs text-[var(--text-muted)]">
-                <Checkbox
-                  checked={marketingOptIn}
-                  onCheckedChange={(value) => setMarketingOptIn(value === true)}
-                  className="mt-0.5"
-                />
-                <span>
-                  Quero receber novidades, lancamentos e recomendacoes por email. (Opcional - posso cancelar a qualquer momento.)
-                </span>
-              </label>
-            </div>
-          )}
 
           <p className="mt-6 text-center text-[11px] leading-relaxed text-[var(--text-muted)]">
             OPE Club respeita sua privacidade. Os dados coletados (nome, email, atividades de leitura)
