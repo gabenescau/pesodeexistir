@@ -55,7 +55,12 @@ export default async function handler(req, res) {
     const siteUrl = getSiteUrl();
     const email = profile?.email || user?.email || "";
     const customerId = await getOrCreateStripeCustomer({ user, email, subscriptions });
-    let openAttempt = await getOpenCheckoutAttempt(user.id);
+    // A pending checkout is scoped to the same plan and payment method. An
+    // abandoned CARD checkout must not block a new PIX checkout (or vice versa).
+    let openAttempt = await getOpenCheckoutAttempt(user.id, {
+      planKey: plan.key,
+      paymentMethod,
+    });
     let effectiveAttemptId = attemptId;
 
     if (openAttempt?.expires_at && Date.parse(openAttempt.expires_at) <= Date.now()) {
@@ -126,6 +131,15 @@ export default async function handler(req, res) {
       paymentMethod,
     });
     if (claimed.conflict) {
+      if (claimed.attempt?.stripe_session_id) {
+        const existingSession = await stripe.checkout.sessions.retrieve(claimed.attempt.stripe_session_id);
+        if (existingSession.status === "open" && existingSession.url) {
+          return sendSuccess(req, res, { url: existingSession.url, planKey: plan.key, paymentMethod, reused: true });
+        }
+        if (existingSession.status === "complete" && existingSession.payment_status === "paid") {
+          return sendClientError(req, res, 409, "Pagamento ja confirmado. Aguarde a sincronizacao da assinatura.");
+        }
+      }
       return sendClientError(req, res, 409, "Ja existe um checkout em processamento. Aguarde a confirmacao ou sua expiracao.");
     }
 

@@ -6,6 +6,7 @@ const phase3Path = new URL("../supabase/migrations/20260810300000_phase3_billing
 const compatibilityPath = new URL("../supabase/migrations/20260810400000_phase4_schema_compatibility.sql", import.meta.url);
 const suggestionLikesPath = new URL("../supabase/migrations/20260810500000_phase5_suggestion_likes.sql", import.meta.url);
 const rewardsPath = new URL("../supabase/migrations/20260810600000_rewards_referrals_stock.sql", import.meta.url);
+const checkoutConcurrencyPath = new URL("../supabase/migrations/20260810800000_checkout_concurrency_and_plan_entitlements.sql", import.meta.url);
 
 test("phase 3 migration prepares last_error before compiling webhook RPCs", async () => {
   const sql = await readFile(phase3Path, "utf8");
@@ -42,4 +43,13 @@ test("rewards migration keeps wallet RPCs server-authoritative and stock transac
   assert.match(sql, /trg_reward_referral_after_subscription/i);
   assert.match(sql, /s\.status = 'active'/i);
   assert.doesNotMatch(sql, /30 days/i);
+});
+
+test("checkout concurrency is scoped by plan and payment method", async () => {
+  const sql = await readFile(checkoutConcurrencyPath, "utf8");
+  assert.match(sql, /drop index if exists public\.billing_open_checkout_user_uidx/i);
+  assert.match(sql, /billing_checkout_attempts\(user_id, plan_key, payment_method\)/i);
+  assert.match(sql, /where status = 'open'/i);
+  assert.match(sql, /ope_club_pensador_monthly/i);
+  assert.doesNotMatch(sql, /ope_club_leitor_monthly'.*profile_is_verified/s);
 });

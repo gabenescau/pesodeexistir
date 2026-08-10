@@ -428,9 +428,15 @@ export async function deleteAuthUser(userId) {
   }
 }
 
-export async function getOpenCheckoutAttempt(userId) {
+export async function getOpenCheckoutAttempt(userId, { planKey, paymentMethod } = {}) {
+  const filters = [
+    `user_id=eq.${encodeURIComponent(userId)}`,
+    "status=eq.open",
+  ];
+  if (planKey) filters.push(`plan_key=eq.${encodeURIComponent(planKey)}`);
+  if (paymentMethod) filters.push(`payment_method=eq.${encodeURIComponent(paymentMethod)}`);
   const rows = await supabaseRequest(
-    `billing_checkout_attempts?user_id=eq.${encodeURIComponent(userId)}&status=eq.open&order=created_at.desc&limit=1&select=*`
+    `billing_checkout_attempts?${filters.join("&")}&order=created_at.desc&limit=1&select=*`
   );
   return rows?.[0] || null;
 }
@@ -465,7 +471,7 @@ export async function claimCheckoutAttempt({ attemptId, userId, planKey, payment
     return { attempt: rows?.[0] || null, reused: false };
   } catch (error) {
     if (Number(error?.status) !== 409) throw error;
-    const open = await getOpenCheckoutAttempt(userId);
+    const open = await getOpenCheckoutAttempt(userId, { planKey, paymentMethod });
     if (open) {
       const conflict = getCheckoutAttemptConflict(open, { userId, planKey, paymentMethod });
       if (conflict === "pending_conflict") {

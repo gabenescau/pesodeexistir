@@ -37,8 +37,9 @@ export function SubscribePage() {
   const checkoutSessionId = searchParams.get("session_id");
   const cancelSurvey = useCancelSurvey();
   const requestedTier = searchParams.get("plan");
+  const requestedCycle = searchParams.get("ciclo");
   const [tierId, setTierId] = useState(TIERS[requestedTier] ? requestedTier : "pensador");
-  const [cycle, setCycle] = useState("monthly");
+  const [cycle, setCycle] = useState(CYCLES[requestedCycle] ? requestedCycle : "monthly");
   const [paymentMethod, setPaymentMethod] = useState("CARD");
   const [currentSubscription, setCurrentSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -211,6 +212,31 @@ export function SubscribePage() {
         </section>
       )}
 
+      <section className="mb-5 flex flex-col gap-4 rounded-[8px] border border-[var(--border)] bg-[var(--bg-card)] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5" aria-labelledby="billing-cycle-title">
+        <div className="min-w-0">
+          <p id="billing-cycle-title" className="text-sm font-semibold text-[var(--text-primary)]">Escolha a frequência</p>
+          <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">Altere entre cobrança mensal e anual antes de escolher seu plano.</p>
+        </div>
+        <div className="grid w-full grid-cols-2 gap-1 rounded-[8px] border border-[var(--border)] bg-[var(--bg)] p-1 sm:w-auto" role="radiogroup" aria-label="Frequência de cobrança">
+          {Object.values(CYCLES).map((item) => {
+            const selected = cycle === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => setCycle(item.id)}
+                className={`min-h-11 rounded-[6px] px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-mint)] ${selected ? "bg-[var(--text-primary)] text-[var(--bg-card)] shadow-sm" : "text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]"}`}
+              >
+                <span>{item.label}</span>
+                {item.id === "annual" ? <span className={`ml-1.5 text-[10px] font-semibold ${selected ? "text-[var(--bg-card)]/75" : "text-[var(--accent-mint)]"}`}>-{selectedTier.annualDiscountPercent}%</span> : null}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
       <div className="mb-5 grid gap-4 sm:grid-cols-2">
         {Object.values(TIERS).map((tier) => {
           const selected = tier.id === tierId;
@@ -220,7 +246,7 @@ export function SubscribePage() {
               key={tier.id}
               onClick={() => setTierId(tier.id)}
               aria-pressed={selected}
-              className={`min-w-0 rounded-[8px] border p-5 text-left transition-colors ${selected ? "border-[var(--accent-mint)] bg-[var(--hover-overlay)]" : "border-[var(--border)] bg-[var(--bg-card)]"}`}
+              className={`min-w-0 rounded-[8px] border p-5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-mint)] ${selected ? "border-[var(--accent-mint)] bg-[var(--hover-overlay)]" : "border-[var(--border)] bg-[var(--bg-card)]"}`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -238,14 +264,6 @@ export function SubscribePage() {
 
       <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 rounded-[8px] border border-[var(--border)] bg-[var(--bg-card)] p-4 sm:p-6">
-          <div className="grid grid-cols-2 gap-2" aria-label="Ciclo do plano">
-            {Object.values(CYCLES).map((item) => (
-              <button key={item.id} type="button" onClick={() => setCycle(item.id)} aria-pressed={cycle === item.id} className={`min-h-11 rounded-[8px] px-3 text-sm font-medium ${cycle === item.id ? "bg-[var(--text-primary)] text-[var(--bg-card)]" : "border border-[var(--border)] text-[var(--text-primary)]"}`}>
-                {item.label}{item.id === "annual" ? ` - ${selectedTier.annualDiscountPercent}%` : ""}
-              </button>
-            ))}
-          </div>
-
           {!active && !isAdmin ? (
             <div className="mt-5">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">Forma de pagamento</p>
