@@ -7,7 +7,8 @@ import { supabase, isSupabaseReady } from "@/app/data/supabase";
 import { handleDoPerfil } from "@/lib/mentions";
 
 // Recompensas reais: +500 XP / +100 creditos por amigo que vira assinante
-// ativo ha 30+ dias (mesmo valor da ReferralWidget e do RPC referral_claim).
+// ativo e confirmado pelo webhook de assinatura (mesmo valor da recompensa
+// aplicada no banco, sem confiar no frontend).
 const REFERRAL_REWARD = { xp: 500, credits: 100 };
 
 function StatusBadge({ status }) {
@@ -120,7 +121,7 @@ export function ReferralPage() {
       await refresh();
       await load();
     } catch (err) {
-      toast.error(err?.message || "Este convidado ainda não completou 30 dias de assinatura ativa.");
+      toast.error(err?.message || "Este convidado ainda não possui uma assinatura ativa.");
     } finally {
       setBusy("");
     }
@@ -166,7 +167,7 @@ export function ReferralPage() {
         <div className="rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
           <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Confirmadas</p>
           <p className="mt-1 text-2xl font-bold text-[var(--text-primary)]">{confirmed}</p>
-          <p className="mt-0.5 text-xs text-[var(--text-muted)]">assinaturas ativas há 30+ dias</p>
+          <p className="mt-0.5 text-xs text-[var(--text-muted)]">assinaturas ativas</p>
         </div>
         <div className="rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
           <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Créditos Ganhos</p>
@@ -222,12 +223,12 @@ export function ReferralPage() {
             <p className="mt-0.5 text-sm font-bold text-[var(--text-primary)]">
               +{REFERRAL_REWARD.xp} XP e +{REFERRAL_REWARD.credits} Créditos
             </p>
-            <p className="mt-0.5 text-xs text-[var(--text-muted)]">por amigo que assinar e ficar 30 dias ativo</p>
+            <p className="mt-0.5 text-xs text-[var(--text-muted)]">por amigo que assinar um plano</p>
           </div>
           <div className="rounded-[10px] border border-[var(--border)] bg-[var(--bg-canvas)] p-3">
             <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Como funciona</p>
             <p className="mt-0.5 text-sm font-bold text-[var(--text-primary)]">Validação automática</p>
-            <p className="mt-0.5 text-xs text-[var(--text-muted)]">a recompensa libera quando a assinatura do convidado completa 30 dias</p>
+            <p className="mt-0.5 text-xs text-[var(--text-muted)]">a recompensa libera quando a assinatura do convidado fica ativa</p>
           </div>
         </div>
       </div>
@@ -312,7 +313,7 @@ export function ReferralPage() {
               : "Comece indicando seu primeiro amigo"}
           </p>
           <p className="text-xs text-[var(--text-muted)]">
-            A validação acontece automaticamente quando o convidado mantém a assinatura ativa por 30 dias.
+            A validação acontece automaticamente quando o convidado conclui o pagamento e a assinatura fica ativa.
           </p>
         </div>
       </div>

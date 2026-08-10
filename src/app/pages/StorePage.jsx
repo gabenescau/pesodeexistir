@@ -146,6 +146,7 @@ function ProductCard({ product, onRedeem }) {
   const { wallet } = useRewards();
   const credits = wallet?.credits ?? 0;
   const affordable = credits >= product.credits_cost;
+  const outOfStock = product.stock !== null && product.stock !== undefined && Number(product.stock) <= 0;
   const images = getProductImages(product);
   const isDual = DUAL_PAYMENT_CATEGORIES.includes(product.category);
   const realPrice = product.real_price ||
@@ -172,10 +173,13 @@ function ProductCard({ product, onRedeem }) {
         <div className="space-y-0.5">
           <p className="text-xs text-[var(--text-muted)]">{product.credits_cost?.toLocaleString("pt-BR")} créditos</p>
           {isDual && realPrice > 0 && <p className="text-[11px] text-[var(--text-muted)]">ou R$ {realPrice.toFixed(2)}</p>}
+          <p className={`text-[11px] ${outOfStock ? "text-red-400" : "text-[var(--text-muted)]"}`}>
+            {outOfStock ? "Esgotado" : product.stock == null ? "Disponibilidade aberta" : `${product.stock} em estoque`}
+          </p>
         </div>
         <button
           type="button"
-          disabled={!affordable}
+          disabled={!affordable || outOfStock}
           onClick={(e) => { e.stopPropagation(); onRedeem(product); }}
           className="w-full rounded-[8px] border border-[var(--border)] px-3 py-1.5 text-[11px] font-semibold text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] transition-colors disabled:cursor-not-allowed disabled:opacity-40"
         >

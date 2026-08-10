@@ -5,7 +5,7 @@ import { supabase, isSupabaseReady } from "@/app/data/supabase";
 import { toast } from "@/lib/toast";
 
 // Indicacoes: mostra o codigo de convite e permite reclamar a recompensa
-// (+500 XP / +100 creditos) por convidado que virou assinante ativo ha 30+ dias.
+// (+500 XP / +100 creditos) por convidado que virou assinante ativo.
 export function ReferralWidget() {
   const { getMyReferralCode, referralClaim, refresh } = useRewards();
   const [code, setCode] = useState("");
@@ -49,7 +49,7 @@ export function ReferralWidget() {
       await refresh();
       await load();
     } catch (err) {
-      toast.error(err?.message || "Este convidado ainda não completou 30 dias de assinatura ativa.");
+      toast.error(err?.message || "Este convidado ainda não possui uma assinatura ativa.");
     } finally {
       setBusy("");
     }
@@ -66,7 +66,7 @@ export function ReferralWidget() {
         </h3>
       </div>
       <p className="mb-3 text-xs leading-relaxed text-[var(--text-secondary)]">
-        Cada amigo que assinar com seu código e ficar 30 dias ativo rende{" "}
+        Cada amigo que assinar com seu código e ficar ativo rende{" "}
         <span className="font-semibold text-[var(--text-primary)]">+500 XP e +100 créditos</span>.
       </p>
       {code && (

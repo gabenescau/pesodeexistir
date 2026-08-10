@@ -1531,6 +1531,7 @@ function LojaTab() {
     credits_cost: 100,
     real_price: "",
     min_months_active: 0,
+    stock: "",
     image_url: "",
     images: [],
     external_sku: "",
@@ -1707,6 +1708,7 @@ function LojaTab() {
       credits_cost: Math.max(1, Number(form.credits_cost) || 1),
       real_price: Number(form.real_price) || 0,
       min_months_active: Math.max(0, Number(form.min_months_active) || 0),
+      stock: form.stock === "" || form.stock === null ? null : Math.max(0, Number(form.stock) || 0),
       image_url: currentImages[0] || null,
       images: currentImages,
       external_sku: form.external_sku.trim() || null,
@@ -1775,6 +1777,7 @@ function LojaTab() {
       credits_cost: product.credits_cost || 100,
       real_price: product.real_price || "",
       min_months_active: product.min_months_active || 0,
+      stock: product.stock ?? "",
       image_url: product.image_url || "",
       images: productImages,
       external_sku: product.external_sku || "",
@@ -1844,6 +1847,7 @@ function LojaTab() {
           <input className={inputClass} type="number" min="1" placeholder="Custo em créditos" value={form.credits_cost} onChange={(e) => setForm({ ...form, credits_cost: e.target.value })} />
           <input className={inputClass} type="number" min="0" step="0.01" placeholder="Preço em R$ (opcional, ex: 189.90)" value={form.real_price} onChange={(e) => setForm({ ...form, real_price: e.target.value })} />
           <input className={inputClass} type="number" min="0" step="0.5" placeholder="Mínimo de meses ativo" value={form.min_months_active} onChange={(e) => setForm({ ...form, min_months_active: e.target.value })} />
+          <input className={inputClass} type="number" min="0" step="1" placeholder="Estoque (vazio = ilimitado)" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
           <input className={inputClass} placeholder="SKU externo" value={form.external_sku} onChange={(e) => setForm({ ...form, external_sku: e.target.value })} />
         </div>
 
@@ -1987,6 +1991,7 @@ function LojaTab() {
                 <th className="pb-3 pr-4 font-medium">Categoria</th>
                 <th className="pb-3 pr-4 font-medium">Custo</th>
                 <th className="pb-3 pr-4 font-medium">Mín. meses</th>
+                <th className="pb-3 pr-4 font-medium">Estoque</th>
                 <th className="pb-3 pr-4 font-medium">Ativo</th>
                 <th className="pb-3 font-medium"></th>
               </tr>
@@ -2019,6 +2024,7 @@ function LojaTab() {
                     <td className="py-3 pr-4 text-[var(--text-secondary)]">{CATEGORY_LABELS[p.category] || p.category}</td>
                     <td className="py-3 pr-4 text-[var(--text-secondary)]">{p.credits_cost}</td>
                     <td className="py-3 pr-4 text-[var(--text-secondary)]">{p.min_months_active}</td>
+                    <td className="py-3 pr-4 text-[var(--text-secondary)]">{p.stock == null ? "Ilimitado" : p.stock}</td>
                     <td className="py-3 pr-4">
                       <button type="button" onClick={() => toggleActive(p)} className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${p.active ? "bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]" : "bg-[var(--hover-overlay)] text-[var(--text-muted)]"}`}>
                         {p.active ? "Sim" : "Não"}

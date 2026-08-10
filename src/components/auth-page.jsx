@@ -94,6 +94,10 @@ export function AuthPage() {
         if (!termsAccepted) {
           throw new Error("Para criar a conta voce precisa aceitar os Termos de Servico e a Politica de Privacidade (LGPD).");
         }
+        const refParam = sanitizeSingleLine(
+          referralCode.trim() || new URLSearchParams(location.search).get("ref") || "",
+          40
+        );
         const { data, error: signUpError } = await supabase.auth.signUp({
           email: cleanEmail,
           password,
@@ -103,6 +107,7 @@ export function AuthPage() {
               lgpd_consent: true,
               lgpd_consent_at: new Date().toISOString(),
               marketing_opt_in: marketingOptIn,
+              ...(refParam ? { referral_code: refParam } : {}),
             },
           },
         });
@@ -126,7 +131,6 @@ export function AuthPage() {
           }
 
           // Se veio da URL /assinar?ref=CODIGO, registra quem indicou.
-          const refParam = referralCode.trim() || new URLSearchParams(location.search).get("ref");
           if (refParam) {
             await supabase.rpc("register_referral", { p_referrer_code: refParam }).catch(() => {});
           }

@@ -127,7 +127,7 @@ export function RewardsProvider({ children }) {
     }
     const { data, error } = await supabase
       .from("shop_products")
-      .select("id,name,description,category,credits_cost,real_price,min_months_active,image_url,images,active,external_sku,created_at,updated_at")
+      .select("id,name,description,category,credits_cost,real_price,min_months_active,stock,image_url,images,active,external_sku,created_at,updated_at")
       .eq("active", true)
       .order("credits_cost", { ascending: true });
     if (error) throw error;

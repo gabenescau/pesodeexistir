@@ -53,6 +53,7 @@ export function ProductDetailPage() {
 
   const credits = wallet?.credits ?? 0;
   const affordable = product ? credits >= product.credits_cost : false;
+  const outOfStock = product && product.stock !== null && product.stock !== undefined && Number(product.stock) <= 0;
   const images = useMemo(() => getProductImages(product), [product]);
   const progressPercent = product ? Math.min(100, Math.round((credits / product.credits_cost) * 100)) : 0;
   const missingCredits = product ? Math.max(0, product.credits_cost - credits) : 0;
@@ -296,7 +297,7 @@ export function ProductDetailPage() {
               {selectedPayment === "credits" ? (
                 <button
                   type="button"
-                  disabled={!canBuyWithCredits}
+                  disabled={!canBuyWithCredits || outOfStock}
                   onClick={handleOpenCheckout}
                   className="w-full rounded-[10px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-500 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                 >

@@ -29,7 +29,7 @@ export function AuthProvider({ children }) {
 
     let active = true;
 
-    async function loadProfile(userId) {
+    async function loadProfile(userId, authUser = null) {
       if (!userId) {
         loadedProfileIdRef.current = null;
         setProfile(null);
@@ -63,6 +63,15 @@ export function AuthProvider({ children }) {
 
       loadedProfileIdRef.current = userId;
       setProfile(data);
+
+      const referralCode = authUser?.user_metadata?.referral_code;
+      if (referralCode) {
+        rewardApi.registerReferral(referralCode).catch((error) => {
+          // O RPC e idempotente: codigo invalido ou indicacao ja registrada
+          // nao pode impedir o login.
+          console.warn("Falha ao registrar indicacao pendente:", error?.message || error);
+        });
+      }
 
       // Registra o XP/Creditos de login de forma idempotente (o servidor
       // deduplica por dia). Fire-and-forget: nunca bloqueia a sessao, mas deixa
@@ -99,7 +108,7 @@ export function AuthProvider({ children }) {
       if (!active) return;
       setSession(session);
       setUser(session?.user ?? null);
-      await loadProfile(session?.user?.id);
+      await loadProfile(session?.user?.id, session?.user);
       if (active) setLoading(false);
     }
 
@@ -128,7 +137,7 @@ export function AuthProvider({ children }) {
       // So recarrega quando troca de usuario; ignora TOKEN_REFRESHED e as
       // re-emissoes disparadas ao voltar o foco para a aba.
       if (nextUserId !== loadedProfileIdRef.current) {
-        loadProfile(nextUserId);
+        loadProfile(nextUserId, session?.user);
       }
     });
 
