@@ -17,9 +17,6 @@ const CATEGORY_LABELS = {
   collectibles: "Colecionáveis",
 };
 
-// These categories support dual payment (credits + real money)
-const DUAL_PAYMENT_CATEGORIES = ["oversized", "hoodie", "moletom"];
-
 function getProductImages(product) {
   if (!product) return [];
   const rawImages =
@@ -57,9 +54,9 @@ export function ProductDetailPage() {
   const images = useMemo(() => getProductImages(product), [product]);
   const progressPercent = product ? Math.min(100, Math.round((credits / product.credits_cost) * 100)) : 0;
   const missingCredits = product ? Math.max(0, product.credits_cost - credits) : 0;
-  const isDualPayment = product ? DUAL_PAYMENT_CATEGORIES.includes(product.category) : false;
-  const realPrice = product?.real_price || (product?.category === "oversized" ? 189.90 : product?.category === "hoodie" ? 289.90 : 0);
+  const realPrice = Number(product?.real_price || 0);
   const hasRealPrice = realPrice > 0;
+  const isDualPayment = hasRealPrice;
 
   const similarProducts = useMemo(() => {
     if (!product) return [];
@@ -87,7 +84,7 @@ export function ProductDetailPage() {
   }
 
   function handleOpenCheckout() {
-    if (selectedPayment === "real") {
+    if (selectedPayment === "real" && !hasRealPrice) {
       toast.info("Módulo de Gateway de Pagamento: A integração de pagamento em dinheiro real será conectada em breve.");
       return;
     }
@@ -362,8 +359,8 @@ export function ProductDetailPage() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
             {similarProducts.map((simProd) => {
               const simImages = getProductImages(simProd);
-              const simRealPrice = simProd.real_price || (simProd.category === "oversized" ? 189.90 : simProd.category === "hoodie" ? 289.90 : 0);
-              const simIsDual = DUAL_PAYMENT_CATEGORIES.includes(simProd.category);
+              const simRealPrice = Number(simProd.real_price || 0);
+              const simIsDual = simRealPrice > 0;
               return (
                 <div
                   key={simProd.id}

@@ -47,7 +47,8 @@ export function RewardsProvider({ children }) {
             name: "Livro Físico - Edição OPE",
             description: "Edição física exclusiva impressa com acabamento de luxo e capa dura.",
             category: "book",
-            credits_cost: 450,
+            credits_cost: 600,
+            real_price: 60,
             min_months_active: 2.5,
             image_url: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=800&q=80",
             images: [
@@ -63,6 +64,7 @@ export function RewardsProvider({ children }) {
             description: "Encadernação em couro vegetal, corte dourado e estojo exclusivo.",
             category: "book_premium",
             credits_cost: 900,
+            real_price: 90,
             min_months_active: 5,
             image_url: "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=800&q=80",
             images: [
@@ -77,7 +79,8 @@ export function RewardsProvider({ children }) {
             name: "Box Coleção Filosofia Clássica",
             description: "Box com 3 obras essenciais + marcador em metal + brinde exclusivo.",
             category: "boxes",
-            credits_cost: 1200,
+            credits_cost: 1400,
+            real_price: 140,
             min_months_active: 6,
             image_url: "https://images.unsplash.com/photo-1532012197267-da84d127e765?w=800&q=80",
             images: [
@@ -92,7 +95,7 @@ export function RewardsProvider({ children }) {
             name: "Camiseta Oversized OPE Club",
             description: "Camiseta oversized 100% algodão pima com estampa frontal minimalista.",
             category: "oversized",
-            credits_cost: 1800,
+            credits_cost: 2000,
             real_price: 189.90,
             min_months_active: 8,
             image_url: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=800&q=80",
@@ -108,7 +111,7 @@ export function RewardsProvider({ children }) {
             name: "Moletom Street OPE Club",
             description: "Moletom pesado com capuz duplo, bolso canguru e bordado de alta definição.",
             category: "hoodie",
-            credits_cost: 2800,
+            credits_cost: 2900,
             real_price: 289.90,
             min_months_active: 12,
             image_url: "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=800&q=80",
@@ -127,7 +130,7 @@ export function RewardsProvider({ children }) {
     }
     const { data, error } = await supabase
       .from("shop_products")
-      .select("id,name,description,category,credits_cost,real_price,min_months_active,stock,image_url,images,active,external_sku,created_at,updated_at")
+      .select("id,name,description,category,credits_cost,real_price,min_months_active,stock,image_url,images,active,external_sku,season_id,created_at,updated_at")
       .eq("active", true)
       .order("credits_cost", { ascending: true });
     if (error) throw error;

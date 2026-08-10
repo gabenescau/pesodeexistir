@@ -15,7 +15,6 @@ const LEITOR_BENEFITS = [
 const PENSADOR_BENEFITS = [
   "Todos os benefícios do plano leitor",
   "Selo de verificado",
-  "Acesso ao ranking mensal",
   "Acesso às seasons",
   "Suporte exclusivo WhatsApp",
   "Acesso antecipado a novos livros",

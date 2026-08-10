@@ -26,8 +26,6 @@ const CATEGORY_TABS = [
   { id: "boxes", label: "Boxes" },
 ];
 
-const DUAL_PAYMENT_CATEGORIES = ["oversized", "hoodie", "moletom"];
-
 function getProductImages(product) {
   if (!product) return [];
   const rawImages =
@@ -64,9 +62,7 @@ function DropBannerSection({ products, onVerTudo }) {
   const featured = dropProducts[0];
   const rest = dropProducts.slice(1);
   const featuredImages = getProductImages(featured);
-  const featuredRealPrice = featured.real_price ||
-    (featured.category === "oversized" ? 189.90 : featured.category === "hoodie" ? 289.90 : 0);
-  const isDual = DUAL_PAYMENT_CATEGORIES.includes(featured.category);
+  const featuredRealPrice = Number(featured.real_price || 0);
 
   return (
     <div className="space-y-4">
@@ -102,7 +98,7 @@ function DropBannerSection({ products, onVerTudo }) {
             <p className="text-sm font-bold text-white leading-tight mt-0.5 line-clamp-2">{featured.name}</p>
             <div className="flex items-center gap-2 mt-1.5">
               <span className="text-xs font-semibold text-white/90">{featured.credits_cost?.toLocaleString("pt-BR")} créditos</span>
-              {isDual && featuredRealPrice > 0 && <span className="text-[10px] text-white/50">ou R$ {featuredRealPrice.toFixed(2)}</span>}
+              {featuredRealPrice > 0 && <span className="text-[10px] text-white/50">ou R$ {featuredRealPrice.toFixed(2)}</span>}
             </div>
           </div>
           <div className="absolute top-3 left-3">
@@ -113,7 +109,7 @@ function DropBannerSection({ products, onVerTudo }) {
         {/* Itens menores */}
         {rest.map((p) => {
           const imgs = getProductImages(p);
-          const rp = p.real_price || (p.category === "oversized" ? 189.90 : p.category === "hoodie" ? 289.90 : 0);
+          const rp = Number(p.real_price || 0);
           return (
             <div
               key={p.id}
@@ -130,7 +126,7 @@ function DropBannerSection({ products, onVerTudo }) {
                 <p className="text-xs font-bold text-white leading-tight line-clamp-2">{p.name}</p>
                 <div className="mt-1 flex items-center gap-1.5">
                   <span className="text-[10px] text-white/80">{p.credits_cost?.toLocaleString("pt-BR")} cr.</span>
-                  {DUAL_PAYMENT_CATEGORIES.includes(p.category) && rp > 0 && <span className="text-[9px] text-white/50">ou R$ {rp.toFixed(2)}</span>}
+                  {rp > 0 && <span className="text-[9px] text-white/50">ou R$ {rp.toFixed(2)}</span>}
                 </div>
               </div>
             </div>
@@ -148,9 +144,8 @@ function ProductCard({ product, onRedeem }) {
   const affordable = credits >= product.credits_cost;
   const outOfStock = product.stock !== null && product.stock !== undefined && Number(product.stock) <= 0;
   const images = getProductImages(product);
-  const isDual = DUAL_PAYMENT_CATEGORIES.includes(product.category);
-  const realPrice = product.real_price ||
-    (product.category === "oversized" ? 189.90 : product.category === "hoodie" ? 289.90 : 0);
+  const realPrice = Number(product.real_price || 0);
+  const hasRealPrice = realPrice > 0;
 
   return (
     <div
@@ -172,18 +167,18 @@ function ProductCard({ product, onRedeem }) {
         <h3 className="text-xs font-semibold text-[var(--text-primary)] leading-snug line-clamp-2 flex-1">{product.name}</h3>
         <div className="space-y-0.5">
           <p className="text-xs text-[var(--text-muted)]">{product.credits_cost?.toLocaleString("pt-BR")} créditos</p>
-          {isDual && realPrice > 0 && <p className="text-[11px] text-[var(--text-muted)]">ou R$ {realPrice.toFixed(2)}</p>}
+          {hasRealPrice && <p className="text-[11px] text-[var(--text-muted)]">ou R$ {realPrice.toFixed(2)}</p>}
           <p className={`text-[11px] ${outOfStock ? "text-red-400" : "text-[var(--text-muted)]"}`}>
             {outOfStock ? "Esgotado" : product.stock == null ? "Disponibilidade aberta" : `${product.stock} em estoque`}
           </p>
         </div>
         <button
           type="button"
-          disabled={!affordable || outOfStock}
+          disabled={(!affordable && !hasRealPrice) || outOfStock}
           onClick={(e) => { e.stopPropagation(); onRedeem(product); }}
           className="w-full rounded-[8px] border border-[var(--border)] px-3 py-1.5 text-[11px] font-semibold text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] transition-colors disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {affordable ? "Resgatar" : "Insuficiente"}
+          {affordable ? "Resgatar" : hasRealPrice ? "Comprar" : "Insuficiente"}
         </button>
       </div>
     </div>
@@ -191,12 +186,16 @@ function ProductCard({ product, onRedeem }) {
 }
 
 export function StorePage() {
-  const { wallet, products, loading, error, redeemProduct, refresh } = useRewards();
+  const { wallet, products, loading, error, loadProducts, redeemProduct, refresh } = useRewards();
   const [activeCategory, setActiveCategory] = useState("all");
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedPayment, setSelectedPayment] = useState("credits");
   const [checkoutOpen, setCheckoutOpen] = useState(false);
 
-  useEffect(() => { refresh().catch(() => {}); }, [refresh]);
+  useEffect(() => {
+    loadProducts().catch(() => {});
+    refresh().catch(() => {});
+  }, [loadProducts, refresh]);
 
   const availableCategories = useMemo(() => {
     const cats = new Set(products.map((p) => p.category));
@@ -205,14 +204,22 @@ export function StorePage() {
 
   const filtered = activeCategory === "all" ? products : products.filter((p) => p.category === activeCategory);
 
-  function handleRedeem(product) { setSelectedProduct(product); setCheckoutOpen(true); }
+  function handleRedeem(product) {
+    const hasCredits = Number(wallet?.credits || 0) >= Number(product.credits_cost || 0);
+    const hasRealPrice = Number(product.real_price || 0) > 0;
+    setSelectedPayment(hasCredits ? "credits" : hasRealPrice ? "real" : "credits");
+    setSelectedProduct(product);
+    setCheckoutOpen(true);
+  }
 
   async function handleCheckoutConfirm(order) {
     if (!selectedProduct) return;
     try {
-      await redeemProduct(selectedProduct.id, order.customer.name, order.customer.email,
+      if (order.paymentMethod === "credits") {
+        await redeemProduct(selectedProduct.id, order.customer.name, order.customer.email,
         { linha1: `${order.address.street}, ${order.address.number} — ${order.address.city}/${order.address.state}` },
-        order.idempotencyKey);
+          order.idempotencyKey);
+      }
       refresh().catch(() => {});
     } catch (err) {
       toast.error(err?.message || "Não foi possível realizar o resgate.");
@@ -312,7 +319,7 @@ export function StorePage() {
         isOpen={checkoutOpen}
         onClose={() => setCheckoutOpen(false)}
         product={selectedProduct}
-        paymentMethod="credits"
+        paymentMethod={selectedPayment}
         onConfirm={handleCheckoutConfirm}
       />
     </div>

@@ -1536,8 +1536,10 @@ function LojaTab() {
     images: [],
     external_sku: "",
     active: true,
+    season_id: "",
   };
   const [form, setForm] = useState(INITIAL_FORM);
+  const [seasons, setSeasons] = useState([]);
   const [newImageUrl, setNewImageUrl] = useState("");
   const [editingId, setEditingId] = useState(null);
   const confirm = useConfirmDialog();
@@ -1558,8 +1560,8 @@ function LojaTab() {
             name: "Livro Físico - Edição OPE",
             description: "Edição física exclusiva impressa com acabamento de luxo e capa dura.",
             category: "book",
-            credits_cost: 120,
-            real_price: 0,
+            credits_cost: 600,
+            real_price: 60,
             min_months_active: 0,
             image_url: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=800&q=80",
             images: [
@@ -1574,8 +1576,8 @@ function LojaTab() {
             name: "Livro Premium - Edição Especial Collector",
             description: "Encadernação em couro vegetal, corte dourado e estojo exclusivo.",
             category: "book_premium",
-            credits_cost: 250,
-            real_price: 0,
+            credits_cost: 900,
+            real_price: 90,
             min_months_active: 2,
             image_url: "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=800&q=80",
             images: [
@@ -1590,8 +1592,8 @@ function LojaTab() {
             name: "Box Coleção Filosofia Clássica",
             description: "Box com 3 obras essenciais + marcador em metal + brinde exclusivo.",
             category: "boxes",
-            credits_cost: 300,
-            real_price: 0,
+            credits_cost: 1400,
+            real_price: 140,
             min_months_active: 3,
             image_url: "https://images.unsplash.com/photo-1532012197267-da84d127e765?w=800&q=80",
             images: [
@@ -1606,7 +1608,7 @@ function LojaTab() {
             name: "Camiseta Oversized OPE Club",
             description: "Camiseta oversized 100% algodão pima com estampa frontal minimalista.",
             category: "oversized",
-            credits_cost: 200,
+            credits_cost: 2000,
             real_price: 189.90,
             min_months_active: 1,
             image_url: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=800&q=80",
@@ -1622,7 +1624,7 @@ function LojaTab() {
             name: "Moletom Street OPE Club",
             description: "Moletom pesado com capuz duplo, bolso canguru e bordado de alta definição.",
             category: "hoodie",
-            credits_cost: 350,
+            credits_cost: 2900,
             real_price: 289.90,
             min_months_active: 3,
             image_url: "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=800&q=80",
@@ -1637,13 +1639,19 @@ function LojaTab() {
         localStorage.setItem("ope_shop_products_dev", JSON.stringify(local));
       }
       setProducts(local);
+      setSeasons([]);
       setLoading(false);
       return;
     }
     try {
-      const { data, error } = await supabase.from("shop_products").select("*").order("created_at", { ascending: false });
-      if (error) throw error;
-      setProducts(data || []);
+      const [productsResult, seasonsResult] = await Promise.all([
+        supabase.from("shop_products").select("*").order("created_at", { ascending: false }),
+        supabase.from("seasons").select("id,name,status,starts_on,ends_on").order("created_at", { ascending: false }),
+      ]);
+      if (productsResult.error) throw productsResult.error;
+      if (seasonsResult.error) throw seasonsResult.error;
+      setProducts(productsResult.data || []);
+      setSeasons(seasonsResult.data || []);
     } catch (err) {
       setError(err?.message || "Não foi possível carregar a loja.");
     } finally {
@@ -1713,6 +1721,7 @@ function LojaTab() {
       images: currentImages,
       external_sku: form.external_sku.trim() || null,
       active: Boolean(form.active),
+      season_id: form.season_id || null,
     };
     if (!payload.name) { setError("Informe o nome do produto."); return; }
 
@@ -1782,6 +1791,7 @@ function LojaTab() {
       images: productImages,
       external_sku: product.external_sku || "",
       active: product.active !== false,
+      season_id: product.season_id || "",
     });
   }
 
@@ -1843,6 +1853,10 @@ function LojaTab() {
               </option>
             ))}
           </select>
+          <select className={inputClass} value={form.season_id} onChange={(e) => setForm({ ...form, season_id: e.target.value })}>
+            <option value="">Sem season vinculada</option>
+            {seasons.map((season) => <option key={season.id} value={season.id}>{season.name} ({season.status})</option>)}
+          </select>
           <input className={inputClass} placeholder="Descrição" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <input className={inputClass} type="number" min="1" placeholder="Custo em créditos" value={form.credits_cost} onChange={(e) => setForm({ ...form, credits_cost: e.target.value })} />
           <input className={inputClass} type="number" min="0" step="0.01" placeholder="Preço em R$ (opcional, ex: 189.90)" value={form.real_price} onChange={(e) => setForm({ ...form, real_price: e.target.value })} />
@@ -1851,7 +1865,9 @@ function LojaTab() {
           <input className={inputClass} placeholder="SKU externo" value={form.external_sku} onChange={(e) => setForm({ ...form, external_sku: e.target.value })} />
         </div>
 
-        {/* Gerenciamento de Multi-imagens */}
+         <p className="text-[11px] text-[var(--text-muted)]">Regra: minimo de 10 creditos por R$1. Exemplo: R$60 = 600 creditos.</p>
+
+         {/* Gerenciamento de Multi-imagens */}
         <div className="space-y-2.5 rounded-[8px] border border-[var(--border)] bg-[var(--bg-canvas)] p-3">
           <div className="flex items-center justify-between">
             <label className="text-xs font-semibold text-[var(--text-primary)]">
@@ -2277,7 +2293,7 @@ function SeasonsTab() {
   const [error, setError] = useState("");
   const [working, setWorking] = useState("");
   const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState({ name: "", description: "", starts_on: "", ends_on: "" });
+  const [form, setForm] = useState({ name: "", description: "", starts_on: "", ends_on: "", status: "active" });
   const [editForm, setEditForm] = useState({ name: "", description: "", starts_on: "", ends_on: "" });
 
   const STATUS_META = {
@@ -2320,13 +2336,13 @@ function SeasonsTab() {
       .insert({
         name: form.name.trim(),
         description: form.description.trim() || null,
-        status: "draft",
+        status: form.status,
         starts_on: form.starts_on || null,
         ends_on: form.ends_on || null,
       })
       .then(async ({ error }) => {
         if (error) throw error;
-        setForm({ name: "", description: "", starts_on: "", ends_on: "" });
+        setForm({ name: "", description: "", starts_on: "", ends_on: "", status: "active" });
         await load();
       })
       .catch((err) => setError(err?.message || "Nao foi possivel criar a season."))
@@ -2433,6 +2449,14 @@ function SeasonsTab() {
             value={form.ends_on}
             onChange={(e) => setForm({ ...form, ends_on: e.target.value })}
           />
+          <select
+            className="rounded-[6px] border border-[var(--border)] bg-[var(--bg-canvas)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-strong)]"
+            value={form.status}
+            onChange={(e) => setForm({ ...form, status: e.target.value })}
+          >
+            <option value="active">Ativa e visivel</option>
+            <option value="draft">Rascunho</option>
+          </select>
           <textarea
             className="rounded-[6px] border border-[var(--border)] bg-[var(--bg-canvas)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-none focus:border-[var(--border-strong)] sm:col-span-2"
             placeholder="Descricao da Season"
