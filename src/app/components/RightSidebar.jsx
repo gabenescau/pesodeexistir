@@ -8,7 +8,7 @@ export function RightSidebar() {
   const { wallet } = useRewards() || {};
 
   return (
-    <aside className="hidden w-[260px] shrink-0 space-y-5 2xl:block">
+    <aside className="hidden w-[260px] shrink-0 space-y-5 xl:block xl:sticky xl:top-20">
       {wallet && (
         <section className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-5">
           <p className="text-xs font-semibold uppercase tracking-widest text-[var(--text-muted)]">Carteira OPE</p>

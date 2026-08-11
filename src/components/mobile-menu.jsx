@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/logo";
-import { MenuIcon, ChevronRightIcon, LogOut } from "@/lib/icons";
+import { MenuIcon, XIcon, LogOut } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useAuth } from "@/app/data/AuthContext";
@@ -38,7 +38,7 @@ export function MobileMenu() {
         size="icon-sm"
         variant="ghost"
         onClick={() => setOpen(true)}
-        className="hover:bg-[var(--hover-overlay)] lg:hidden"
+        className="hover:bg-[var(--hover-overlay)] xl:hidden"
       >
         <MenuIcon className="size-4" />
       </Button>
@@ -56,7 +56,7 @@ export function MobileMenu() {
                 onClick={() => setOpen(false)}
                 className="hover:bg-[var(--hover-overlay)]"
               >
-                <ChevronRightIcon className="size-4" />
+                <XIcon className="size-4" />
               </Button>
             </div>
 
@@ -123,10 +123,10 @@ function SheetItem({ title, icon, active, onClick, indent }) {
       type="button"
       onClick={onClick}
       className={cn(
-        "flex w-full items-center gap-2.5 rounded-[8px] px-3 py-2 text-left text-sm transition-colors",
+        "flex min-h-11 w-full items-center gap-2.5 rounded-[8px] px-3 py-2 text-left text-sm transition-colors",
         indent ? "pl-5" : "",
         active
-          ? "bg-blue-500/10 text-blue-400 font-semibold border-l-2 border-blue-500"
+          ? "bg-[var(--accent-mint)]/10 font-semibold text-[var(--accent-mint)]"
           : "text-[var(--text-secondary)] font-medium hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]"
       )}
     >

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { isSupabaseReady, supabase } from "../data/supabase";
 import { CreatePost } from "../components/CreatePost";
 import { PostCard } from "../components/PostCard";
+import { RightSidebar } from "../components/RightSidebar";
 import { useData } from "../data/DataContext";
 import { AutocompleteSearch, buildSearchItems } from "@/components/ui/autocomplete";
 import { RightSidebar } from "../components/RightSidebar";
@@ -85,12 +86,13 @@ export function CommunityPage() {
         <AutocompleteSearch
           placeholder="Pesquisar posts, pessoas ou livros..."
           items={searchItems}
+          inputClassName="h-11 rounded-[10px] sm:h-12"
         />
 
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-[var(--text-primary)]">Comunidade</h1>
-            <p className="text-sm text-[var(--text-muted)]">Seu feed de leituras, ideias e conversas.</p>
+            <h1 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">Comunidade</h1>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">Seu feed de leituras, ideias e conversas.</p>
           </div>
           <CreatePost />
         </div>
@@ -101,7 +103,7 @@ export function CommunityPage() {
           {loading && (
             <>
               {[0, 1, 2].map((item) => (
-                <div key={item} className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-5">
+                <div key={item} className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4 sm:p-5">
                   <div className="flex gap-3">
                     <div className="size-11 rounded-full bg-[var(--hover-overlay)]" />
                     <div className="flex-1 space-y-2">

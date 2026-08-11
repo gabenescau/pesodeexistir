@@ -129,13 +129,13 @@ export function TopNavbar() {
 
   return (
     <header className="sticky top-0 z-50 flex h-14 shrink-0 items-center justify-between gap-2 border-b border-[var(--border)] bg-[var(--bg-card)]/95 px-4 backdrop-blur-sm md:px-6">
-      <div className="flex min-w-0 items-center gap-3">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         <MobileMenu />
         <Link to="/app/inicio" aria-label="Ir para o inicio" className="shrink-0">
           <Logo className="text-[20px] text-[var(--text-primary)]" />
         </Link>
 
-        <nav className="hidden min-w-0 items-center gap-0.5 md:flex">
+        <nav className="hidden min-w-0 flex-1 items-center gap-0.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden xl:flex">
           {items.map((item) => renderItem(item))}
         </nav>
       </div>

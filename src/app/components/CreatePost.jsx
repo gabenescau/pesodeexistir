@@ -19,6 +19,7 @@ import { sanitizePlainText, sanitizeSingleLine } from "@/lib/sanitize";
 import { secureUpload } from "@/lib/secure-upload";
 
 const ALLOWED_POST_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const POST_IMAGE_EXTENSION = /\.(?:jpe?g|png|webp|gif)$/i;
 
 function Avatar({ src, fallback, className = "size-11" }) {
   const [broken, setBroken] = useState(false);
@@ -36,7 +37,8 @@ async function uploadPostImages(files) {
 
   const uploaded = [];
   for (const file of files) {
-    if (!ALLOWED_POST_IMAGE_TYPES.has(file.type)) {
+    const browserTypeIsUnknown = !file.type || file.type === "application/octet-stream";
+    if (!ALLOWED_POST_IMAGE_TYPES.has(file.type) && !(browserTypeIsUnknown && POST_IMAGE_EXTENSION.test(file.name || ""))) {
       throw new Error("Use imagens JPG, PNG, WebP ou GIF.");
     }
     if (file.size > MAX_POST_IMAGE_BYTES) throw new Error("Cada imagem precisa ter no maximo 5 MB.");
@@ -221,7 +223,7 @@ export function CreatePost({ initialBookId = null, tag = null }) {
       <button
         type="button"
         onClick={() => canPublish ? setOpen(true) : setSubscribeOpen(true)}
-        className="flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--border)] bg-[var(--bg-card)] px-4 text-sm font-medium text-[var(--text-primary)] shadow-[var(--shadow-sm)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-card-hover)]"
+        className="flex min-h-11 w-full shrink-0 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--border)] bg-[var(--bg-card)] px-4 text-sm font-medium text-[var(--text-primary)] shadow-[var(--shadow-sm)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-card-hover)] sm:w-auto"
       >
         <Plus className="size-4" />
         Criar post
@@ -346,7 +348,7 @@ export function CreatePost({ initialBookId = null, tag = null }) {
             </div>
 
             <footer className="flex items-center justify-between gap-2 border-t border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 shrink-0">
-              <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleImageSelect} className="hidden" />
+              <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={handleImageSelect} className="hidden" />
               <div className="flex items-center gap-1 min-w-0 overflow-x-auto">
                 <button type="button" onClick={() => fileInputRef.current?.click()} className="flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs text-[var(--text-muted)] hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]">
                   <Image className="size-4" /> <span className="hidden sm:inline">Imagem</span>
