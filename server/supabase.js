@@ -2,8 +2,16 @@ import crypto from "node:crypto";
 import { hasPermission, normalizeRole, PERMISSIONS } from "../src/lib/rbac.js";
 import { getCheckoutAttemptConflict } from "./stripe.js";
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_PUBLIC_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
+// Vercel/Supabase Native Integration can expose the public values with the
+// NEXT_PUBLIC_ prefix. They are safe to use here; the privileged key below is
+// deliberately server-only and never falls back to a public variable.
+const SUPABASE_URL =
+  process.env.SUPABASE_URL ||
+  process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_PUBLIC_KEY =
+  process.env.SUPABASE_PUBLISHABLE_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const SUPABASE_SERVICE_KEY =
   process.env.SUPABASE_SECRET_KEY ||
   process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -12,6 +20,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3
 const PRODUCTION_ORIGINS = new Set([
   "https://pesodeexistir.online",
   "https://www.pesodeexistir.online",
+  "https://app.pesodeexistir.online",
 ]);
 
 function allowedOrigins() {
@@ -47,8 +56,15 @@ export function applyCors(req, res) {
 }
 
 function requireConfig() {
-  if (!SUPABASE_URL || !SUPABASE_PUBLIC_KEY || !SUPABASE_SERVICE_KEY) {
-    throw new Error("Supabase server env vars nao configuradas");
+  const missing = [];
+  if (!SUPABASE_URL) missing.push("SUPABASE_URL");
+  if (!SUPABASE_PUBLIC_KEY) missing.push("SUPABASE_PUBLISHABLE_KEY");
+  if (!SUPABASE_SERVICE_KEY) missing.push("SUPABASE_SECRET_KEY");
+  if (missing.length > 0) {
+    const error = new Error(`Configuracao do servidor incompleta: ${missing.join(", ")}`);
+    error.status = 503;
+    error.userSafe = true;
+    throw error;
   }
 }
 
@@ -543,7 +559,7 @@ export function allowPost(req, res) {
       return false;
     }
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
+    res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Client-Info, Apikey");
     res.setHeader("Access-Control-Max-Age", "600");
     res.status(204).end();
     return false;
