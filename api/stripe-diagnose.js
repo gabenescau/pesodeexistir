@@ -29,8 +29,8 @@ export default async function handler(req, res) {
 
     const secretKey = process.env.STRIPE_SECRET_KEY || "";
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
-    const mode = secretKey.startsWith("sk_test_") ? "test"
-      : secretKey.startsWith("sk_live_") ? "live"
+    const mode = secretKey.startsWith("sk_test_") || secretKey.startsWith("rk_test_") ? "test"
+      : secretKey.startsWith("sk_live_") || secretKey.startsWith("rk_live_") ? "live"
       : "indefinido";
     const keyPrefix = secretKey.slice(0, 8);
     const keyWarning =
@@ -62,6 +62,7 @@ export default async function handler(req, res) {
         active: null,
         currency: null,
         unitAmount: null,
+        amountMatchesCatalog: null,
         recurring: null,
         error: prefixError,
       };
@@ -77,17 +78,20 @@ export default async function handler(req, res) {
         entry.active = price.active;
         entry.currency = price.currency;
         entry.unitAmount = price.unit_amount;
+        entry.amountMatchesCatalog = price.unit_amount === plan.price;
         entry.recurring = price.recurring
           ? { interval: price.recurring.interval, intervalCount: price.recurring.interval_count }
           : null;
-        if (!price.recurring) {
+        if (!price.active) {
+          entry.error = "Price inativo";
+        } else if (!price.recurring) {
           entry.error = "Price nao e de assinatura (falta recorrencia)";
         } else if (price.currency !== "brl") {
           entry.error = `Moeda esperada brl, encontrada ${price.currency}`;
-        } else if (price.unit_amount !== plan.price) {
-          entry.error = `Valor esperado ${plan.price} centavos, encontrado ${price.unit_amount}`;
         } else if (price.recurring.interval !== entry.expectedRecurring) {
           entry.error = `Ciclo esperado ${entry.expectedRecurring}, encontrado ${price.recurring.interval}`;
+        } else if (!entry.amountMatchesCatalog) {
+          entry.warning = `O valor atual da Stripe e ${price.unit_amount} centavos; o catalogo visual do app esta em ${plan.price} centavos.`;
         }
       } catch (error) {
         entry.error = error?.raw?.message || error?.message || "Falha ao consultar o Price";

@@ -98,16 +98,20 @@ export async function validatePriceForPlan(plan) {
 
   const price = await getStripe().prices.retrieve(priceId);
   const expectedInterval = plan.cycle === "ANNUALLY" ? "year" : "month";
+  // The server-side Price ID is the billing source of truth. The amount is
+  // intentionally not duplicated here: changing a Price in Stripe should not
+  // make a valid configured checkout unusable because this catalog is stale.
+  // The client never supplies the Price ID, and the structural checks below
+  // still prevent one-time, inactive, non-BRL, or wrong-cycle Prices.
   const valid = price.active &&
     price.currency === "brl" &&
-    price.unit_amount === plan.price &&
     price.type === "recurring" &&
     price.recurring?.interval === expectedInterval &&
     Number(price.recurring?.interval_count || 1) === 1;
 
   if (!valid) {
     const error = new Error(
-      `${plan.priceEnv} nao corresponde ao valor, moeda ou ciclo esperado para ${plan.name}`
+      `${plan.priceEnv} nao corresponde a uma assinatura BRL ativa com ciclo ${expectedInterval} para ${plan.name}`
     );
     error.status = 503;
     error.userSafe = true;
@@ -224,14 +228,9 @@ export function getCheckoutAttemptConflict(attempt, { userId, planKey, paymentMe
   return null;
 }
 
-export function integrationIdentifier(...seedParts) {
+export function integrationIdentifier() {
   const letters = "abcdefghijklmnopqrstuvwxyz";
-  const minuteBucket = Math.floor(Date.now() / 60000);
-  const bytes = crypto
-    .createHash("sha256")
-    .update([...seedParts, minuteBucket].join(":"))
-    .digest()
-    .subarray(0, 8);
+  const bytes = crypto.randomBytes(8);
   const suffix = [...bytes].map((byte) => letters[byte % letters.length]).join("");
   return `ope_club_${suffix}`;
 }

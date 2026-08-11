@@ -13,7 +13,21 @@ import { useNavGroups, adminGroup } from "@/components/app-shared";
 function NavDropdown({ label, to, active, subItems, verTudo = true }) {
   const navigate = useNavigate();
   const ref = useRef(null);
+  const buttonRef = useRef(null);
+  const menuRef = useRef(null);
   const [open, setOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState(null);
+
+  function updateMenuPosition() {
+    const button = buttonRef.current;
+    if (!button) return;
+    const rect = button.getBoundingClientRect();
+    const menuWidth = 208;
+    setMenuPosition({
+      left: Math.max(8, Math.min(rect.left, window.innerWidth - menuWidth - 8)),
+      top: rect.bottom + 4,
+    });
+  }
 
   useEffect(() => {
     if (!open) return undefined;
@@ -21,13 +35,20 @@ function NavDropdown({ label, to, active, subItems, verTudo = true }) {
       if (event.key === "Escape") setOpen(false);
     }
     function onPointerDown(event) {
-      if (ref.current && !ref.current.contains(event.target)) setOpen(false);
+      const insideTrigger = ref.current?.contains(event.target);
+      const insideMenu = menuRef.current?.contains(event.target);
+      if (!insideTrigger && !insideMenu) setOpen(false);
     }
+    updateMenuPosition();
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("resize", updateMenuPosition);
+      window.removeEventListener("scroll", updateMenuPosition, true);
     };
   }, [open]);
 
@@ -40,8 +61,13 @@ function NavDropdown({ label, to, active, subItems, verTudo = true }) {
     <div ref={ref} className="relative">
       <button
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        ref={buttonRef}
+        onClick={() => {
+          if (!open) updateMenuPosition();
+          setOpen((value) => !value);
+        }}
         aria-expanded={open}
+        aria-haspopup="menu"
         className={cn(
           "flex items-center gap-1 rounded-full px-3 py-2 text-sm font-medium transition-colors",
           active
@@ -53,12 +79,18 @@ function NavDropdown({ label, to, active, subItems, verTudo = true }) {
         <ChevronRightIcon className={cn("size-3.5 transition-transform", open && "rotate-90")} />
       </button>
 
-      {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 max-h-[70vh] min-w-52 overflow-y-auto rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-1.5 shadow-[var(--shadow-sm)]">
+      {open && menuPosition && (
+        <div
+          ref={menuRef}
+          role="menu"
+          style={menuPosition}
+          className="fixed z-[100] max-h-[70vh] min-w-52 overflow-y-auto rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-1.5 shadow-[var(--shadow-sm)]"
+        >
           {verTudo && (
             <>
               <button
                 type="button"
+                role="menuitem"
                 onClick={() => go(to)}
                 className="flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-left text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--hover-overlay)]"
               >
@@ -71,6 +103,7 @@ function NavDropdown({ label, to, active, subItems, verTudo = true }) {
             <button
               key={`${sub.to}-${sub.title}`}
               type="button"
+              role="menuitem"
               onClick={() => go(sub.to)}
               className="flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-left text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]"
             >
