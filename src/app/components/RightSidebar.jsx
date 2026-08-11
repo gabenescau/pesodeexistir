@@ -2,7 +2,8 @@ import { Coins } from "@/lib/icons";
 import { useRewards } from "@/app/data/RewardsContext";
 import { MissionsWidget } from "./MissionsWidget";
 import { ReferralWidget } from "./ReferralWidget";
-import { CreditsRanking } from "./CreditsRanking";
+import { MonthlyRankingWidget } from "./MonthlyRankingWidget";
+import { InstallAppWidget } from "./InstallAppWidget";
 
 export function RightSidebar() {
   const { wallet } = useRewards() || {};
@@ -23,8 +24,12 @@ export function RightSidebar() {
       )}
 
       {wallet && <MissionsWidget />}
-      <CreditsRanking limit={5} />
+
+      <MonthlyRankingWidget limit={5} />
+
       {wallet && <ReferralWidget />}
+
+      <InstallAppWidget />
     </aside>
   );
 }

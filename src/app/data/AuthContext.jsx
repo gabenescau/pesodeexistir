@@ -21,8 +21,22 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (!isSupabaseReady()) {
-      // Sem Supabase configurado nao ha sessao possivel: fica deslogado.
-      // Nenhum usuario/role fake e injetado (sem dev-backdoor admin).
+      // Em modo de desenvolvimento, se o Supabase não estiver configurado,
+      // injetamos um usuário admin mockado para permitir testar o app localmente.
+      if (import.meta.env.DEV) {
+        setUser({
+          id: "mock-admin-id",
+          email: "admin@pesodeexistir.online",
+        });
+        setProfile({
+          id: "mock-admin-id",
+          name: "Admin Local (Dev)",
+          username: "admin",
+          role: "admin",
+          xp: 9999,
+          credits: 9999,
+        });
+      }
       setLoading(false);
       return;
     }

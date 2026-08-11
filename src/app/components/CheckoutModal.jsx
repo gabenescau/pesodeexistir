@@ -69,7 +69,7 @@ function Field({ label, value, onChange, type = "text", placeholder, icon: Icon,
   );
 }
 
-export function CheckoutModal({ isOpen, onClose, product, paymentMethod = "credits", onConfirm }) {
+export function CheckoutModal({ isOpen, onClose, product, paymentMethod = "credits", onConfirm, selectedSize, quantity = 1 }) {
   const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
@@ -130,8 +130,10 @@ export function CheckoutModal({ isOpen, onClose, product, paymentMethod = "credi
           productName: product.name,
           productCategory: product.category,
           paymentMethod,
-          creditsCost: paymentMethod === "credits" ? product.credits_cost : null,
-          realPrice: paymentMethod === "real" ? (product.real_price || null) : null,
+          creditsCost: paymentMethod === "credits" ? product.credits_cost * quantity : null,
+          realPrice: paymentMethod === "real" ? ((product.real_price || 0) * quantity || null) : null,
+          size: selectedSize || null,
+          quantity,
           customer: { name: form.name, email: form.email, phone: form.phone },
           address: {
             cep: form.cep,
@@ -206,8 +208,10 @@ export function CheckoutModal({ isOpen, onClose, product, paymentMethod = "credi
             <div className="min-w-0">
               <p className="text-xs text-[var(--text-muted)]">
                 {paymentMethod === "credits"
-                  ? `${product.credits_cost} créditos`
-                  : `R$ ${(product.real_price || 0).toFixed(2)}`}
+                  ? `${(product.credits_cost * quantity).toLocaleString("pt-BR")} créditos`
+                  : `R$ ${((product.real_price || 0) * quantity).toFixed(2)}`}
+                {quantity > 1 && ` (${quantity}x)`}
+                {selectedSize && ` · Tam. ${selectedSize}`}
               </p>
               <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{product.name}</p>
             </div>
@@ -241,6 +245,8 @@ export function CheckoutModal({ isOpen, onClose, product, paymentMethod = "credi
                 <p className="text-[11px] text-[var(--text-muted)]"><span className="font-semibold text-[var(--text-primary)]">Nome: </span>{form.name}</p>
                 <p className="text-[11px] text-[var(--text-muted)]"><span className="font-semibold text-[var(--text-primary)]">E-mail: </span>{form.email}</p>
                 <p className="text-[11px] text-[var(--text-muted)]"><span className="font-semibold text-[var(--text-primary)]">Telefone: </span>{form.phone}</p>
+                {selectedSize && <p className="text-[11px] text-[var(--text-muted)]"><span className="font-semibold text-[var(--text-primary)]">Tamanho: </span>{selectedSize}</p>}
+                <p className="text-[11px] text-[var(--text-muted)]"><span className="font-semibold text-[var(--text-primary)]">Quantidade: </span>{quantity}x</p>
                 <p className="text-[11px] text-[var(--text-muted)]"><span className="font-semibold text-[var(--text-primary)]">Endereço: </span>{form.street}, {form.number} — {form.city}/{form.state}</p>
               </div>
               <button

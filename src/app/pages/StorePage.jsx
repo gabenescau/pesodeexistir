@@ -200,6 +200,12 @@ export function StorePage() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedPayment, setSelectedPayment] = useState("credits");
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [selectedSize, setSelectedSize] = useState("");
+  const [quantity, setQuantity] = useState(1);
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  const SIZES = ["P", "M", "G", "GG", "XG"];
+  const needsSize = selectedProduct && ["oversized", "hoodie", "moletom"].includes(selectedProduct.category);
 
   useEffect(() => {
     loadProducts().catch(() => {});
@@ -218,6 +224,13 @@ export function StorePage() {
     const hasRealPrice = Number(product.real_price || 0) > 0;
     setSelectedPayment(hasCredits ? "credits" : hasRealPrice ? "real" : "credits");
     setSelectedProduct(product);
+    setSelectedSize("");
+    setQuantity(1);
+    setPickerOpen(true);
+  }
+
+  function handlePickerConfirm() {
+    setPickerOpen(false);
     setCheckoutOpen(true);
   }
 
@@ -326,11 +339,69 @@ export function StorePage() {
 
       <CheckoutModal
         isOpen={checkoutOpen}
-        onClose={() => setCheckoutOpen(false)}
+        onClose={() => { setCheckoutOpen(false); setSelectedSize(""); setQuantity(1); }}
         product={selectedProduct}
         paymentMethod={selectedPayment}
         onConfirm={handleCheckoutConfirm}
+        selectedSize={needsSize ? selectedSize : null}
+        quantity={quantity}
       />
+
+      {/* Size & Quantity Picker — shown before checkout */}
+      {pickerOpen && selectedProduct && (
+        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setPickerOpen(false); setSelectedSize(""); setQuantity(1); }} />
+          <div className="relative z-10 w-full max-w-sm rounded-[16px] border border-[var(--border)] bg-[var(--bg-card)] p-5 space-y-5">
+            <div>
+              <p className="text-sm font-bold text-[var(--text-primary)] truncate">{selectedProduct.name}</p>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">Configure seu pedido</p>
+            </div>
+
+            {needsSize && (
+              <div>
+                <p className="text-xs uppercase tracking-wider text-[var(--text-muted)] mb-2">Tamanho</p>
+                <div className="flex gap-2 flex-wrap">
+                  {SIZES.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setSelectedSize(s)}
+                      className={`h-9 w-12 rounded-[8px] border text-sm font-semibold transition-colors ${
+                        selectedSize === s
+                          ? "border-[var(--text-primary)] bg-[var(--hover-overlay)] text-[var(--text-primary)]"
+                          : "border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--border-strong)]"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <p className="text-xs uppercase tracking-wider text-[var(--text-muted)] mb-2">Quantidade</p>
+              <div className="flex items-center gap-3">
+                <button type="button" onClick={() => setQuantity((q) => Math.max(1, q - 1))} disabled={quantity <= 1}
+                  className="flex size-9 items-center justify-center rounded-[8px] border border-[var(--border)] text-lg font-bold text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed">−</button>
+                <span className="min-w-[2ch] text-center text-sm font-semibold text-[var(--text-primary)]">{quantity}</span>
+                <button type="button" onClick={() => setQuantity((q) => q + 1)}
+                  className="flex size-9 items-center justify-center rounded-[8px] border border-[var(--border)] text-lg font-bold text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] transition-colors">+</button>
+                {quantity > 1 && <span className="text-xs text-[var(--text-muted)]">{(selectedProduct.credits_cost * quantity).toLocaleString("pt-BR")} cr.</span>}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              disabled={needsSize && !selectedSize}
+              onClick={handlePickerConfirm}
+              className="w-full rounded-[10px] bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {needsSize && !selectedSize ? "Selecione um tamanho" : needsSize ? `Continuar — Tam. ${selectedSize}` : "Continuar"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

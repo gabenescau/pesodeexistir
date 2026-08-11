@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
@@ -36,8 +36,14 @@ const AUTH_LOCKOUT_MS = 60 * 1000;
 export function AuthPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
   const mode = location.pathname === "/cadastro" ? "signup" : "login";
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(location.state?.from?.pathname || "/app/inicio", { replace: true });
+    }
+  }, [isAuthenticated, navigate, location]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");

@@ -6,12 +6,15 @@ import { authenticatedApiPost } from "@/lib/authenticated-api";
 import { CYCLES, TIERS, formatBRL, getTierPlanKey, planInfoFromCode } from "@/lib/plans";
 import { getCurrentSubscription, isActiveSubscription } from "@/lib/subscription";
 import { PlanBenefitList } from "@/components/plan-benefit";
-import { Loader2, ShieldCheck } from "@/lib/icons";
+import { Loader2, ShieldCheck, Check } from "@/lib/icons";
 import { toast } from "@/lib/toast";
 import { useCancelSurvey } from "@/components/ui/cancel-survey";
 import { parseCheckoutInput, parseSubscriptionInput } from "@/lib/api-contracts";
 
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+// Render tiers in this order — Pensador (most expensive) first
+const TIER_ORDER = ["pensador", "leitor"];
 
 export function SubscribePage() {
   const { user, isAdmin } = useAuth();
@@ -34,7 +37,9 @@ export function SubscribePage() {
   const active = isActiveSubscription(visibleSubscription);
   const currentInfo = planInfoFromCode(visibleSubscription?.plan);
   const selectedTier = TIERS[tierId];
-  const isRecurringStripe = visibleSubscription?.provider === "stripe" && Boolean(visibleSubscription?.provider_subscription_id);
+  const isRecurringStripe =
+    visibleSubscription?.provider === "stripe" &&
+    Boolean(visibleSubscription?.provider_subscription_id);
 
   useEffect(() => {
     if (!user) {
@@ -52,7 +57,7 @@ export function SubscribePage() {
 
   useEffect(() => {
     if (checkoutState === "canceled") {
-      toast.info("Checkout cancelado. Nenhuma cobranca foi feita.");
+      toast.info("Checkout cancelado. Nenhuma cobrança foi feita.");
       setSearchParams({}, { replace: true });
       return;
     }
@@ -66,7 +71,7 @@ export function SubscribePage() {
         for (let attempt = 0; attempt < 12; attempt += 1) {
           const result = await authenticatedApiPost("/api/stripe-session", { sessionId: checkoutSessionId });
           if (result.fulfilled) {
-            toast.success("Pagamento confirmado. Seu acesso esta ativo.");
+            toast.success("Pagamento confirmado. Seu acesso está ativo.");
             window.location.replace("/app/inicio?payment=success");
             return;
           }
@@ -74,11 +79,11 @@ export function SubscribePage() {
           if (attempt < 11) await sleep(2500);
           if (cancelled) return;
         }
-        setCheckoutMessage("O pagamento ainda esta sendo processado. Esta pagina pode ser atualizada em alguns instantes.");
+        setCheckoutMessage("O pagamento ainda está sendo processado. Atualize a página em alguns instantes.");
       } catch (error) {
         if (!cancelled) {
           setCheckoutMessage("");
-          toast.error(error?.message || "Nao foi possivel confirmar o pagamento.");
+          toast.error(error?.message || "Não foi possível confirmar o pagamento.");
         }
       } finally {
         if (!cancelled) setWorking("");
@@ -91,39 +96,42 @@ export function SubscribePage() {
   async function handlePlanAction(planKey) {
     if (working) return;
     if (active && !isRecurringStripe) {
-      toast.info("Seu acesso atual continua valido ate a data exibida. Depois disso, escolha um novo plano.");
+      toast.info("Seu acesso atual continua válido até a data exibida. Depois disso, escolha um novo plano.");
       return;
     }
     setWorking("checkout");
     try {
       const currentPlanKey = currentInfo ? `${currentInfo.tier}-${currentInfo.cycle}` : null;
-      const changingRecurringPlan = active && isRecurringStripe && currentPlanKey && currentPlanKey !== planKey;
+      const changingRecurringPlan =
+        active && isRecurringStripe && currentPlanKey && currentPlanKey !== planKey;
       if (changingRecurringPlan) {
         const changePlanInput = parseSubscriptionInput({
           subscriptionId: visibleSubscription.id,
           plan: planKey,
         });
-        const result = await authenticatedApiPost("/api/stripe-change-plan", {
-          ...changePlanInput,
-        });
-        toast.success(result.pending
-          ? "Alteracao solicitada. O plano muda quando a Stripe confirmar a cobranca."
-          : "Plano alterado com sucesso.");
+        const result = await authenticatedApiPost("/api/stripe-change-plan", { ...changePlanInput });
+        toast.success(
+          result.pending
+            ? "Alteração solicitada. O plano muda quando a Stripe confirmar a cobrança."
+            : "Plano alterado com sucesso."
+        );
         return;
       }
 
       const checkoutInput = parseCheckoutInput({
         plan: planKey,
         paymentMethod: "CARD",
-        attemptId: window.crypto?.randomUUID?.() || `checkout-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        attemptId:
+          window.crypto?.randomUUID?.() ||
+          `checkout-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       });
-      setCheckoutMessage("Redirecionando voce para o checkout seguro da Stripe...");
+      setCheckoutMessage("Redirecionando você para o checkout seguro da Stripe...");
       const result = await authenticatedApiPost("/api/stripe-checkout", checkoutInput);
-      if (!result?.url) throw new Error("A Stripe nao retornou o endereco do checkout.");
+      if (!result?.url) throw new Error("A Stripe não retornou o endereço do checkout.");
       window.location.assign(result.url);
     } catch (error) {
       setCheckoutMessage("");
-      toast.error(error?.message || "Nao foi possivel abrir o checkout.");
+      toast.error(error?.message || "Não foi possível abrir o checkout.");
     } finally {
       setWorking("");
     }
@@ -145,62 +153,98 @@ export function SubscribePage() {
     try {
       const updated = await cancelSubscription(visibleSubscription.id);
       setCurrentSubscription(updated);
-      toast.success("A renovacao foi cancelada. O acesso continua ate o fim do ciclo.");
+      toast.success("A renovação foi cancelada. O acesso continua até o fim do ciclo.");
     } catch (error) {
-      toast.error(error?.message || "Nao foi possivel cancelar a assinatura.");
+      toast.error(error?.message || "Não foi possível cancelar a assinatura.");
     } finally {
       setWorking("");
     }
   }
 
   if (loading) {
-    return <div className="flex min-h-[50dvh] items-center justify-center"><Loader2 className="size-6 animate-spin" /></div>;
+    return (
+      <div className="flex min-h-[50dvh] items-center justify-center">
+        <Loader2 className="size-6 animate-spin text-[var(--text-muted)]" />
+      </div>
+    );
   }
 
+  const orderedTiers = TIER_ORDER.map((id) => TIERS[id]).filter(Boolean);
+
   return (
-    <main className="mx-auto w-full max-w-5xl px-3 py-5 sm:px-6 sm:py-8">
-      <header className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--accent-mint)]">OPE Club</p>
-        <h1 className="mt-1 text-2xl font-semibold text-[var(--text-primary)] sm:text-3xl">Escolha como voce quer participar</h1>
-        <p className="mt-2 max-w-2xl text-sm text-[var(--text-muted)]">Planos e valores sao validados no servidor. O pagamento acontece no Checkout seguro da Stripe.</p>
+    <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 sm:py-12">
+
+      {/* ── Header ── */}
+      <header className="mb-8 text-center">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.15em] text-[var(--accent-mint)]">
+          OPE Club
+        </p>
+        <h1 className="text-2xl font-bold text-[var(--text-primary)] sm:text-3xl">
+          Invista na sua leitura
+        </h1>
+        <p className="mt-2 text-sm text-[var(--text-muted)]">
+          Cancele a qualquer momento. Sem taxa, sem burocracia.
+        </p>
       </header>
 
-      {checkoutMessage ? (
-        <div className="mb-5 flex items-start gap-3 rounded-[8px] border border-[var(--border)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-secondary)]">
-          {working === "confirm" ? <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin" /> : <ShieldCheck className="mt-0.5 size-4 shrink-0" />}
+      {/* ── Checkout message ── */}
+      {checkoutMessage && (
+        <div className="mb-6 flex items-start gap-3 rounded-[10px] border border-[var(--border)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-secondary)]">
+          {working === "confirm" ? (
+            <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin" />
+          ) : (
+            <ShieldCheck className="mt-0.5 size-4 shrink-0 text-[var(--accent-mint)]" />
+          )}
           {checkoutMessage}
         </div>
-      ) : null}
+      )}
 
+      {/* ── Active subscription banner ── */}
       {(active || isAdmin) && (
-        <section className="mb-5 flex flex-col gap-3 border-y border-[var(--border)] py-4 sm:flex-row sm:items-center sm:justify-between">
+        <section className="mb-6 flex flex-col gap-3 rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div>
-            <p className="text-xs uppercase text-[var(--text-muted)]">Plano atual</p>
-            <p className="mt-1 font-semibold text-[var(--text-primary)]">{isAdmin ? "Acesso administrativo" : currentInfo?.tierLabel || "OPE Club"}</p>
-            {!isAdmin && visibleSubscription?.current_period_end ? (
+            <p className="text-xs uppercase tracking-wider text-[var(--text-muted)]">Plano atual</p>
+            <p className="mt-1 font-semibold text-[var(--text-primary)]">
+              {isAdmin ? "Acesso administrativo" : currentInfo?.tierLabel || "OPE Club"}
+            </p>
+            {!isAdmin && visibleSubscription?.current_period_end && (
               <p className="mt-1 text-xs text-[var(--text-muted)]">
-                {visibleSubscription.cancel_at_period_end ? "Renovacao cancelada, acesso ate " : "Proximo ciclo em "}
+                {visibleSubscription.cancel_at_period_end
+                  ? "Renovação cancelada, acesso até "
+                  : "Próximo ciclo em "}
                 {new Date(visibleSubscription.current_period_end).toLocaleDateString("pt-BR")}
               </p>
-            ) : null}
+            )}
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => navigate("/app/configuracoes?aba=assinatura")} className="min-h-11 rounded-[8px] border border-[var(--border)] px-4 text-sm text-[var(--text-primary)]">Gerenciar</button>
-            {!isAdmin && isRecurringStripe && !visibleSubscription.cancel_at_period_end ? (
-              <button type="button" onClick={handleCancel} disabled={Boolean(working)} className="min-h-11 rounded-[8px] border border-[var(--border)] px-4 text-sm text-red-400 disabled:opacity-50">
-                {working === "cancel" ? "Cancelando..." : "Cancelar renovacao"}
+            <button
+              type="button"
+              onClick={() => navigate("/app/configuracoes?aba=assinatura")}
+              className="min-h-10 rounded-[8px] border border-[var(--border)] px-4 text-sm text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] transition-colors"
+            >
+              Gerenciar
+            </button>
+            {!isAdmin && isRecurringStripe && !visibleSubscription.cancel_at_period_end && (
+              <button
+                type="button"
+                onClick={handleCancel}
+                disabled={Boolean(working)}
+                className="min-h-10 rounded-[8px] border border-[var(--border)] px-4 text-sm text-red-400 disabled:opacity-50 hover:bg-red-500/5 transition-colors"
+              >
+                {working === "cancel" ? "Cancelando..." : "Cancelar renovação"}
               </button>
-            ) : null}
+            )}
           </div>
         </section>
       )}
 
-      <section className="mb-5 flex flex-col gap-4 rounded-[8px] border border-[var(--border)] bg-[var(--bg-card)] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5" aria-labelledby="billing-cycle-title">
-        <div className="min-w-0">
-          <p id="billing-cycle-title" className="text-sm font-semibold text-[var(--text-primary)]">Escolha a frequência</p>
-          <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">Altere entre cobrança mensal e anual antes de escolher seu plano.</p>
-        </div>
-        <div className="grid w-full grid-cols-2 gap-1 rounded-[8px] border border-[var(--border)] bg-[var(--bg)] p-1 sm:w-auto" role="radiogroup" aria-label="Frequência de cobrança">
+      {/* ── Billing cycle toggle ── */}
+      <div className="mb-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+        <div
+          className="flex rounded-full border border-[var(--border)] bg-[var(--bg-card)] p-1"
+          role="radiogroup"
+          aria-label="Frequência de cobrança"
+        >
           {Object.values(CYCLES).map((item) => {
             const selected = cycle === item.id;
             return (
@@ -210,69 +254,156 @@ export function SubscribePage() {
                 role="radio"
                 aria-checked={selected}
                 onClick={() => setCycle(item.id)}
-                className={`min-h-11 rounded-[6px] px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-mint)] ${selected ? "bg-[var(--text-primary)] text-[var(--bg-card)] shadow-sm" : "text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]"}`}
+                className={`flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-mint)] ${
+                  selected
+                    ? "bg-[var(--text-primary)] text-[var(--bg-card)] shadow-sm"
+                    : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                }`}
               >
-                <span>{item.label}</span>
-                {item.id === "annual" ? <span className={`ml-1.5 text-[10px] font-semibold ${selected ? "text-[var(--bg-card)]/75" : "text-[var(--accent-mint)]"}`}>-{selectedTier.annualDiscountPercent}%</span> : null}
+                {item.label}
+                {item.id === "annual" && (
+                  <span
+                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                      selected
+                        ? "bg-[var(--accent-mint)] text-[var(--bg-canvas)]"
+                        : "bg-[var(--accent-mint)]/15 text-[var(--accent-mint)]"
+                    }`}
+                  >
+                    -{selectedTier.annualDiscountPercent}%
+                  </span>
+                )}
               </button>
             );
           })}
         </div>
-      </section>
+        {cycle === "annual" && (
+          <p className="text-xs text-[var(--accent-mint)] font-medium">
+            Economize até {TIERS.pensador.annualDiscountPercent}% com o plano anual
+          </p>
+        )}
+      </div>
 
-      <div className="mb-5 grid gap-4 lg:grid-cols-2">
-        {Object.values(TIERS).map((tier) => {
-          const selected = tier.id === tierId;
-          const tierPrice = cycle === "annual" ? tier.annualPrice : tier.monthlyPrice;
+      {/* ── Plan cards — Pensador first on all screen sizes ── */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {orderedTiers.map((tier) => {
+          const isPensador = tier.id === "pensador";
+          const isSelected = tier.id === tierId;
+          const isCurrentPlan =
+            active && currentInfo?.tier === tier.id && currentInfo?.cycle === cycle;
+          const monthlyDisplay =
+            cycle === "annual"
+              ? Math.round(tier.annualPrice / 12)
+              : tier.monthlyPrice;
+
           return (
-            <button
-              type="button"
+            <div
               key={tier.id}
-              onClick={() => handlePlanSelection(tier.id)}
-              aria-pressed={selected}
-              aria-busy={working === "checkout"}
-              disabled={Boolean(working)}
-              className={`min-w-0 rounded-[18px] border p-5 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-mint)] sm:p-7 ${selected ? "border-[var(--accent-mint)] bg-[var(--text-primary)] text-[var(--bg-canvas)] shadow-[0_18px_50px_rgba(0,0,0,0.2)]" : "border-[var(--border)] bg-[var(--bg-card)] hover:-translate-y-0.5 hover:border-[var(--text-muted)]"}`}
+              className={`relative flex flex-col rounded-[20px] border p-6 transition-all ${
+                isPensador
+                  ? "border-[var(--text-primary)] bg-[var(--bg-card)] shadow-[0_8px_40px_rgba(0,0,0,0.18)] order-first sm:order-first"
+                  : "border-[var(--border)] bg-[var(--bg-card)]"
+              }`}
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h2 className={`text-xl font-semibold ${selected ? "text-[var(--bg-canvas)]" : "text-[var(--text-primary)]"}`}>{tier.label}</h2>
-                  <p className={`mt-2 text-sm leading-5 ${selected ? "text-[var(--bg-canvas)]/70" : "text-[var(--text-muted)]"}`}>{tier.description}</p>
-                </div>
-                {tier.id === "pensador" ? <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase ${selected ? "bg-[var(--accent-mint)] text-[var(--bg-canvas)]" : "bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]"}`}>Mais completo</span> : null}
+              {/* Badge */}
+              {isPensador && (
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[var(--text-primary)] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[var(--bg-card)]">
+                  Mais completo
+                </span>
+              )}
+
+              {/* Tier name + description */}
+              <div className="mb-5">
+                <p className={`text-xs font-semibold uppercase tracking-widest ${isPensador ? "text-[var(--accent-mint)]" : "text-[var(--text-muted)]"}`}>
+                  {tier.id === "pensador" ? "Pensador" : "Leitor"}
+                </p>
+                <p className="mt-1 text-sm text-[var(--text-muted)] leading-relaxed">
+                  {tier.description}
+                </p>
               </div>
-              <div className="mt-7 flex items-end gap-2">
-                <p className={`text-4xl font-semibold tracking-tight ${selected ? "text-[var(--bg-canvas)]" : "text-[var(--text-primary)]"}`}>{formatBRL(cycle === "annual" ? Math.round(tier.annualPrice / 12) : tier.monthlyPrice)}</p>
-                <p className={`pb-1 text-xs ${selected ? "text-[var(--bg-canvas)]/65" : "text-[var(--text-muted)]"}`}>/mes</p>
+
+              {/* Price */}
+              <div className="mb-1 flex items-end gap-1.5">
+                <span className="text-4xl font-bold tracking-tight text-[var(--text-primary)]">
+                  {formatBRL(monthlyDisplay)}
+                </span>
+                <span className="mb-1 text-sm text-[var(--text-muted)]">/mês</span>
               </div>
-              <p className={`mt-1 text-xs ${selected ? "text-[var(--bg-canvas)]/65" : "text-[var(--text-muted)]"}`}>{cycle === "annual" ? `${formatBRL(tierPrice)} cobrados por ano` : "cobranca mensal"}</p>
-              <div className={`my-6 border-t ${selected ? "border-[var(--bg-canvas)]/15" : "border-[var(--border)]"}`} />
-              <ul className="space-y-3">
-                {tier.benefits.slice(0, 6).map((benefit) => (
-                  <li key={benefit.text} className={`flex items-start gap-2 text-sm ${selected ? "text-[var(--bg-canvas)]/85" : "text-[var(--text-secondary)]"}`}>
-                    <ShieldCheck className={`mt-0.5 size-4 shrink-0 ${selected ? "text-[var(--accent-mint)]" : "text-[var(--accent-mint)]"}`} />
+              <p className="mb-6 text-xs text-[var(--text-muted)]">
+                {cycle === "annual"
+                  ? `${formatBRL(tier.annualPrice)} cobrados por ano`
+                  : "cobrado mensalmente"}
+              </p>
+
+              {/* Benefits */}
+              <ul className="mb-6 flex-1 space-y-2.5">
+                {tier.benefits.slice(0, 7).map((benefit) => (
+                  <li key={benefit.text} className="flex items-start gap-2.5 text-sm text-[var(--text-secondary)]">
+                    <Check className={`mt-0.5 size-4 shrink-0 ${benefit.exclusive ? "text-[var(--accent-mint)]" : "text-[var(--text-primary)]"}`} />
                     <span>{benefit.text}</span>
                   </li>
                 ))}
               </ul>
-              <span className={`mt-7 flex min-h-11 items-center justify-center rounded-full px-4 text-sm font-semibold ${selected ? "bg-[var(--bg-canvas)] text-[var(--text-primary)]" : "bg-[var(--text-primary)] text-[var(--bg-card)]"}`}>
-                {working === "checkout" && selected ? <><Loader2 className="mr-2 size-4 animate-spin" /> Redirecionando...</> : active && currentInfo?.tier === tier.id && currentInfo?.cycle === cycle ? "Plano atual" : "Escolher plano"}
-              </span>
-            </button>
+
+              {/* CTA */}
+              <button
+                type="button"
+                disabled={Boolean(working)}
+                onClick={() => handlePlanSelection(tier.id)}
+                className={`flex min-h-11 w-full items-center justify-center gap-2 rounded-full text-sm font-semibold transition-all disabled:opacity-60 ${
+                  isPensador
+                    ? "bg-[var(--text-primary)] text-[var(--bg-card)] hover:opacity-90"
+                    : "border border-[var(--border)] text-[var(--text-primary)] hover:bg-[var(--hover-overlay)]"
+                }`}
+              >
+                {working === "checkout" && isSelected ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Redirecionando...
+                  </>
+                ) : isCurrentPlan ? (
+                  "Plano atual"
+                ) : isPensador ? (
+                  "Assinar Pensador"
+                ) : (
+                  "Assinar Leitor"
+                )}
+              </button>
+            </div>
           );
         })}
       </div>
 
-      <section className="rounded-[8px] border border-[var(--border)] bg-[var(--bg-card)] p-4 sm:p-5">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h3 className="text-sm font-semibold text-[var(--text-primary)]">{selectedTier.label} inclui</h3>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">Escolha um plano acima para abrir o Checkout seguro da Stripe.</p>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]"><ShieldCheck className="size-4 text-[var(--accent-mint)]" /> Checkout seguro da Stripe</div>
+      {/* ── Trust badges ── */}
+      <div className="mt-8 flex flex-wrap items-center justify-center gap-4 text-xs text-[var(--text-muted)]">
+        <span className="flex items-center gap-1.5">
+          <ShieldCheck className="size-4 text-[var(--accent-mint)]" />
+          Checkout seguro via Stripe
+        </span>
+        <span className="flex items-center gap-1.5">
+          <Check className="size-4 text-[var(--accent-mint)]" />
+          Cancele a qualquer momento
+        </span>
+        <span className="flex items-center gap-1.5">
+          <Check className="size-4 text-[var(--accent-mint)]" />
+          Sem taxas de cancelamento
+        </span>
+      </div>
+
+      {/* ── Full benefit breakdown ── */}
+      <section className="mt-8 rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)] p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+            {selectedTier.label} inclui
+          </h3>
+          <ShieldCheck className="size-4 text-[var(--accent-mint)]" />
         </div>
-        <PlanBenefitList benefits={selectedTier.benefits} itemClassName="mt-4 flex items-start gap-2 text-sm text-[var(--text-secondary)]" iconClassName="mt-0.5 size-4 shrink-0 text-[var(--accent-mint)]" />
+        <PlanBenefitList
+          benefits={selectedTier.benefits}
+          itemClassName="flex items-start gap-2 text-sm text-[var(--text-secondary)] py-2 border-b border-[var(--border)] last:border-0"
+          iconClassName="mt-0.5 size-4 shrink-0 text-[var(--accent-mint)]"
+        />
       </section>
+
       {cancelSurvey.dialog}
     </main>
   );

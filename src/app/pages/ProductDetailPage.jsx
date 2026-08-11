@@ -37,10 +37,15 @@ export function ProductDetailPage() {
   const [activeImgIdx, setActiveImgIdx] = useState(0);
   const [selectedPayment, setSelectedPayment] = useState("credits");
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [selectedSize, setSelectedSize] = useState("");
+  const [quantity, setQuantity] = useState(1);
+
 
   useEffect(() => {
     window.scrollTo(0, 0);
     setActiveImgIdx(0);
+    setSelectedSize("");
+    setQuantity(1);
   }, [id]);
 
   const product = useMemo(
@@ -57,6 +62,8 @@ export function ProductDetailPage() {
   const realPrice = Number(product?.real_price || 0);
   const hasRealPrice = realPrice > 0;
   const isDualPayment = hasRealPrice;
+  const SIZES = ["P", "M", "G", "GG", "XG"];
+  const needsSize = product && ["oversized", "hoodie", "moletom"].includes(product.category);
 
   const similarProducts = useMemo(() => {
     if (!product) return [];
@@ -84,6 +91,10 @@ export function ProductDetailPage() {
   }
 
   function handleOpenCheckout() {
+    if (needsSize && !selectedSize) {
+      toast.error("Por favor, selecione um tamanho antes de continuar.");
+      return;
+    }
     if (selectedPayment === "real" && !hasRealPrice) {
       toast.info("Módulo de Gateway de Pagamento: A integração de pagamento em dinheiro real será conectada em breve.");
       return;
@@ -280,6 +291,60 @@ export function ProductDetailPage() {
               </div>
             )}
 
+            {/* Seletor de Tamanho — apenas oversized/moletom */}
+            {needsSize && (
+              <div className="border-t border-[var(--border)] pt-4 space-y-2">
+                <p className="text-xs uppercase tracking-wider text-[var(--text-muted)]">Tamanho</p>
+                <div className="flex gap-2 flex-wrap">
+                  {SIZES.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setSelectedSize(s)}
+                      className={`h-9 w-12 rounded-[8px] border text-sm font-semibold transition-colors ${
+                        selectedSize === s
+                          ? "border-[var(--text-primary)] bg-[var(--hover-overlay)] text-[var(--text-primary)]"
+                          : "border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:text-[var(--text-secondary)]"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+                {!selectedSize && (
+                  <p className="text-[11px] text-[var(--text-muted)]">Selecione um tamanho para continuar</p>
+                )}
+              </div>
+            )}
+
+            {/* Seletor de Quantidade */}
+            <div className="border-t border-[var(--border)] pt-4 space-y-2">
+              <p className="text-xs uppercase tracking-wider text-[var(--text-muted)]">Quantidade</p>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                  disabled={quantity <= 1}
+                  className="flex size-9 items-center justify-center rounded-[8px] border border-[var(--border)] text-lg font-bold text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  −
+                </button>
+                <span className="min-w-[2ch] text-center text-sm font-semibold text-[var(--text-primary)]">{quantity}</span>
+                <button
+                  type="button"
+                  onClick={() => setQuantity((q) => q + 1)}
+                  className="flex size-9 items-center justify-center rounded-[8px] border border-[var(--border)] text-lg font-bold text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] transition-colors"
+                >
+                  +
+                </button>
+                {quantity > 1 && (
+                  <span className="text-xs text-[var(--text-muted)]">
+                    = {(product.credits_cost * quantity).toLocaleString("pt-BR")} créditos
+                  </span>
+                )}
+              </div>
+            </div>
+
             {/* Disponibilidade */}
             <div className="border-t border-[var(--border)] pt-4 space-y-1.5 text-xs text-[var(--text-muted)]">
               <div className="flex items-center gap-2">
@@ -407,6 +472,8 @@ export function ProductDetailPage() {
         product={product}
         paymentMethod={selectedPayment}
         onConfirm={handleCheckoutConfirm}
+        selectedSize={selectedSize || null}
+        quantity={quantity}
       />
     </div>
   );

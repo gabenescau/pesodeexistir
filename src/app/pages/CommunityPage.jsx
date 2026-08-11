@@ -4,6 +4,8 @@ import { CreatePost } from "../components/CreatePost";
 import { PostCard } from "../components/PostCard";
 import { useData } from "../data/DataContext";
 import { AutocompleteSearch, buildSearchItems } from "@/components/ui/autocomplete";
+import { RightSidebar } from "../components/RightSidebar";
+import { MonthlyRankingWidget } from "../components/MonthlyRankingWidget";
 
 export function CommunityPage() {
   const { posts = [], deletePost, loading = false, books = [], authors = [], categories = [] } = useData() || {};
@@ -79,6 +81,7 @@ export function CommunityPage() {
 
   return (
     <div className="flex flex-col gap-8 2xl:flex-row 2xl:gap-10">
+      {/* ── Feed principal ── */}
       <div className="mx-auto w-full min-w-0 max-w-3xl flex-1 space-y-5 sm:space-y-6 2xl:mx-0">
         <AutocompleteSearch
           placeholder="Pesquisar posts, pessoas ou livros..."
@@ -93,10 +96,10 @@ export function CommunityPage() {
           <CreatePost />
         </div>
 
-        {/* Filtros por categoria ocultos: ainda nao ha posts suficientes
-            marcados com essas tags e a UI exibia "Nada encontrado por aqui"
-            para todas as opcoes. Quando o volume voltar, reintroduzir o
-            <FilterPills /> aqui com filtro opcional. */}
+        {/* Ranking mensal — visível apenas em telas menores que 2xl */}
+        <div className="2xl:hidden">
+          <MonthlyRankingWidget limit={5} />
+        </div>
 
         <div className="space-y-4 sm:space-y-5">
           {loading && (
@@ -146,6 +149,8 @@ export function CommunityPage() {
         </div>
       </div>
 
+      {/* ── Sidebar direita (apenas 2xl+) ── */}
+      <RightSidebar />
     </div>
   );
 }
