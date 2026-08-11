@@ -156,7 +156,11 @@ export function logServerError(context, error, req) {
 export function sendError(req, res, error, fallback = "Erro interno") {
   // StripeError expoe statusCode; erros internos do repo usam status.
   const status = Number(error?.statusCode ?? error?.status);
-  const safeStatus = Number.isFinite(status) && status >= 400 && status < 500 ? status : 500;
+  const safeStatus = Number.isFinite(status) && status >= 400 && status < 500
+    ? status
+    : status === 503 && error?.userSafe
+      ? 503
+      : 500;
   const isProviderError =
     String(error?.message || "").startsWith("Supabase:");
   // Somente mensagens explicitamente marcadas pelo servidor podem voltar ao

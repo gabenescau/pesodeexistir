@@ -127,7 +127,18 @@ export async function getOrCreateStripeCustomer({ user, email, subscriptions = [
   const knownCustomerId = subscriptions.find(
     (subscription) => subscription.provider === "stripe" && subscription.provider_customer_id
   )?.provider_customer_id;
-  if (knownCustomerId) return knownCustomerId;
+  if (knownCustomerId) {
+    try {
+      const knownCustomer = await stripe.customers.retrieve(knownCustomerId);
+      if (!knownCustomer.deleted) return knownCustomer.id;
+    } catch (error) {
+      // A customer from another Stripe mode, or a deleted customer, must not
+      // prevent a new checkout after switching test/live configuration.
+      if (error?.code !== "resource_missing" && Number(error?.statusCode) !== 404) {
+        throw error;
+      }
+    }
+  }
 
   const search = await stripe.customers.search({
     query: `metadata['user_id']:'${user.id}'`,
