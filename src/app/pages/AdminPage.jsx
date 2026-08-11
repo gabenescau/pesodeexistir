@@ -1414,16 +1414,26 @@ function CategoriesTab() {
   const [erro, setErro] = useState("");
 
   async function handleCriar() {
-    if (!nome.trim()) return;
+    const cleanName = nome.trim();
+    if (!cleanName) return;
+    if (categories.some((category) => category.name?.trim().toLocaleLowerCase() === cleanName.toLocaleLowerCase())) {
+      setErro("Essa categoria ja existe.");
+      return;
+    }
     setErro("");
-    try { await addCategory(nome.trim()); setNome(""); }
+    try { await addCategory(cleanName); setNome(""); }
     catch (err) { setErro(err?.message || "Erro ao criar categoria."); }
   }
 
   async function handleSalvarEdicao() {
-    if (!editNome.trim() || !editando) return;
+    const cleanName = editNome.trim();
+    if (!cleanName || !editando) return;
+    if (categories.some((category) => category.id !== editando.id && category.name?.trim().toLocaleLowerCase() === cleanName.toLocaleLowerCase())) {
+      setErro("Essa categoria ja existe.");
+      return;
+    }
     setErro("");
-    try { await updateCategory(editando.id, { name: editNome.trim() }); setEditando(null); setEditNome(""); }
+    try { await updateCategory(editando.id, { name: cleanName }); setEditando(null); setEditNome(""); }
     catch (err) { setErro(err?.message || "Erro ao atualizar categoria."); }
   }
 
@@ -1701,6 +1711,8 @@ function LojaTab() {
   const [form, setForm] = useState(INITIAL_FORM);
   const [seasons, setSeasons] = useState([]);
   const [newImageUrl, setNewImageUrl] = useState("");
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [variants, setVariants] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const confirm = useConfirmDialog();
 
@@ -1809,7 +1821,24 @@ function LojaTab() {
         .select("*")
         .order("created_at", { ascending: false });
       if (productsResult.error) throw productsResult.error;
-      setProducts(productsResult.data || []);
+      const productRows = productsResult.data || [];
+      let variantRows = [];
+      if (productRows.length > 0) {
+        const variantsResult = await supabase
+          .from("shop_product_variants")
+          .select("id,product_id,sku,size,color,stock,active")
+          .in("product_id", productRows.map((item) => item.id))
+          .order("created_at", { ascending: true });
+        if (!variantsResult.error) variantRows = variantsResult.data || [];
+        else if (!/schema cache|does not exist|relation/i.test(variantsResult.error.message || "")) throw variantsResult.error;
+      }
+      const variantsByProduct = variantRows.reduce((map, variant) => {
+        const list = map.get(variant.product_id) || [];
+        list.push(variant);
+        map.set(variant.product_id, list);
+        return map;
+      }, new Map());
+      setProducts(productRows.map((product) => ({ ...product, variants: variantsByProduct.get(product.id) || [] })));
 
       // Seasonal curation is optional. A missing/blocked season query must
       // never hide the independent store catalog.
@@ -1849,6 +1878,46 @@ function LojaTab() {
     }));
     setNewImageUrl("");
   };
+
+  async function handleUploadImages(event) {
+    const files = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (files.length === 0) return;
+    setError("");
+    setUploadingImages(true);
+    try {
+      const uploadedUrls = [];
+      for (const file of files) {
+        const path = await uploadLibraryFile({
+          file,
+          bucket: LIBRARY_BUCKETS.shopMedia,
+          kind: "product-image",
+        });
+        const { data } = supabase.storage.from(LIBRARY_BUCKETS.shopMedia).getPublicUrl(path);
+        if (!data?.publicUrl) throw new Error("Nao foi possivel gerar a imagem do produto.");
+        uploadedUrls.push(data.publicUrl);
+      }
+      const currentImages = Array.isArray(form.images) ? form.images : [];
+      const updated = [...currentImages, ...uploadedUrls].slice(0, 12);
+      setForm((prev) => ({ ...prev, images: updated, image_url: updated[0] || "" }));
+    } catch (err) {
+      setError(err?.message || "Nao foi possivel enviar as imagens.");
+    } finally {
+      setUploadingImages(false);
+    }
+  }
+
+  function addVariant() {
+    setVariants((current) => [...current, { size: "", color: "", stock: 0, sku: "", active: true }]);
+  }
+
+  function updateVariant(index, field, value) {
+    setVariants((current) => current.map((variant, i) => i === index ? { ...variant, [field]: value } : variant));
+  }
+
+  function removeVariant(index) {
+    setVariants((current) => current.filter((_, i) => i !== index));
+  }
 
   const handleRemoveImage = (index) => {
     const currentImages = Array.isArray(form.images) ? form.images : (form.image_url ? [form.image_url] : []);
@@ -1903,22 +1972,24 @@ function LojaTab() {
         if (stored) local = JSON.parse(stored);
       } catch {}
       if (editingId) {
-        local = local.map((p) => p.id === editingId ? { ...p, ...payload } : p);
+        local = local.map((p) => p.id === editingId ? { ...p, ...payload, variants } : p);
       } else {
-        const newProduct = { ...payload, id: `prod-${Date.now()}`, created_at: new Date().toISOString() };
+        const newProduct = { ...payload, variants, id: `prod-${Date.now()}`, created_at: new Date().toISOString() };
         local.unshift(newProduct);
       }
       localStorage.setItem("ope_shop_products_dev", JSON.stringify(local));
       setForm(INITIAL_FORM);
       setEditingId(null);
+      setVariants([]);
       await load();
       return;
     }
 
     try {
-      let { error } = editingId
-        ? await supabase.from("shop_products").update(payload).eq("id", editingId)
-        : await supabase.from("shop_products").insert(payload);
+      let savedProductId = editingId;
+      let { data: savedProduct, error } = editingId
+        ? await supabase.from("shop_products").update(payload).eq("id", editingId).select("id").maybeSingle()
+        : await supabase.from("shop_products").insert(payload).select("id").single();
 
       if (error && (error.message?.includes("column") || error.message?.includes("schema cache"))) {
         const fallbackPayload = { ...payload };
@@ -1927,14 +1998,36 @@ function LojaTab() {
         if (error.message?.includes("season_id")) delete fallbackPayload.season_id;
 
         const res = editingId
-          ? await supabase.from("shop_products").update(fallbackPayload).eq("id", editingId)
-          : await supabase.from("shop_products").insert(fallbackPayload);
+          ? await supabase.from("shop_products").update(fallbackPayload).eq("id", editingId).select("id").maybeSingle()
+          : await supabase.from("shop_products").insert(fallbackPayload).select("id").single();
+        savedProduct = res.data;
         error = res.error;
       }
 
       if (error) throw error;
+      savedProductId = savedProduct?.id || savedProductId;
+      if (savedProductId) {
+        const normalizedVariants = variants
+          .map((variant) => ({
+            ...(variant.id ? { id: variant.id } : {}),
+            product_id: savedProductId,
+            size: variant.size || null,
+            color: variant.color?.trim() || null,
+            stock: Math.max(0, Number(variant.stock) || 0),
+            sku: variant.sku?.trim() || null,
+            active: variant.active !== false,
+          }))
+          .filter((variant) => variant.size || variant.color);
+        const { error: removeVariantsError } = await supabase.from("shop_product_variants").delete().eq("product_id", savedProductId);
+        if (removeVariantsError && !/schema cache|does not exist|relation/i.test(removeVariantsError.message || "")) throw removeVariantsError;
+        if (normalizedVariants.length > 0) {
+          const { error: variantsError } = await supabase.from("shop_product_variants").insert(normalizedVariants.map(({ id: _id, ...variant }) => variant));
+          if (variantsError && !/schema cache|does not exist|relation/i.test(variantsError.message || "")) throw variantsError;
+        }
+      }
       setForm(INITIAL_FORM);
       setEditingId(null);
+      setVariants([]);
       await load();
     } catch (err) {
       setError(err?.message || "Não foi possível salvar o produto.");
@@ -1965,6 +2058,7 @@ function LojaTab() {
       active: product.active !== false,
       season_id: product.season_id || "",
     });
+    setVariants(Array.isArray(product.variants) ? product.variants.map((variant) => ({ ...variant })) : []);
   }
 
   async function toggleActive(product) {
@@ -2049,7 +2143,7 @@ function LojaTab() {
             <span className="text-[11px] text-[var(--text-muted)]">A 1ª imagem será a capa principal</span>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <input
               className={inputClass}
               placeholder="Cole a URL de uma imagem (ex: https://...)"
@@ -2064,7 +2158,20 @@ function LojaTab() {
             >
               <Plus className="size-3.5" /> Adicionar imagem
             </button>
+            <label className="flex shrink-0 cursor-pointer items-center justify-center gap-1 rounded-[6px] border border-[var(--border)] bg-[var(--hover-overlay)] px-3 py-2 text-xs font-medium text-[var(--text-primary)] hover:border-[var(--border-strong)] transition-colors">
+              <Plus className="size-3.5" />
+              {uploadingImages ? "Enviando..." : "Enviar arquivos"}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                multiple
+                disabled={uploadingImages}
+                onChange={handleUploadImages}
+                className="sr-only"
+              />
+            </label>
           </div>
+          <p className="text-[11px] text-[var(--text-muted)]">Envie ate 12 imagens JPG, PNG, WebP ou GIF. A primeira imagem e a capa.</p>
 
           {/* Listagem de Thumbnails com Ações */}
           {form.images && form.images.length > 0 && (
@@ -2100,6 +2207,42 @@ function LojaTab() {
           )}
         </div>
 
+        <div className="space-y-3 rounded-[8px] border border-[var(--border)] bg-[var(--bg-canvas)] p-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold text-[var(--text-primary)]">Variacoes do produto</p>
+              <p className="text-[11px] text-[var(--text-muted)]">Use para roupas. O estoque de cada tamanho/cor e separado.</p>
+            </div>
+            <button
+              type="button"
+              onClick={addVariant}
+              className="inline-flex items-center justify-center gap-1 rounded-[6px] border border-[var(--border)] bg-[var(--hover-overlay)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] hover:border-[var(--border-strong)]"
+            >
+              <Plus className="size-3.5" /> Adicionar variacao
+            </button>
+          </div>
+          {variants.length === 0 ? (
+            <p className="text-[11px] text-[var(--text-muted)]">Sem variacoes. O produto usara o estoque geral.</p>
+          ) : (
+            <div className="space-y-2">
+              {variants.map((variant, index) => (
+                <div key={variant.id || `new-${index}`} className="grid grid-cols-1 gap-2 rounded-[8px] border border-[var(--border)] bg-[var(--bg-card)] p-2 sm:grid-cols-[1fr_1fr_1fr_1fr_auto]">
+                  <select className={inputClass} value={variant.size || ""} onChange={(event) => updateVariant(index, "size", event.target.value)}>
+                    <option value="">Tamanho</option>
+                    {['PP', 'P', 'M', 'G', 'GG', 'XG', 'UNICO'].map((size) => <option key={size} value={size}>{size === 'UNICO' ? 'Unico' : size}</option>)}
+                  </select>
+                  <input className={inputClass} placeholder="Cor (ex: Preto)" value={variant.color || ""} onChange={(event) => updateVariant(index, "color", event.target.value)} />
+                  <input className={inputClass} placeholder="SKU (opcional)" value={variant.sku || ""} onChange={(event) => updateVariant(index, "sku", event.target.value)} />
+                  <input className={inputClass} type="number" min="0" step="1" placeholder="Estoque" value={variant.stock ?? 0} onChange={(event) => updateVariant(index, "stock", event.target.value)} />
+                  <button type="button" onClick={() => removeVariant(index)} className="flex items-center justify-center rounded-[6px] border border-red-500/30 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10" title="Remover variacao">
+                    <Trash2 className="size-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="flex items-center justify-between gap-3">
           <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
             <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
@@ -2107,7 +2250,7 @@ function LojaTab() {
           </label>
           <div className="flex gap-2">
             {editingId && (
-              <button type="button" onClick={() => { setEditingId(null); setForm(INITIAL_FORM); }} className="rounded-full border border-[var(--border)] px-4 py-2 text-xs text-[var(--text-secondary)]">
+              <button type="button" onClick={() => { setEditingId(null); setForm(INITIAL_FORM); setVariants([]); }} className="rounded-full border border-[var(--border)] px-4 py-2 text-xs text-[var(--text-secondary)]">
                 Cancelar
               </button>
             )}
@@ -2785,7 +2928,7 @@ function SeasonsTab() {
 // ── Aba Créditos ──────────────────────────────────────────────────────────────
 const DAILY_MISSIONS = [
   { title: "Entrar no aplicativo", reward: 1 },
-  { title: "Ler 30 minutos", reward: 3 },
+  { title: "Ler 30 minutos", reward: 10 },
   { title: "Publicar 1 reflexão", reward: 1 },
   { title: "Comentar em 2 publicações", reward: 1 },
   { title: "Bônus por concluir as 4 missões", reward: 2, isBonus: true },
@@ -3024,8 +3167,6 @@ function PedidosTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const onlyCredits = (o) => o.paymentMethod === "credits" || (o.creditsCost && o.creditsCost > 0);
-
   function toLocal(r) {
     return {
       id: r.id,
@@ -3034,6 +3175,8 @@ function PedidosTab() {
       paymentMethod: r.payment_method,
       creditsCost: r.credits_cost,
       realPrice: r.real_price,
+      quantity: r.quantity || 1,
+      variant: r.variant_snapshot || null,
       customer: r.customer || {},
       address: r.address || {},
       status: r.status,
@@ -3051,12 +3194,12 @@ function PedidosTab() {
           .select("*")
           .order("created_at", { ascending: false });
         if (error) throw error;
-        setOrders((data || []).map(toLocal).filter(onlyCredits));
+        setOrders((data || []).map(toLocal));
       } else {
         try {
           const saved = localStorage.getItem("ope_orders");
           const parsed = saved ? JSON.parse(saved) : [];
-          setOrders(Array.isArray(parsed) ? parsed.filter(onlyCredits) : []);
+          setOrders(Array.isArray(parsed) ? parsed : []);
         } catch {
           setOrders([]);
         }
@@ -3155,6 +3298,11 @@ function PedidosTab() {
                 </TableCell>
                 <TableCell>
                   <div className="text-sm font-medium text-[var(--text-primary)]">{o.productName}</div>
+                  <div className="mt-0.5 text-xs text-[var(--text-muted)]">
+                    {o.quantity || 1} unidade{Number(o.quantity || 1) === 1 ? "" : "s"}
+                    {o.variant?.size ? ` · ${o.variant.size === "UNICO" ? "Unico" : o.variant.size}` : ""}
+                    {o.variant?.color ? ` · ${o.variant.color}` : ""}
+                  </div>
                   <div className="mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold">
                     {o.paymentMethod === "credits" ? (
                       <span className="text-blue-400">

@@ -94,7 +94,7 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
   const navigate = useNavigate();
   const { user, isAdmin } = useAuth();
   const { profiles, savedPostIds, toggleSavedPost } = useData();
-  const { rewardComment, rewardLikesReceived } = useRewards();
+  const { rewardComment } = useRewards();
   const confirm = useConfirmDialog();
   const [liked, setLiked] = useState(Boolean(post.likedByMe));
   const [likes, setLikes] = useState(post.likes || 0);
@@ -151,9 +151,6 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
       if (nextLiked) {
         const { error } = await supabase.from("post_likes").insert({ user_id: user.id, post_id: post.id });
         if (error && error.code !== "23505") throw error;
-        if (!error && post.user_id && post.user_id !== user.id) {
-          if (rewardLikesReceived) rewardLikesReceived(post.user_id).catch(() => {});
-        }
       } else {
         const { error } = await supabase.from("post_likes").delete().eq("user_id", user.id).eq("post_id", post.id);
         if (error) throw error;

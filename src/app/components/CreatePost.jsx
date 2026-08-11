@@ -195,7 +195,7 @@ export function CreatePost({ initialBookId = null, tag = null }) {
     let uploadedPaths = [];
     try {
       uploadedPaths = await uploadPostImages(imageFiles);
-      await addPost({
+      const createdPost = await addPost({
         userId: user?.id,
         text: cleanText || cleanPollQuestion,
         tag,
@@ -207,7 +207,7 @@ export function CreatePost({ initialBookId = null, tag = null }) {
       });
       resetComposer();
       setOpen(false);
-      if (user?.id && rewardPost) rewardPost(user.id, "community").catch(() => {});
+      if (user?.id && rewardPost) rewardPost(user.id, createdPost?.id || null).catch(() => {});
     } catch (err) {
       if (uploadedPaths.length) {
         await supabase.storage.from(POST_IMAGE_BUCKET).remove(uploadedPaths).catch(() => {});

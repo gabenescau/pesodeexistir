@@ -141,14 +141,42 @@ export function RewardsProvider({ children }) {
       setError("Nao foi possivel carregar os produtos da loja. Tente novamente.");
       throw error;
     }
-    const catalog = (data || []).map((product) => ({
-      ...product,
-      images: Array.isArray(product.images)
-        ? product.images
-        : product.image_url
-          ? [product.image_url]
-          : [],
-    }));
+    let variants = [];
+    const productIds = (data || []).map((product) => product.id).filter(Boolean);
+    if (productIds.length > 0) {
+      const variantsResult = await supabase
+        .from("shop_product_variants")
+        .select("id,product_id,sku,size,color,stock,active")
+        .in("product_id", productIds)
+        .eq("active", true)
+        .order("size", { ascending: true })
+        .order("color", { ascending: true });
+      // Keep old deployments readable until the migration is applied.
+      if (!variantsResult.error) variants = variantsResult.data || [];
+      else if (!/schema cache|does not exist|relation/i.test(variantsResult.error.message || "")) throw variantsResult.error;
+    }
+    const variantsByProduct = variants.reduce((map, variant) => {
+      const list = map.get(variant.product_id) || [];
+      list.push(variant);
+      map.set(variant.product_id, list);
+      return map;
+    }, new Map());
+    const catalog = (data || []).map((product) => {
+      let images = Array.isArray(product.images) ? product.images : [];
+      if (images.length === 0 && typeof product.images === "string" && product.images.startsWith("[")) {
+        try {
+          const parsed = JSON.parse(product.images);
+          images = Array.isArray(parsed) ? parsed : [];
+        } catch {
+          images = [];
+        }
+      }
+      return {
+        ...product,
+        images: images.length > 0 ? images : product.image_url ? [product.image_url] : [],
+        variants: variantsByProduct.get(product.id) || [],
+      };
+    });
     setProducts(catalog);
     return catalog;
   }, []);
@@ -161,7 +189,7 @@ export function RewardsProvider({ children }) {
     }
     const { data, error } = await supabase
       .from("shop_redemptions")
-      .select("id,user_id,product_id,credits_spent,status,customer_name,customer_email,address_json,tracking_code,notes,created_at,updated_at")
+      .select("id,user_id,product_id,variant_id,quantity,variant_snapshot,credits_spent,status,customer_name,customer_email,address_json,tracking_code,notes,created_at,updated_at")
       .order("created_at", { ascending: false })
       .limit(100);
     if (error) throw error;
@@ -237,8 +265,8 @@ export function RewardsProvider({ children }) {
     return raw;
   }, [applyRpcResult]);
 
-  const redeemProduct = useCallback(async (productId, customerName, customerEmail, address, idempotencyKey) => {
-    const raw = await rewardApi.redeemProduct(productId, customerName, customerEmail, address, idempotencyKey);
+  const redeemProduct = useCallback(async (productId, customerName, customerEmail, address, idempotencyKey, variantId = null, quantity = 1) => {
+    const raw = await rewardApi.redeemProduct(productId, customerName, customerEmail, address, idempotencyKey, variantId, quantity);
     if (raw?.wallet) applyRpcResult(raw.wallet);
     await loadMyRedemptions();
     return raw;
@@ -257,14 +285,6 @@ export function RewardsProvider({ children }) {
     if (raw?.wallet) applyRpcResult(raw.wallet);
     return raw;
   }, [applyRpcResult]);
-
-  // Simula adicao de creditos localmente (dev/teste)
-  const addCredits = useCallback((amount) => {
-    setWallet((prev) => {
-      if (!prev) return prev;
-      return { ...prev, credits: (prev.credits || 0) + Number(amount) };
-    });
-  }, []);
 
   const value = useMemo(() => ({
     wallet,
@@ -286,12 +306,11 @@ export function RewardsProvider({ children }) {
     getMyReferralCode,
     registerReferral,
     referralClaim,
-    addCredits,
   }), [
     wallet, loading, error, products, myRedemptions, refresh, loadProducts, loadMyRedemptions,
     rewardLogin, reportReading, rewardPost, rewardComment, rewardLikesReceived,
     completeDailyMission, completeWeeklyMission, redeemProduct,
-    getMyReferralCode, registerReferral, referralClaim, addCredits,
+    getMyReferralCode, registerReferral, referralClaim,
   ]);
 
   return <RewardsContext.Provider value={value}>{children}</RewardsContext.Provider>;

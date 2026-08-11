@@ -1,1 +1,25 @@
-node_modules
+# Local secrets and environment files
+.env
+.env.*
+!.env.example
+
+# Dependencies and build output
+node_modules/
+dist/
+coverage/
+.vercel/
+
+# Local Supabase state
+supabase/.temp/
+
+# Local logs and reports
+*.log
+*.tmp
+playwright-report/
+test-results/
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+!.vscode/extensions.json

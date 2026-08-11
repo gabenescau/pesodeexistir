@@ -21,6 +21,9 @@ if (!supabaseUrl || !supabasePublicKey) {
 // comportamento desejado. Nada de conteudo fica aqui — progresso de leitura,
 // notas e perfil moram no banco, entao esta troca nao perde dado nenhum.
 // O tema continua em localStorage (theme-provider.jsx): e preferencia, nao sessao.
+// A sessao usa sessionStorage: sobrevive ao F5 na mesma aba, mas nao fica
+// persistida no localStorage. HttpOnly exigiria uma migracao BFF/SSR completa;
+// ate ela existir, esta e a menor superficie compativel com o SPA atual.
 const authStorage = typeof window !== "undefined" ? window.sessionStorage : undefined;
 
 // Remove sessoes antigas que ficaram no localStorage de versoes anteriores,

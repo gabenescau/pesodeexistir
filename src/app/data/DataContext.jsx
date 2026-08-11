@@ -18,6 +18,19 @@ import {
 } from "./domains/catalog";
 import { POST_SELECT, buildPostViewModels } from "./domains/community";
 
+function normalizeCategoryError(error) {
+  const isDuplicate = error?.code === "23505"
+    || error?.constraint === "categories_name_key"
+    || /categories_name_key|duplicate key value/i.test(error?.message || "");
+
+  if (!isDuplicate) return error;
+
+  const safeError = new Error("Essa categoria ja existe.");
+  safeError.code = "category_exists";
+  safeError.userSafe = true;
+  return safeError;
+}
+
 const DataContext = createContext(null);
 
 export function DataProvider({ children }) {
@@ -665,7 +678,7 @@ export function DataProvider({ children }) {
           poll,
         }, ...prev]);
       }
-      return;
+      return inserted;
     }
     throw new Error("Supabase não configurado: post não foi salvo.");
   }, [isSupabase, authProfile]);
@@ -764,7 +777,7 @@ export function DataProvider({ children }) {
     if (!cleanName) return null;
     if (isSupabase) {
       const { data, error } = await supabase.from("categories").insert({ name: cleanName }).select().single();
-      if (error) throw error;
+      if (error) throw normalizeCategoryError(error);
       if (data) { setCategories(prev => [...prev, data].sort((a, b) => (a.sort_order - b.sort_order) || a.name.localeCompare(b.name))); return data; }
       return null;
     }
@@ -781,7 +794,7 @@ export function DataProvider({ children }) {
     if (!payload.name) throw new Error("Digite o nome da categoria.");
     if (isSupabase) {
       const { data: updated, error } = await supabase.from("categories").update(payload).eq("id", id).select().single();
-      if (error) throw error;
+      if (error) throw normalizeCategoryError(error);
       setCategories(prev => prev.map(c => c.id === id ? updated : c));
     } else {
       setCategories(prev => prev.map(c => c.id === id ? { ...c, ...payload } : c));
