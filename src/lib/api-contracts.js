@@ -5,6 +5,21 @@
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PLAN_KEY_PATTERN = /^(?:leitor|pensador)-(?:monthly|annual)$/;
 const ATTEMPT_ID_PATTERN = /^[a-zA-Z0-9_-]{16,100}$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const ADMIN_PLAN_CODES = new Set([
+  "leitor",
+  "pensador",
+  "leitor-monthly",
+  "leitor-annual",
+  "pensador-monthly",
+  "pensador-annual",
+  "ope_club_leitor_monthly",
+  "ope_club_leitor_annual",
+  "ope_club_pensador_monthly",
+  "ope_club_pensador_annual",
+  "ope_club_monthly",
+  "ope_club_annual",
+]);
 const SUGGESTION_STATUSES = new Set(["ideas", "reading", "building", "released"]);
 const ADMIN_SUBSCRIPTION_ACTIONS = new Set(["grant", "set_duration"]);
 
@@ -45,13 +60,16 @@ function planKey(value) {
 
 export function parseCheckoutInput(input) {
   const body = objectInput(input);
-  const plan = planKey(body.plan || "leitor-monthly");
+  // `planKey` is accepted only as a compatibility alias for older deployed
+  // clients. The server still resolves the key against its own catalog and
+  // never accepts a client-supplied Stripe Price ID.
+  const plan = planKey(body.plan || body.planKey || "leitor-monthly");
   const paymentMethod = body.paymentMethod || "CARD";
   if (paymentMethod !== "CARD") {
     throw new ContractError("Metodo de pagamento invalido");
   }
-  const attemptId = requiredString(body.attemptId, "Tentativa de checkout", 100);
-  if (!ATTEMPT_ID_PATTERN.test(attemptId)) throw new ContractError("Tentativa de checkout invalida");
+  const attemptId = body.attemptId == null ? null : requiredString(body.attemptId, "Tentativa de checkout", 100);
+  if (attemptId && !ATTEMPT_ID_PATTERN.test(attemptId)) throw new ContractError("Tentativa de checkout invalida");
   return { plan, paymentMethod, attemptId };
 }
 
@@ -96,11 +114,17 @@ export function parseAdminSubscriptionInput(input) {
   if (![7, 30, 90, 180, 365].includes(durationDays)) {
     throw new ContractError("Duracao invalida");
   }
+  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+  if (email && (email.length > 254 || !EMAIL_PATTERN.test(email))) {
+    throw new ContractError("Email invalido");
+  }
+  const plan = typeof body.plan === "string" ? body.plan.trim().toLowerCase() : "leitor";
+  if (!ADMIN_PLAN_CODES.has(plan)) throw new ContractError("Plano invalido");
   return {
     action,
     userId: uuid(body.userId, "Usuario"),
-    email: typeof body.email === "string" ? body.email.trim().slice(0, 320) : "",
-    plan: typeof body.plan === "string" ? body.plan.trim().slice(0, 80) : "leitor",
+    email,
+    plan,
     durationDays,
   };
 }

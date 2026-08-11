@@ -140,12 +140,9 @@ export async function getOrCreateStripeCustomer({ user, email, subscriptions = [
     }
   }
 
-  const search = await stripe.customers.search({
-    query: `metadata['user_id']:'${user.id}'`,
-    limit: 1,
-  });
-  if (search.data[0]?.id) return search.data[0].id;
-
+  // Customer creation is idempotent for this account/user. Avoid a search
+  // request here: restricted Stripe keys commonly do not have customer-search
+  // permission, and the idempotency key already prevents duplicate customers.
   const customer = await stripe.customers.create(
     {
       email: email || undefined,

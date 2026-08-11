@@ -27,6 +27,28 @@ import {
 } from "../server/stripe.js";
 import { getBillingPlan, hasActiveSubscription } from "../server/domains/billing.js";
 
+function publicCheckoutError(error, phase) {
+  if (error?.userSafe) return error;
+  const status = Number(error?.statusCode ?? error?.status);
+  if (!(phase.startsWith("stripe_") || phase === "checkout_reservation") || !Number.isFinite(status) || status < 400 || status >= 500) {
+    return error;
+  }
+
+  const safe = new Error(
+    phase === "price_validation"
+      ? "A Stripe recusou o Price configurado. Confirme que o STRIPE_PRICE_* e um price_ ativo, recorrente, BRL e do mesmo modo da STRIPE_SECRET_KEY."
+      : phase === "stripe_customer"
+        ? "A Stripe recusou o cliente da assinatura. Verifique as permissoes da chave restrita e se a chave e do mesmo modo dos Prices."
+        : phase === "checkout_reservation"
+          ? "A estrutura de checkout do banco ainda nao esta pronta. Execute supabase db push e publique novamente a API."
+        : "A Stripe recusou a criacao do Checkout. Confirme a conta, a chave e os Prices no mesmo modo (teste ou producao)."
+  );
+  safe.status = 503;
+  safe.userSafe = true;
+  safe.cause = error;
+  return safe;
+}
+
 export default async function handler(req, res) {
   if (!allowPost(req, res)) return;
 
@@ -85,7 +107,10 @@ export default async function handler(req, res) {
     }
 
     let openAttempt = matchingOpenAttempt || null;
-    let effectiveAttemptId = attemptId;
+    // The attempt id is only a reservation key. Generate it on the server so
+    // an older client cannot fail checkout just because it does not know this
+    // internal field.
+    let effectiveAttemptId = attemptId || crypto.randomUUID();
 
     if (openAttempt?.expires_at && Date.parse(openAttempt.expires_at) <= Date.now()) {
       await updateCheckoutAttempt(openAttempt.attempt_id, {
@@ -189,12 +214,20 @@ export default async function handler(req, res) {
       metadata,
     };
 
+    // Configure this Stripe Payment Method Configuration with only card
+    // enabled. It remains server-side and cannot be changed by the browser.
+    const paymentMethodConfiguration = String(
+      process.env.STRIPE_PAYMENT_METHOD_CONFIGURATION_ID || ""
+    ).trim();
+    if (paymentMethodConfiguration) {
+      common.payment_method_configuration = paymentMethodConfiguration;
+    }
+
     let checkoutPayload;
     const priceId = await validatePriceForPlan(plan);
     checkoutPayload = {
       ...common,
       mode: "subscription",
-      excluded_payment_method_types: ["pix"],
       line_items: [{ price: priceId, quantity: 1 }],
       subscription_data: { metadata },
       allow_promotion_codes: true,
@@ -218,7 +251,8 @@ export default async function handler(req, res) {
     });
     return sendSuccess(req, res, { url: session.url, planKey: plan.key, paymentMethod, attemptId: effectiveAttemptId });
   } catch (error) {
+    const publicError = publicCheckoutError(error, phase);
     logServerError(`stripe_checkout:${phase}`, error, req);
-    return sendError(req, res, error, "Nao foi possivel iniciar a assinatura");
+    return sendError(req, res, publicError, "Nao foi possivel iniciar a assinatura");
   }
 }

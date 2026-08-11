@@ -93,7 +93,7 @@ export function SubscribePage() {
 
   async function handlePlanAction(planKey) {
     if (working) return;
-    if (active && !isRecurringStripe) {
+    if (!isAdmin && active && !isRecurringStripe) {
       toast.info("Seu acesso atual continua válido até a data exibida. Depois disso, escolha um novo plano.");
       return;
     }
