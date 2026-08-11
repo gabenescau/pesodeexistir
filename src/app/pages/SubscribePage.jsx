@@ -137,7 +137,8 @@ export function SubscribePage() {
 
   function handlePlanSelection(nextTierId) {
     setTierId(nextTierId);
-    if (isAdmin || (active && currentInfo?.tier === nextTierId && currentInfo?.cycle === cycle)) {
+    if (active && currentInfo?.tier === nextTierId && currentInfo?.cycle === cycle) {
+      toast.info("Este ja e o seu plano atual.");
       return;
     }
     void handlePlanAction(getTierPlanKey(nextTierId, cycle));

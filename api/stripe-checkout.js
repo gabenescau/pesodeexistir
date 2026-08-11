@@ -30,13 +30,17 @@ import { getBillingPlan, hasActiveSubscription } from "../server/domains/billing
 export default async function handler(req, res) {
   if (!allowPost(req, res)) return;
 
+  let phase = "request";
   try {
+    phase = "auth";
     const user = await getAuthenticatedUser(req);
+    phase = "input";
     const { plan: planKey, paymentMethod, attemptId } = parseCheckoutInput(req.body);
     const plan = getBillingPlan(planKey);
     if (paymentMethod !== "CARD") {
       return sendClientError(req, res, 400, "Metodo de pagamento invalido");
     }
+    phase = "rate_limit";
     if (!await enforceRateLimit(req, res, {
       scope: "stripe_checkout",
       limit: 10,
@@ -44,6 +48,7 @@ export default async function handler(req, res) {
       userId: user.id,
     })) return;
 
+    phase = "supabase_state";
     const [profile, subscriptions] = await Promise.all([
       getProfile(user.id),
       user.id ? listUserSubscriptions(user.id) : Promise.resolve([]),
@@ -52,13 +57,16 @@ export default async function handler(req, res) {
       return sendClientError(req, res, 409, "Voce ja possui um acesso ativo. Use a pagina de assinatura para gerenciar ou aguarde a data de termino.");
     }
 
+    phase = "stripe_client";
     const stripe = getStripe();
     const siteUrl = getSiteUrl();
     const email = profile?.email || user?.email || "";
+    phase = "stripe_customer";
     const customerId = await getOrCreateStripeCustomer({ user, email, subscriptions });
     // There can be only one open reservation per user. Load it without
     // filtering by plan first so a second click cannot bypass the database
     // guard and expose a raw unique-constraint error.
+    phase = "checkout_reservation";
     const openAttempts = await getOpenCheckoutAttempts(user.id);
     const matchingOpenAttempt = openAttempts.find((attempt) =>
       attempt.plan_key === plan.key && attempt.payment_method === paymentMethod
@@ -110,6 +118,7 @@ export default async function handler(req, res) {
       }
     }
 
+    phase = "stripe_existing_sessions";
     const reusable = await expireOpenCheckoutSessions(
       customerId,
       user.id,
@@ -163,6 +172,7 @@ export default async function handler(req, res) {
       return sendClientError(req, res, 409, "Ja existe um checkout em processamento. Aguarde a confirmacao ou sua expiracao.");
     }
 
+    phase = "price_validation";
     const metadata = {
       user_id: user.id,
       plan: plan.plan,
@@ -190,10 +200,12 @@ export default async function handler(req, res) {
       allow_promotion_codes: true,
     };
 
+    phase = "stripe_session_create";
     const session = await stripe.checkout.sessions.create(
       checkoutPayload,
       { idempotencyKey: checkoutIdempotencyKey(user.id, plan.key, paymentMethod, effectiveAttemptId) }
     );
+    phase = "checkout_reservation_finalize";
     await updateCheckoutAttempt(effectiveAttemptId, {
       stripe_session_id: session.id,
       expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
@@ -206,7 +218,7 @@ export default async function handler(req, res) {
     });
     return sendSuccess(req, res, { url: session.url, planKey: plan.key, paymentMethod, attemptId: effectiveAttemptId });
   } catch (error) {
-    logServerError("stripe_checkout", error, req);
+    logServerError(`stripe_checkout:${phase}`, error, req);
     return sendError(req, res, error, "Nao foi possivel iniciar a assinatura");
   }
 }
