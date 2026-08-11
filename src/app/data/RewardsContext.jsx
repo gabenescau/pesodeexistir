@@ -130,7 +130,9 @@ export function RewardsProvider({ children }) {
     }
     const { data, error } = await supabase
       .from("shop_products")
-      .select("id,name,description,category,credits_cost,real_price,min_months_active,stock,image_url,images,active,external_sku,season_id,created_at,updated_at")
+      // The store catalog is independent from seasonal curation. A product
+      // remains purchasable even when it has no season assignment.
+      .select("id,name,description,category,credits_cost,real_price,min_months_active,stock,image_url,images,active,external_sku,created_at,updated_at")
       .eq("active", true)
       .order("credits_cost", { ascending: true });
     if (error) throw error;

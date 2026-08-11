@@ -14,6 +14,16 @@ import {
 } from "@/lib/library-media";
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogClose,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { DatePicker } from "@/components/ui/date-picker";
 import { BarChart, DonutChart, LineChart } from "@/components/ui/chart";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -591,6 +601,156 @@ function UsersTab() {
       {totalPages > 1 ? (
         <PaginationBar currentPage={page} totalPages={totalPages} onPageChange={setPage} />
       ) : null}
+    </div>
+  );
+}
+
+// Kept as a compatibility reference while the refined surface is the default.
+void UsersTab;
+
+function UsersManagementTab() {
+  const { profiles, subscriptions, upsertUserSubscription, updateUserSubscriptionDuration, removeUserSubscription } = useData();
+  const [durationByUser, setDurationByUser] = useState({});
+  const [planByUser, setPlanByUser] = useState({});
+  const [savingUser, setSavingUser] = useState(null);
+  const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [selectedProfile, setSelectedProfile] = useState(null);
+  const [planDialogOpen, setPlanDialogOpen] = useState(false);
+  const confirm = useConfirmDialog();
+  const pageSize = 8;
+  const totalPages = Math.max(1, Math.ceil(profiles.length / pageSize));
+  const visibleProfiles = profiles.slice((page - 1) * pageSize, page * pageSize);
+
+  const getSub = (userId) => pickCurrentSubscription(subscriptions, userId);
+  const getUserData = (profile) => {
+    const sub = getSub(profile.id);
+    const subPlanInfo = planInfoFromCode(sub?.plan);
+    const active = isActiveSubscription(sub);
+    const daysRemaining = sub?.current_period_end
+      ? Math.max(0, Math.ceil((new Date(sub.current_period_end) - new Date()) / (1000 * 60 * 60 * 24)))
+      : 0;
+    const createdAt = profile.created_at || profile.time;
+    const daysOnPlatform = createdAt
+      ? Math.max(1, Math.floor((new Date() - new Date(createdAt)) / (1000 * 60 * 60 * 24)))
+      : 1;
+    return { sub, subPlanInfo, active, daysRemaining, daysOnPlatform };
+  };
+
+  function openPlanDialog(profile) {
+    const data = getUserData(profile);
+    setSelectedProfile(profile);
+    setPlanByUser((prev) => ({ ...prev, [profile.id]: prev[profile.id] || data.sub?.plan || "ope_club_leitor_monthly" }));
+    setDurationByUser((prev) => ({ ...prev, [profile.id]: prev[profile.id] || 30 }));
+    setPlanDialogOpen(true);
+  }
+
+  async function activate(profile) {
+    if (!profile) return false;
+    setSavingUser(profile.id);
+    setError("");
+    try {
+      await upsertUserSubscription({
+        userId: profile.id,
+        email: profile.email,
+        plan: planByUser[profile.id] || "ope_club_leitor_monthly",
+        status: "active",
+        durationDays: durationByUser[profile.id] || 30,
+      });
+      toast.success(`Plano concedido para ${profile.name || "o usuario"}.`);
+      return true;
+    } catch (err) {
+      setError(err?.message || "Nao foi possivel adicionar o plano.");
+      toast.error(err?.message || "Nao foi possivel adicionar o plano.");
+      return false;
+    } finally {
+      setSavingUser(null);
+    }
+  }
+
+  async function remove(profile) {
+    const ok = await confirm.ask({
+      title: "Remover assinatura manual?",
+      description: `O acesso de ${profile.name || "este usuario"} sera removido do plano manual atual.`,
+      confirmLabel: "Remover plano",
+      cancelLabel: "Manter plano",
+      danger: true,
+    });
+    if (!ok) return;
+    setSavingUser(profile.id);
+    setError("");
+    try {
+      await removeUserSubscription(profile.id);
+      toast.success(`Plano de ${profile.name || "usuario"} removido.`);
+    } catch (err) {
+      setError(err?.message || "Nao foi possivel remover o plano.");
+      toast.error(err?.message || "Nao foi possivel remover o plano.");
+    } finally {
+      setSavingUser(null);
+    }
+  }
+
+  async function changeDuration(profile, days) {
+    const sub = getSub(profile.id);
+    if (!sub || sub.provider !== "manual_admin") return;
+    setSavingUser(profile.id);
+    setError("");
+    try {
+      await updateUserSubscriptionDuration({ userId: profile.id, durationDays: Number(days) });
+      toast.success(`Duracao atualizada para ${days} dias.`);
+    } catch (err) {
+      setError(err?.message || "Nao foi possivel alterar os dias.");
+      toast.error(err?.message || "Nao foi possivel alterar os dias.");
+    } finally {
+      setSavingUser(null);
+    }
+  }
+
+  function Avatar({ profile, size = "size-10" }) {
+    const avatar = profile.avatar || profile.avatar_url || "";
+    const isImage = avatar.startsWith("data:") || avatar.startsWith("http");
+    return (
+      <div className={`flex ${size} shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--border)] bg-[var(--hover-overlay)] text-sm font-semibold text-[var(--text-primary)]`}>
+        {isImage ? <img src={avatar} alt="" className="h-full w-full object-cover" /> : (avatar || profile.name?.charAt(0) || "U")}
+      </div>
+    );
+  }
+
+  function PlanStatus({ data }) {
+    return (
+      <span className={`inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-xs font-medium ${data.active ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-300" : "border-[var(--border)] bg-[var(--hover-overlay)] text-[var(--text-muted)]"}`}>
+        {data.active ? `${data.subPlanInfo?.tierLabel || "OPE Club"} ${data.subPlanInfo?.cycle === "annual" ? "Anual" : "Mensal"}` : "Sem plano ativo"}
+      </span>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 border-b border-[var(--border)] pb-4 sm:flex-row sm:items-end sm:justify-between">
+        <div><h2 className="text-base font-semibold text-[var(--text-primary)]">Usuarios</h2><p className="mt-1 text-sm text-[var(--text-muted)]">Gerencie acesso, plano manual e creditos sem editar dados sensiveis.</p></div>
+        <span className="text-xs text-[var(--text-muted)]">{profiles.length} cadastrados · Pagina {page} de {totalPages}</span>
+      </div>
+      {error && <p role="alert" className="rounded-[10px] border border-red-500/25 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
+
+      <div className="space-y-3 md:hidden">
+        {visibleProfiles.map((profile) => {
+          const data = getUserData(profile);
+          return (
+            <article key={profile.id} className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4">
+              <div className="flex items-start justify-between gap-3"><div className="flex min-w-0 items-center gap-3"><Avatar profile={profile} /><div className="min-w-0"><p className="truncate font-medium text-[var(--text-primary)]">{profile.name || "Sem nome"}</p><p className="truncate text-xs text-[var(--text-muted)]">{profile.email || "Sem email"}</p></div></div><span className="rounded-full border border-[var(--border)] px-2 py-1 text-[11px] capitalize text-[var(--text-secondary)]">{profile.role || "membro"}</span></div>
+              <div className="mt-4 grid grid-cols-2 gap-3 border-y border-[var(--border)] py-3 text-xs"><div><p className="text-[var(--text-muted)]">Plano atual</p><div className="mt-1"><PlanStatus data={data} /></div></div><div><p className="text-[var(--text-muted)]">Creditos</p><p className="mt-1 font-semibold text-[var(--text-primary)]">{(profile.credits ?? 0).toLocaleString("pt-BR")}</p></div><div><p className="text-[var(--text-muted)]">Acesso</p><p className="mt-1 font-medium text-[var(--text-primary)]">{data.active ? `${data.daysRemaining} dias` : "Sem assinatura"}</p></div><div><p className="text-[var(--text-muted)]">Na plataforma</p><p className="mt-1 font-medium text-[var(--text-primary)]">{data.daysOnPlatform} {data.daysOnPlatform === 1 ? "dia" : "dias"}</p></div></div>
+              <div className="mt-3 flex gap-2"><Button type="button" size="sm" className="flex-1 bg-[var(--text-primary)] text-[var(--bg-card)] hover:opacity-90" onClick={() => openPlanDialog(profile)} disabled={savingUser === profile.id}>{data.active ? "Gerenciar plano" : "Adicionar plano"}</Button>{data.active && <Button type="button" size="sm" variant="outline" className="border-red-500/30 text-red-300 hover:bg-red-500/10" onClick={() => remove(profile)} disabled={savingUser === profile.id}>Remover</Button>}</div>
+            </article>
+          );
+        })}
+      </div>
+
+      <div className="hidden md:block"><Table variant="card"><TableHeader><TableRow><TableHead>Usuario</TableHead><TableHead>Plano atual</TableHead><TableHead>Acesso</TableHead><TableHead>Creditos</TableHead><TableHead className="text-right">Acoes</TableHead></TableRow></TableHeader><TableBody>{visibleProfiles.map((profile) => { const data = getUserData(profile); return <TableRow key={profile.id}><TableCell><div className="flex items-center gap-3"><Avatar profile={profile} size="size-9" /><div className="min-w-0"><p className="truncate font-medium text-[var(--text-primary)]">{profile.name || "Sem nome"}</p><p className="max-w-[220px] truncate text-xs text-[var(--text-muted)]">{profile.email || "Sem email"}</p></div></div></TableCell><TableCell><PlanStatus data={data} /></TableCell><TableCell><p className="text-sm font-medium text-[var(--text-primary)]">{data.active ? `${data.daysRemaining} dias restantes` : "Sem assinatura"}</p><p className="text-xs text-[var(--text-muted)]">{data.active && data.sub?.current_period_end ? `Ate ${new Date(data.sub.current_period_end).toLocaleDateString("pt-BR")}` : `${data.daysOnPlatform} dias na plataforma`}</p></TableCell><TableCell><span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--hover-overlay)] px-2.5 py-1 text-xs font-semibold text-[var(--text-secondary)]"><Wallet className="size-3.5" />{(profile.credits ?? 0).toLocaleString("pt-BR")}</span></TableCell><TableCell><div className="flex justify-end gap-2"><Button type="button" size="sm" className="bg-[var(--text-primary)] text-[var(--bg-card)] hover:opacity-90" onClick={() => openPlanDialog(profile)} disabled={savingUser === profile.id}>{data.active ? "Gerenciar" : "Adicionar plano"}</Button>{data.active && <Button type="button" size="sm" variant="outline" className="border-red-500/30 text-red-300 hover:bg-red-500/10" onClick={() => remove(profile)} disabled={savingUser === profile.id}>Remover</Button>}</div></TableCell></TableRow>; })}</TableBody></Table></div>
+
+      {totalPages > 1 ? <PaginationBar currentPage={page} totalPages={totalPages} onPageChange={setPage} /> : null}
+
+      <AlertDialog open={planDialogOpen} onOpenChange={setPlanDialogOpen}><AlertDialogContent className="max-w-lg"><AlertDialogHeader><AlertDialogTitle>Gerenciar plano</AlertDialogTitle><AlertDialogDescription>{selectedProfile ? `Defina o acesso manual de ${selectedProfile.name || "este usuario"}.` : "Escolha o plano e a duracao."}</AlertDialogDescription></AlertDialogHeader>{selectedProfile && (() => { const data = getUserData(selectedProfile); return <div className="space-y-4 py-2"><div className="flex items-center gap-3 rounded-[10px] border border-[var(--border)] bg-[var(--hover-overlay)] p-3"><Avatar profile={selectedProfile} size="size-9" /><div className="min-w-0"><p className="truncate text-sm font-medium text-[var(--text-primary)]">{selectedProfile.name || "Sem nome"}</p><p className="truncate text-xs text-[var(--text-muted)]">{selectedProfile.email || "Sem email"}</p></div></div><label className="block text-sm font-medium text-[var(--text-secondary)]">Plano<select aria-label="Plano manual" value={planByUser[selectedProfile.id] || "ope_club_leitor_monthly"} onChange={(e) => setPlanByUser((prev) => ({ ...prev, [selectedProfile.id]: e.target.value }))} className="mt-1.5 h-10 w-full rounded-[8px] border border-[var(--border)] bg-[var(--bg-card)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-strong)]"><option value="ope_club_leitor_monthly">Leitor mensal</option><option value="ope_club_leitor_annual">Leitor anual</option><option value="ope_club_pensador_monthly">Pensador mensal</option><option value="ope_club_pensador_annual">Pensador anual</option></select></label><label className="block text-sm font-medium text-[var(--text-secondary)]">Duracao<select aria-label="Duracao do plano" value={durationByUser[selectedProfile.id] || 30} onChange={(e) => setDurationByUser((prev) => ({ ...prev, [selectedProfile.id]: Number(e.target.value) }))} className="mt-1.5 h-10 w-full rounded-[8px] border border-[var(--border)] bg-[var(--bg-card)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--border-strong)]"><option value={7}>7 dias</option><option value={30}>30 dias</option><option value={90}>90 dias</option><option value={180}>180 dias</option><option value={365}>365 dias</option></select></label><p className="text-xs text-[var(--text-muted)]">{data.active && data.sub?.provider === "manual_admin" ? "O plano atual e manual. Voce pode renovar ou definir os dias restantes." : "A alteracao manual registra o acesso no painel sem alterar a cobranca da Stripe."}</p></div>; })()}<AlertDialogFooter><AlertDialogClose render={<Button type="button" variant="outline" />}>Cancelar</AlertDialogClose>{selectedProfile && getUserData(selectedProfile).active && getUserData(selectedProfile).sub?.provider === "manual_admin" ? <Button type="button" variant="outline" onClick={() => changeDuration(selectedProfile, durationByUser[selectedProfile.id] || 30)} disabled={savingUser === selectedProfile.id}>Definir dias</Button> : null}<Button type="button" className="bg-[var(--text-primary)] text-[var(--bg-card)] hover:opacity-90" onClick={async () => { const done = await activate(selectedProfile); if (done) setPlanDialogOpen(false); }} disabled={!selectedProfile || savingUser === selectedProfile?.id}>{savingUser === selectedProfile?.id ? "Salvando..." : "Salvar plano"}</Button></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      {confirm.dialog}
     </div>
   );
 }
@@ -1644,14 +1804,25 @@ function LojaTab() {
       return;
     }
     try {
-      const [productsResult, seasonsResult] = await Promise.all([
-        supabase.from("shop_products").select("*").order("created_at", { ascending: false }),
-        supabase.from("seasons").select("id,name,status,starts_on,ends_on").order("created_at", { ascending: false }),
-      ]);
+      const productsResult = await supabase
+        .from("shop_products")
+        .select("*")
+        .order("created_at", { ascending: false });
       if (productsResult.error) throw productsResult.error;
-      if (seasonsResult.error) throw seasonsResult.error;
       setProducts(productsResult.data || []);
-      setSeasons(seasonsResult.data || []);
+
+      // Seasonal curation is optional. A missing/blocked season query must
+      // never hide the independent store catalog.
+      const seasonsResult = await supabase
+        .from("seasons")
+        .select("id,name,status,starts_on,ends_on")
+        .order("created_at", { ascending: false });
+      if (seasonsResult.error) {
+        setSeasons([]);
+        setError("Produtos carregados. A lista de seasons precisa ser sincronizada.");
+      } else {
+        setSeasons(seasonsResult.data || []);
+      }
     } catch (err) {
       setError(err?.message || "Não foi possível carregar a loja.");
     } finally {
@@ -1753,6 +1924,7 @@ function LojaTab() {
         const fallbackPayload = { ...payload };
         if (error.message?.includes("'images'")) delete fallbackPayload.images;
         if (error.message?.includes("'real_price'")) delete fallbackPayload.real_price;
+        if (error.message?.includes("season_id")) delete fallbackPayload.season_id;
 
         const res = editingId
           ? await supabase.from("shop_products").update(fallbackPayload).eq("id", editingId)
@@ -1857,6 +2029,7 @@ function LojaTab() {
             <option value="">Sem season vinculada</option>
             {seasons.map((season) => <option key={season.id} value={season.id}>{season.name} ({season.status})</option>)}
           </select>
+          <p className="sm:col-span-2 -mt-1 text-xs text-[var(--text-muted)]">A season e opcional. O produto continua na Loja; este campo apenas define em qual season ele aparece.</p>
           <input className={inputClass} placeholder="Descrição" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <input className={inputClass} type="number" min="1" placeholder="Custo em créditos" value={form.credits_cost} onChange={(e) => setForm({ ...form, credits_cost: e.target.value })} />
           <input className={inputClass} type="number" min="0" step="0.01" placeholder="Preço em R$ (opcional, ex: 189.90)" value={form.real_price} onChange={(e) => setForm({ ...form, real_price: e.target.value })} />
@@ -3083,7 +3256,7 @@ export function AdminPage() {
 
       <div>
         {activeTab === "dashboard" && <DashboardTab />}
-        {activeTab === "users" && <UsersTab />}
+        {activeTab === "users" && <UsersManagementTab />}
         {activeTab === "creditos" && <CreditsTab />}
         {activeTab === "pedidos" && <PedidosTab />}
         {activeTab === "subscriptions" && <SubscriptionsTab />}
