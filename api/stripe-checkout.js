@@ -30,7 +30,7 @@ import { getBillingPlan, hasActiveSubscription } from "../server/domains/billing
 function publicCheckoutError(error, phase) {
   if (error?.userSafe) return error;
   const status = Number(error?.statusCode ?? error?.status);
-  if (!(phase.startsWith("stripe_") || phase === "checkout_reservation") || !Number.isFinite(status) || status < 400 || status >= 500) {
+  if (!(phase.startsWith("stripe_") || phase === "price_validation" || phase === "checkout_reservation") || !Number.isFinite(status) || status < 400 || status >= 500) {
     return error;
   }
 
