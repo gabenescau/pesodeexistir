@@ -1,1 +1,0 @@
-import{an as e,in as t}from"./icons-HNiS3ikM.js";import{t as n}from"./utils-B6KiDbIe.js";var r=e();function i({liked:e=!1,className:i=``,...a}){return(0,r.jsx)(t,{weight:e?`fill`:`regular`,color:e?`#ef4444`:`currentColor`,className:n(`shrink-0`,i),...a})}export{i as t};

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { Storefront, ArrowLeft, Check, ShieldCheck, CreditCard, Coins } from "@/lib/icons";
+import { Storefront, ArrowLeft, Check, ShieldCheck, CreditCard, Coins, ChevronLeft, ChevronRight } from "@/lib/icons";
 import { useRewards } from "@/app/data/RewardsContext";
 import { toast } from "@/lib/toast";
 import { CheckoutModal } from "@/app/components/CheckoutModal";
@@ -132,21 +132,86 @@ export function ProductDetailPage() {
       {/* Layout Principal */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
 
-        {/* Coluna Esquerda — Imagem principal */}
+        {/* Coluna Esquerda — Imagem principal com setas de navegação */}
         <div className="space-y-4 lg:col-span-7">
-          <div className="overflow-hidden rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] aspect-[3/4] max-h-[520px] w-full mx-auto">
+          <div className="group relative overflow-hidden rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] aspect-[3/4] max-h-[520px] w-full mx-auto">
             {images.length > 0 ? (
               <img
                 src={images[activeImgIdx] || images[0]}
                 alt={product.name}
-                className="h-full w-full object-cover"
+                className="h-full w-full object-cover select-none"
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-[var(--text-muted)]">
                 <Storefront className="size-12" />
               </div>
             )}
+
+            {/* Setas laterais de navegação */}
+            {images.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveImgIdx((prev) => (prev > 0 ? prev - 1 : images.length - 1));
+                  }}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 flex size-10 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md transition-all hover:bg-black/80 hover:scale-105 active:scale-95 border border-white/10"
+                  aria-label="Imagem anterior"
+                >
+                  <ChevronLeft className="size-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveImgIdx((prev) => (prev < images.length - 1 ? prev + 1 : 0));
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 flex size-10 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md transition-all hover:bg-black/80 hover:scale-105 active:scale-95 border border-white/10"
+                  aria-label="Próxima imagem"
+                >
+                  <ChevronRight className="size-5" />
+                </button>
+
+                {/* Indicadores numéricos/bullets */}
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 backdrop-blur-md">
+                  {images.map((img, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setActiveImgIdx(idx)}
+                      className={`size-2 rounded-full transition-all ${
+                        activeImgIdx === idx
+                          ? "bg-white w-4"
+                          : "bg-white/40 hover:bg-white/70"
+                      }`}
+                      aria-label={`Ver foto ${idx + 1}`}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
+
+          {/* Galeria de Thumbnails */}
+          {images.length > 1 && (
+            <div className="flex gap-2.5 overflow-x-auto pb-1">
+              {images.map((img, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setActiveImgIdx(idx)}
+                  className={`relative size-16 shrink-0 overflow-hidden rounded-[8px] border transition-all ${
+                    activeImgIdx === idx
+                      ? "border-[var(--text-primary)] ring-2 ring-[var(--text-primary)]/20"
+                      : "border-[var(--border)] opacity-60 hover:opacity-100"
+                  }`}
+                >
+                  <img src={img} alt="" className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Informações do item */}
           <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4 space-y-3">

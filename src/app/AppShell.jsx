@@ -31,6 +31,8 @@ const SeasonPage = lazyPage(() => import("./pages/SeasonPage"), "SeasonPage");
 const MyRedemptionsPage = lazyPage(() => import("./pages/MyRedemptionsPage"), "MyRedemptionsPage");
 const SupportPage = lazyPage(() => import("./pages/SupportPage"), "SupportPage");
 const MyListPage = lazyPage(() => import("./pages/MyListPage"), "MyListPage");
+const RankingPage = lazyPage(() => import("./pages/RankingPage"), "RankingPage");
+const InstallAppPage = lazyPage(() => import("./pages/InstallAppPage"), "InstallAppPage");
 
 function PageLoading() {
   return (
@@ -64,6 +66,8 @@ export function AppShell() {
         <Route path="missoes" element={<SubscriptionGuard><DailyMissionsPage /></SubscriptionGuard>} />
         <Route path="indicacoes" element={<SubscriptionGuard><ReferralPage /></SubscriptionGuard>} />
         <Route path="seasons" element={<SubscriptionGuard><SeasonPage /></SubscriptionGuard>} />
+        <Route path="ranking" element={<SubscriptionGuard><RankingPage /></SubscriptionGuard>} />
+        <Route path="instalar" element={<SubscriptionGuard><InstallAppPage /></SubscriptionGuard>} />
         <Route path="meus-resgates" element={<SubscriptionGuard><MyRedemptionsPage /></SubscriptionGuard>} />
         <Route path="suporte" element={<SupportPage />} />
         <Route path="minha-lista" element={<SubscriptionGuard><MyListPage /></SubscriptionGuard>} />

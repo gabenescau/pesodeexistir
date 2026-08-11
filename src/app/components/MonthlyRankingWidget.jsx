@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Trophy } from "@/lib/icons";
+import { Trophy, Coins, Crown, Medal } from "@/lib/icons";
+import { rewardApi } from "@/lib/rewards";
 import { isSupabaseReady, supabase } from "@/app/data/supabase";
 import { useData } from "@/app/data/DataContext";
 import { cn } from "@/lib/utils";
@@ -23,12 +24,6 @@ function Avatar({ name, avatar }) {
   );
 }
 
-const MEDAL_COLORS = {
-  1: "text-amber-400",
-  2: "text-slate-300",
-  3: "text-amber-600",
-};
-
 export function MonthlyRankingWidget({ limit = 5 }) {
   const { profiles = [] } = useData() || {};
   const [entries, setEntries] = useState([]);
@@ -37,40 +32,47 @@ export function MonthlyRankingWidget({ limit = 5 }) {
   useEffect(() => {
     let mounted = true;
 
-    async function load() {
+    async function loadRanking() {
       try {
-        let data = [];
+        const result = await rewardApi.creditsRanking(limit);
+        if (mounted && Array.isArray(result?.list) && result.list.length > 0) {
+          setEntries(result.list);
+          setLoading(false);
+          return;
+        }
+      } catch {}
+
+      try {
         if (isSupabaseReady()) {
           const { data: rows } = await supabase
             .from("user_wallets")
-            .select("user_id, xp")
-            .order("xp", { ascending: false })
+            .select("user_id, credits")
+            .order("credits", { ascending: false })
             .limit(limit);
-          data = rows || [];
-        }
 
-        const ranked = data.map((row, i) => {
-          const profile = profiles.find((p) => p.id === row.user_id) || {};
-          return {
-            rank: i + 1,
-            userId: row.user_id,
-            xp: row.xp || 0,
-            name: profile.name || "Membro OPE",
-            avatar: profile.avatar_url || profile.avatar || null,
-          };
-        });
-
-        if (mounted) {
-          setEntries(ranked);
-          setLoading(false);
+          if (mounted && rows) {
+            const ranked = rows.map((row, i) => {
+              const profile = profiles.find((p) => p.id === row.user_id) || {};
+              return {
+                rank: i + 1,
+                user_id: row.user_id,
+                credits: row.credits || 0,
+                name: profile.name || "Membro OPE",
+                avatar: profile.avatar_url || profile.avatar || null,
+              };
+            });
+            setEntries(ranked);
+          }
         }
-      } catch {
-        if (mounted) setLoading(false);
-      }
+      } catch {}
+
+      if (mounted) setLoading(false);
     }
 
-    load();
-    return () => { mounted = false; };
+    loadRanking();
+    return () => {
+      mounted = false;
+    };
   }, [limit, profiles]);
 
   return (
@@ -78,7 +80,7 @@ export function MonthlyRankingWidget({ limit = 5 }) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Trophy className="size-4 text-amber-400" />
+          <Trophy className="size-4 text-[#c58b42]" />
           <h3 className="text-xs font-semibold uppercase tracking-widest text-[var(--text-muted)]">
             Ranking Mensal
           </h3>
@@ -87,7 +89,7 @@ export function MonthlyRankingWidget({ limit = 5 }) {
           to="/app/ranking"
           className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
         >
-          Ver tudo
+          Ver tudo →
         </Link>
       </div>
 
@@ -104,29 +106,36 @@ export function MonthlyRankingWidget({ limit = 5 }) {
         </div>
       ) : entries.length === 0 ? (
         <p className="text-xs text-[var(--text-muted)]">
-          Ainda sem dados de XP para exibir.
+          Ainda sem créditos registrados para comparar.
         </p>
       ) : (
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           {entries.map((entry) => {
-            const medalColor = MEDAL_COLORS[entry.rank];
+            const isTop1 = entry.rank === 1;
+            const isTop2 = entry.rank === 2;
+            const isTop3 = entry.rank === 3;
+            const userId = entry.user_id || entry.id;
+
             return (
               <Link
-                key={entry.userId}
-                to={`/app/perfil/${entry.userId}`}
+                key={userId}
+                to={`/app/perfil/${userId}`}
                 className={cn(
                   "flex items-center gap-2.5 rounded-[8px] px-2 py-1.5 transition-colors hover:bg-[var(--hover-overlay)]",
-                  entry.rank <= 3 && "bg-[var(--hover-overlay)]/50"
+                  entry.rank <= 3 && "bg-[var(--hover-overlay)]/40"
                 )}
               >
                 {/* Rank badge */}
-                <span
-                  className={cn(
-                    "flex w-5 shrink-0 justify-center text-[10px] font-bold",
-                    medalColor || "text-[var(--text-muted)]"
+                <span className="flex w-5 shrink-0 justify-center text-[10px] font-bold">
+                  {isTop1 ? (
+                    <Crown className="size-3.5 text-amber-400" />
+                  ) : isTop2 ? (
+                    <Medal className="size-3.5 text-slate-300" />
+                  ) : isTop3 ? (
+                    <Medal className="size-3.5 text-amber-600" />
+                  ) : (
+                    <span className="text-[var(--text-muted)] font-mono">#{entry.rank}</span>
                   )}
-                >
-                  {entry.rank <= 3 ? ["🥇", "🥈", "🥉"][entry.rank - 1] : `#${entry.rank}`}
                 </span>
 
                 <Avatar name={entry.name} avatar={entry.avatar} />
@@ -135,9 +144,9 @@ export function MonthlyRankingWidget({ limit = 5 }) {
                   {entry.name}
                 </span>
 
-                <span className="shrink-0 font-mono text-[11px] font-semibold text-amber-400">
-                  {entry.xp.toLocaleString("pt-BR")}
-                  <span className="ml-0.5 text-[9px] font-normal text-[var(--text-muted)]">XP</span>
+                <span className="shrink-0 font-mono text-[11px] font-semibold text-[#c58b42]">
+                  {Number(entry.credits || 0).toLocaleString("pt-BR")}
+                  <span className="ml-0.5 text-[9px] font-normal text-[var(--text-muted)]">cr</span>
                 </span>
               </Link>
             );

@@ -6,6 +6,7 @@ import { useData } from "../data/DataContext";
 import { AutocompleteSearch, buildSearchItems } from "@/components/ui/autocomplete";
 import { RightSidebar } from "../components/RightSidebar";
 import { MonthlyRankingWidget } from "../components/MonthlyRankingWidget";
+import { InstallAppWidget } from "../components/InstallAppWidget";
 
 export function CommunityPage() {
   const { posts = [], deletePost, loading = false, books = [], authors = [], categories = [] } = useData() || {};
@@ -96,9 +97,10 @@ export function CommunityPage() {
           <CreatePost />
         </div>
 
-        {/* Ranking mensal — visível apenas em telas menores que 2xl */}
-        <div className="2xl:hidden">
+        {/* Widgets móveis — visíveis em telas menores que 2xl */}
+        <div className="space-y-4 2xl:hidden">
           <MonthlyRankingWidget limit={5} />
+          <InstallAppWidget />
         </div>
 
         <div className="space-y-4 sm:space-y-5">

@@ -213,11 +213,21 @@ export function StorePage() {
   }, [loadProducts, refresh]);
 
   const availableCategories = useMemo(() => {
-    const cats = new Set(products.map((p) => p.category));
+    const cats = new Set(
+      products.map((p) => (p.category === "hoodie" ? "moletom" : p.category))
+    );
     return CATEGORY_TABS.filter((t) => t.id === "all" || cats.has(t.id));
   }, [products]);
 
-  const filtered = activeCategory === "all" ? products : products.filter((p) => p.category === activeCategory);
+  const filtered = useMemo(() => {
+    if (activeCategory === "all") return products;
+    return products.filter((p) => {
+      if (activeCategory === "moletom" || activeCategory === "hoodie") {
+        return p.category === "moletom" || p.category === "hoodie";
+      }
+      return p.category === activeCategory;
+    });
+  }, [products, activeCategory]);
 
   function handleRedeem(product) {
     const hasCredits = Number(wallet?.credits || 0) >= Number(product.credits_cost || 0);

@@ -1,2 +1,0 @@
-import{cn as e}from"./icons-HNiS3ikM.js";var t=e({isSupabaseReady:()=>r,supabase:()=>null});if(console.warn(`Supabase public credentials not found. Check the Vercel/Supabase integration.
-The app will use read-only local content and will not create community data.`),typeof window<`u`&&window.sessionStorage,typeof window<`u`)try{Object.keys(window.localStorage).filter(e=>e.startsWith(`sb-`)&&e.includes(`auth-token`)).forEach(e=>window.localStorage.removeItem(e))}catch{}var n=null;function r(){return!1}export{n,t as r,r as t};

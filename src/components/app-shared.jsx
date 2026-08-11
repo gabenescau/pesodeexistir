@@ -13,6 +13,8 @@ import {
   Truck,
   HelpCircleIcon,
   MagnifyingGlass,
+  Trophy,
+  Smartphone,
 } from "@/lib/icons";
 import { useData } from "@/app/data/DataContext";
 
@@ -42,6 +44,8 @@ export const navGroups = [
       { title: "Explorar", path: "/app/explorar", icon: <CompassIcon />, match: "/app/explorar" },
       { title: "Sugestões", path: "/app/sugestoes", icon: <LightbulbIcon />, match: "/app/sugestoes" },
       { title: "Loja", path: "/app/loja", icon: <Gift />, match: "/app/loja" },
+      { title: "Ranking Mensal", path: "/app/ranking", icon: <Trophy />, match: "/app/ranking" },
+      { title: "Instalar App", path: "/app/instalar", icon: <Smartphone />, match: "/app/instalar" },
       { title: "Missões Diárias", path: "/app/missoes", icon: <Sparkles />, match: "/app/missoes" },
       { title: "Meus Resgates", path: "/app/meus-resgates", icon: <Truck />, match: "/app/meus-resgates" },
       { title: "Indicações", path: "/app/indicacoes", icon: <Users />, match: "/app/indicacoes" },
