@@ -132,12 +132,25 @@ export function RewardsProvider({ children }) {
       .from("shop_products")
       // The store catalog is independent from seasonal curation. A product
       // remains purchasable even when it has no season assignment.
-      .select("id,name,description,category,credits_cost,real_price,min_months_active,stock,image_url,images,active,external_sku,created_at,updated_at")
+      // Use the table shape returned by PostgREST instead of naming optional
+      // columns such as images that may not exist in older deployments.
+      .select("*")
       .eq("active", true)
       .order("credits_cost", { ascending: true });
-    if (error) throw error;
-    setProducts(data || []);
-    return data || [];
+    if (error) {
+      setError("Nao foi possivel carregar os produtos da loja. Tente novamente.");
+      throw error;
+    }
+    const catalog = (data || []).map((product) => ({
+      ...product,
+      images: Array.isArray(product.images)
+        ? product.images
+        : product.image_url
+          ? [product.image_url]
+          : [],
+    }));
+    setProducts(catalog);
+    return catalog;
   }, []);
 
   const loadMyRedemptions = useCallback(async () => {

@@ -28,15 +28,24 @@ const CATEGORY_TABS = [
 
 function getProductImages(product) {
   if (!product) return [];
-  const rawImages =
-    Array.isArray(product.images) && product.images.length > 0
-      ? product.images
-      : typeof product.images === "string" && product.images.startsWith("[")
-        ? JSON.parse(product.images || "[]")
-        : product.image_url
-          ? [product.image_url]
-          : [];
-  return rawImages.length > 0 ? rawImages : product.image_url ? [product.image_url] : [];
+  let rawImages = [];
+
+  if (Array.isArray(product.images)) {
+    rawImages = product.images;
+  } else if (typeof product.images === "string" && product.images.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(product.images);
+      rawImages = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      rawImages = [];
+    }
+  }
+
+  return rawImages.length > 0
+    ? rawImages
+    : product.image_url
+      ? [product.image_url]
+      : [];
 }
 
 function getDropConfig() {
@@ -243,7 +252,7 @@ export function StorePage() {
           <span>{error}</span>
           <button
             type="button"
-            onClick={() => refresh().catch(() => {})}
+            onClick={() => Promise.all([loadProducts(), refresh()]).catch(() => {})}
             className="min-h-10 rounded-[9px] border border-amber-400/40 px-3 font-medium text-amber-100 hover:bg-amber-400/10"
           >
             Tentar novamente
