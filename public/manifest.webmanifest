@@ -1,0 +1,19 @@
+{
+  "name": "OPE Club",
+  "short_name": "OPE Club",
+  "description": "Biblioteca digital e comunidade para leitores de filosofia e literatura.",
+  "lang": "pt-BR",
+  "start_url": "/entrar",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#030303",
+  "theme_color": "#030303",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon",
+      "purpose": "any maskable"
+    }
+  ]
+}

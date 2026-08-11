@@ -2,13 +2,16 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" href="/favicon.ico" sizes="any" />
-    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" sizes="any" />
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#030303" />
     <meta name="color-scheme" content="dark light" />
     <meta name="application-name" content="OPE Club" />
     <meta name="apple-mobile-web-app-title" content="OPE Club" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="googlebot" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <title>OPE Club | Biblioteca e Comunidade de Filosofia e Literatura</title>
     <meta name="description" content="OPE Club é uma biblioteca digital e comunidade para quem ama filosofia e literatura. Leia grandes autores, descubra novos livros e participe de conversas profundas." />
     <meta name="keywords" content="OPE Club, filosofia, literatura, biblioteca digital, clube do livro, livros em PDF, Nietzsche, Dostoiévski, Albert Camus, comunidade literária" />
@@ -22,15 +25,16 @@
     <meta property="og:locale" content="pt_BR" />
     <meta property="og:image" content="https://pesodeexistir.online/hero/backgroundnovo.png" />
     <meta property="og:image:alt" content="OPE Club, biblioteca e comunidade de filosofia e literatura" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="OPE Club | Filosofia e Literatura" />
     <meta name="twitter:description" content="Biblioteca digital e comunidade para leitores de filosofia e literatura." />
     <meta name="twitter:image" content="https://pesodeexistir.online/hero/backgroundnovo.png" />
+    <meta name="twitter:image:alt" content="OPE Club, biblioteca e comunidade de filosofia e literatura" />
+    <link rel="alternate" type="text/plain" href="/llms.txt" title="Contexto do OPE Club para agentes de IA" />
     <link rel="canonical" href="https://pesodeexistir.online" />
-    <link rel="preload" as="image" href="/hero/backgroundnovo.png" media="(min-width: 768px)" fetchpriority="high" />
-    <link rel="preload" as="image" href="/hero/backgroundherocelular.png" media="(max-width: 767px)" fetchpriority="high" />
-    <link rel="preload" as="image" href="/hero/versaoclaradesktop.png" media="(min-width: 768px)" />
-    <link rel="preload" as="image" href="/hero/backgroundclaromobile.png" media="(max-width: 767px)" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -51,28 +55,7 @@
             "https://www.instagram.com/ope.club"
           ]
         },
-        "potentialAction": {
-          "@type": "SearchAction",
-          "target": "https://pesodeexistir.online/app/biblioteca?q={search_term_string}",
-          "query-input": "required name=search_term_string"
-        }
-      }
-    </script>
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "SoftwareApplication",
-        "name": "OPE Club",
-        "applicationCategory": "EducationalApplication",
-        "operatingSystem": "Web",
-        "description": "Aplicativo de leitura e comunidade para filosofia e literatura. Acesso a biblioteca curada, discussoes e lancamentos semanais.",
-        "url": "https://pesodeexistir.online",
-        "offers": {
-          "@type": "Offer",
-          "price": "14.00",
-          "priceCurrency": "BRL",
-          "category": "subscription"
-        }
+        "isAccessibleForFree": false
       }
     </script>
   </head>
