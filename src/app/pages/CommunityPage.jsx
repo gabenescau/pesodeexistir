@@ -5,12 +5,23 @@ import { PostCard } from "../components/PostCard";
 import { RightSidebar } from "../components/RightSidebar";
 import { useData } from "../data/DataContext";
 import { AutocompleteSearch, buildSearchItems } from "@/components/ui/autocomplete";
-import { RightSidebar } from "../components/RightSidebar";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 export function CommunityPage() {
-  const { posts = [], deletePost, loading = false, books = [], authors = [], categories = [] } = useData() || {};
+  const {
+    posts = [],
+    deletePost,
+    loading = false,
+    books = [],
+    authors = [],
+    categories = [],
+    loadMorePosts,
+    postsHasMore = false,
+    postsLoadingMore = false,
+  } = useData() || {};
   const [filter] = useState("Todos");
-  const [busca] = useState("");
+  const [busca, setBusca] = useState("");
+  const buscaDebounced = useDebouncedValue(busca, 350);
   const [reacoes, setReacoes] = useState([]);
   const [visibleCount, setVisibleCount] = useState(20);
 
@@ -18,15 +29,25 @@ export function CommunityPage() {
     () => buildSearchItems({ books: books || [], authors: authors || [], categories: categories || [] }),
     [books, authors, categories]
   );
+  const visiblePostIds = useMemo(
+    () => (posts || []).slice(0, 200).map((post) => post?.id).filter(Boolean),
+    [posts]
+  );
+  const visiblePostIdsKey = visiblePostIds.join(",");
 
   useEffect(() => {
     let ativo = true;
-    if (!isSupabaseReady()) return undefined;
+    if (!isSupabaseReady() || visiblePostIds.length === 0) {
+      setReacoes([]);
+      return undefined;
+    }
 
     supabase
       .from("reactions")
       .select("target_id, user_id, emoji")
       .eq("target_type", "post")
+      .in("target_id", visiblePostIds)
+      .limit(5000)
       .then(({ data, error }) => {
         if (!ativo || error) return;
         setReacoes(data || []);
@@ -36,11 +57,11 @@ export function CommunityPage() {
     return () => {
       ativo = false;
     };
-  }, [(posts || []).length]);
+  }, [visiblePostIdsKey]);
 
   useEffect(() => {
     setVisibleCount(20);
-  }, [filter, busca]);
+  }, [filter, buscaDebounced]);
 
   const reacoesPorPost = useMemo(() => {
     const mapa = {};
@@ -66,7 +87,7 @@ export function CommunityPage() {
       }
     }
 
-    const termo = busca.trim().toLowerCase();
+    const termo = buscaDebounced.trim().toLowerCase();
     if (termo) {
       result = result.filter((post) =>
         post && [post.text, post.author, post.handle, post.tag, post.book?.title]
@@ -76,8 +97,15 @@ export function CommunityPage() {
     }
 
     return result;
-  }, [posts, filter, busca]);
+  }, [posts, filter, buscaDebounced]);
   const visiblePosts = filteredPosts.slice(0, visibleCount);
+
+  async function handleLoadMore() {
+    if (postsHasMore && !postsLoadingMore) {
+      await loadMorePosts?.();
+    }
+    setVisibleCount((count) => count + 20);
+  }
 
   return (
     <div className="flex flex-col gap-8 2xl:flex-row 2xl:gap-10">
@@ -86,6 +114,7 @@ export function CommunityPage() {
         <AutocompleteSearch
           placeholder="Pesquisar posts, pessoas ou livros..."
           items={searchItems}
+          onQueryChange={setBusca}
           inputClassName="h-11 rounded-[10px] sm:h-12"
         />
 
@@ -129,13 +158,14 @@ export function CommunityPage() {
             />
           ))}
 
-          {!loading && filteredPosts.length > visiblePosts.length && (
+          {!loading && (filteredPosts.length > visiblePosts.length || postsHasMore) && (
             <button
               type="button"
-              onClick={() => setVisibleCount((count) => count + 20)}
+              onClick={handleLoadMore}
+              disabled={postsLoadingMore}
               className="min-h-11 w-full rounded-full border border-[var(--border)] text-sm text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]"
             >
-              Carregar mais
+              {postsLoadingMore ? "Carregando..." : "Carregar mais"}
             </button>
           )}
 

@@ -11,6 +11,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { useData } from "../data/DataContext";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 const PAGE_SIZE = 12;
 
@@ -26,11 +27,17 @@ function getPageItems(current, total) {
 }
 
 export function AuthorsPage() {
-  const { authors } = useData();
+  const {
+    authors,
+    loadMoreAuthors,
+    authorsHasMore = false,
+    authorsLoadingMore = false,
+  } = useData();
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
 
-  const termo = query.trim().toLowerCase();
+  const debouncedQuery = useDebouncedValue(query, 350);
+  const termo = debouncedQuery.trim().toLowerCase();
 
   const filtered = useMemo(() => {
     if (!termo) return authors;
@@ -130,6 +137,17 @@ export function AuthorsPage() {
                 </PaginationItem>
               </PaginationContent>
             </Pagination>
+          )}
+
+          {authorsHasMore && (
+            <button
+              type="button"
+              onClick={() => loadMoreAuthors?.()}
+              disabled={authorsLoadingMore}
+              className="mx-auto flex min-h-11 items-center justify-center rounded-full border border-[var(--border)] px-5 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)] disabled:cursor-wait disabled:opacity-60"
+            >
+              {authorsLoadingMore ? "Carregando autores..." : "Carregar mais autores"}
+            </button>
           )}
         </>
       ) : (

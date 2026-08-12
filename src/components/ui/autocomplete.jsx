@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BookOpen, User, Folder, MagnifyingGlass, X } from "@/lib/icons";
 import { cn } from "@/lib/utils";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 // Autocomplete de busca: recebe items { id, label, kind, href } e renderiza
 // um input com dropdown de sugestoes. Substitui o <input> simples da barra
@@ -34,6 +35,7 @@ export function AutocompleteSearch({
   className,
   inputClassName,
   onSelect,
+  onQueryChange,
   emptyText = "Nenhum resultado.",
   autoFocus,
 }) {
@@ -42,10 +44,11 @@ export function AutocompleteSearch({
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const containerRef = useRef(null);
+  const debouncedQuery = useDebouncedValue(query, 300);
 
   const resultados = useMemo(() => {
-    const q = normalizar(query.trim());
-    if (q.length < 1) return [];
+    const q = normalizar(debouncedQuery.trim());
+    if (q.length < 2) return [];
     const grupos = { book: [], author: [], category: [] };
     for (const item of items) {
       if (!item || !item.label) continue;
@@ -58,11 +61,12 @@ export function AutocompleteSearch({
       ...grupos.author.slice(0, 5),
       ...grupos.category.slice(0, 5),
     ];
-  }, [items, query]);
+  }, [items, debouncedQuery]);
 
   function selecionar(item) {
     if (!item) return;
     setQuery("");
+    onQueryChange?.("");
     setOpen(false);
     setActiveIndex(0);
     if (typeof onSelect === "function") {
@@ -111,7 +115,9 @@ export function AutocompleteSearch({
           value={query}
           autoFocus={autoFocus}
           onChange={(event) => {
-            setQuery(event.target.value);
+            const nextValue = event.target.value;
+            setQuery(nextValue);
+            onQueryChange?.(nextValue);
             setOpen(true);
             setActiveIndex(0);
           }}
@@ -129,6 +135,7 @@ export function AutocompleteSearch({
             aria-label="Limpar busca"
             onClick={() => {
               setQuery("");
+              onQueryChange?.("");
               setOpen(false);
               setActiveIndex(0);
             }}

@@ -167,7 +167,13 @@ function FeaturedBook({ book }) {
 }
 
 export function LibraryPage() {
-  const { books, authors } = useData();
+  const {
+    books,
+    authors,
+    loadMoreBooks,
+    booksHasMore = false,
+    booksLoadingMore = false,
+  } = useData();
   const [searchParams] = useSearchParams();
   const urlCategoria = searchParams.get("categoria");
   const [genero, setGenero] = useState(urlCategoria || "Todas");
@@ -379,6 +385,17 @@ export function LibraryPage() {
                 </PaginationItem>
               </PaginationContent>
             </Pagination>
+          )}
+
+          {booksHasMore && (
+            <button
+              type="button"
+              onClick={() => loadMoreBooks?.()}
+              disabled={booksLoadingMore}
+              className="mx-auto flex min-h-11 items-center justify-center rounded-full border border-[var(--border)] px-5 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)] disabled:cursor-wait disabled:opacity-60"
+            >
+              {booksLoadingMore ? "Carregando livros..." : "Carregar mais livros"}
+            </button>
           )}
         </>
       ) : (

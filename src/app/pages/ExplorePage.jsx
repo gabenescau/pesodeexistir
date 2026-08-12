@@ -1,4 +1,4 @@
-import { memo, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowUpDown, Search, StarIcon } from "@/lib/icons";
 import {
@@ -11,6 +11,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { useData } from "../data/DataContext";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 const PAGE_SIZE = 24;
 
@@ -62,7 +63,14 @@ const TABS = [
 ];
 
 export function ExplorePage() {
-  const { books, authors, categories } = useData();
+  const {
+    books,
+    authors,
+    categories,
+    loadMoreBooks,
+    booksHasMore = false,
+    booksLoadingMore = false,
+  } = useData();
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState("tudo");
   const [autorSelecionado, setAutorSelecionado] = useState(null);
@@ -70,8 +78,8 @@ export function ExplorePage() {
   const [sortAsc, setSortAsc] = useState(true);
   const [page, setPage] = useState(1);
 
-  const deferredQuery = useDeferredValue(query);
-  const termo = deferredQuery.trim().toLowerCase();
+  const debouncedQuery = useDebouncedValue(query, 350);
+  const termo = debouncedQuery.trim().toLowerCase();
 
   const authorsMap = useMemo(() => new Map(authors.map((a) => [a.id, a])), [authors]);
 
@@ -252,6 +260,17 @@ export function ExplorePage() {
                 </PaginationItem>
               </PaginationContent>
             </Pagination>
+          )}
+
+          {booksHasMore && (
+            <button
+              type="button"
+              onClick={() => loadMoreBooks?.()}
+              disabled={booksLoadingMore}
+              className="mx-auto flex min-h-11 items-center justify-center rounded-full border border-[var(--border)] px-5 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)] disabled:cursor-wait disabled:opacity-60"
+            >
+              {booksLoadingMore ? "Carregando livros..." : "Carregar mais livros"}
+            </button>
           )}
         </>
       ) : (

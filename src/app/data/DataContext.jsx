@@ -1,8 +1,13 @@
-import { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { supabase, isSupabaseReady } from "./supabase";
 import { loadContent } from "./contentLoader";
 import { pickCurrentSubscription } from "@/lib/subscription";
-import { runSupabaseQuery, runSupabaseQueryAll } from "@/lib/supabase-query";
+import {
+  invalidateSupabaseQueryCache,
+  runSupabaseCachedQuery,
+  runSupabaseQuery,
+  runSupabaseQueryAll,
+} from "@/lib/supabase-query";
 import { releaseStatus } from "@/lib/releases";
 import { createSignedUrlMap, LIBRARY_BUCKETS, removeLibraryFile } from "@/lib/library-media";
 import { useAuth } from "./AuthContext";
@@ -17,6 +22,19 @@ import {
   normalizeBooks,
 } from "./domains/catalog";
 import { POST_SELECT, buildPostViewModels } from "./domains/community";
+
+const CATALOG_PAGE_SIZE = 48;
+const AUTHOR_PAGE_SIZE = 48;
+const POST_PAGE_SIZE = 20;
+
+function takePage(result, pageSize, loadAll = false) {
+  const rows = result?.error || !Array.isArray(result?.data) ? [] : result.data;
+  if (loadAll) return { rows, hasMore: false };
+  return {
+    rows: rows.slice(0, pageSize),
+    hasMore: rows.length > pageSize,
+  };
+}
 
 function normalizeCategoryError(error) {
   const isDuplicate = error?.code === "23505"
@@ -60,6 +78,15 @@ export function DataProvider({ children }) {
   // (comentarios e reacoes que ele escreveu). Alimentam as conquistas.
   const [myCounts, setMyCounts] = useState({ comments: 0, reactions: 0 });
   const [loading, setLoading] = useState(true);
+  const [booksHasMore, setBooksHasMore] = useState(false);
+  const [authorsHasMore, setAuthorsHasMore] = useState(false);
+  const [postsHasMore, setPostsHasMore] = useState(false);
+  const [booksLoadingMore, setBooksLoadingMore] = useState(false);
+  const [authorsLoadingMore, setAuthorsLoadingMore] = useState(false);
+  const [postsLoadingMore, setPostsLoadingMore] = useState(false);
+  const booksOffsetRef = useRef(0);
+  const authorsOffsetRef = useRef(0);
+  const postsOffsetRef = useRef(0);
 
   const isSupabase = isSupabaseReady();
 
@@ -67,6 +94,9 @@ export function DataProvider({ children }) {
     if (!isSupabase) {
       setBooks(content.books || []);
       setAuthors(content.authors || []);
+      setBooksHasMore(false);
+      setAuthorsHasMore(false);
+      setPostsHasMore(false);
       setLoading(false);
       return;
     }
@@ -79,6 +109,15 @@ export function DataProvider({ children }) {
       setBooks(content.books || []);
       setAuthors(content.authors || []);
       setPosts([]);
+      booksOffsetRef.current = 0;
+      authorsOffsetRef.current = 0;
+      postsOffsetRef.current = 0;
+      setBooksHasMore(false);
+      setAuthorsHasMore(false);
+      setPostsHasMore(false);
+      setBooksLoadingMore(false);
+      setAuthorsLoadingMore(false);
+      setPostsLoadingMore(false);
       setSubscription(null);
       setSubscriptions([]);
       setProfiles([]);
@@ -95,6 +134,8 @@ export function DataProvider({ children }) {
       setLoading(false);
       return;
     }
+
+    let cancelled = false;
 
     async function load() {
       setLoading(true);
@@ -132,16 +173,30 @@ export function DataProvider({ children }) {
         ratingsRes,
         myRatingsRes,
       ] = await Promise.all([
-        runSupabaseQueryAll(
-          () => supabase.from("books").select(BOOK_SELECT).order("created_at", { ascending: false }),
-          "carregar livros",
-          { maxRows: 2000, maxPages: 8 }
-        ),
-        runSupabaseQueryAll(
-          () => supabase.from("authors").select(AUTHOR_SELECT).order("name"),
-          "carregar autores",
-          { maxRows: 1000, maxPages: 4 }
-        ),
+        isCurrentAdmin
+          ? runSupabaseQueryAll(
+              () => supabase.from("books").select(BOOK_SELECT).order("created_at", { ascending: false }),
+              "carregar livros",
+              { maxRows: 2000, maxPages: 8 }
+            )
+          : runSupabaseCachedQuery(
+              () => supabase.from("books").select(BOOK_SELECT).order("created_at", { ascending: false }).range(0, CATALOG_PAGE_SIZE),
+              "carregar livros",
+              "catalog:books:page:0",
+              { ttlMs: 45_000 }
+            ),
+        isCurrentAdmin
+          ? runSupabaseQueryAll(
+              () => supabase.from("authors").select(AUTHOR_SELECT).order("name"),
+              "carregar autores",
+              { maxRows: 1000, maxPages: 4 }
+            )
+          : runSupabaseCachedQuery(
+              () => supabase.from("authors").select(AUTHOR_SELECT).order("name").range(0, AUTHOR_PAGE_SIZE),
+              "carregar autores",
+              "catalog:authors:page:0",
+              { ttlMs: 45_000 }
+            ),
         currentUserId
           ? runSupabaseQuery(
               () => supabase.from("reading_progress").select("book_id,progress,current_page,total_pages,updated_at").eq("user_id", currentUserId).limit(5000),
@@ -177,7 +232,8 @@ export function DataProvider({ children }) {
             )
           : Promise.resolve(emptyResult),
         currentUserId
-          ? runSupabaseQueryAll(
+          ? isCurrentAdmin
+            ? runSupabaseQueryAll(
               () => supabase
                 .from("posts")
                 .select(POST_SELECT)
@@ -185,11 +241,21 @@ export function DataProvider({ children }) {
               "carregar posts",
               { maxRows: 200, maxPages: 4, pageSize: 100 }
             )
+            : runSupabaseQuery(
+              () => supabase
+                .from("posts")
+                .select(POST_SELECT)
+                .order("created_at", { ascending: false })
+                .range(0, POST_PAGE_SIZE),
+              "carregar posts"
+            )
           : Promise.resolve(emptyResult),
         currentUserId
-          ? runSupabaseQuery(
-          () => supabase.from("weekly_releases").select(WEEKLY_RELEASE_SELECT).order("release_date", { ascending: true }).limit(100),
-              "carregar lancamentos"
+          ? runSupabaseCachedQuery(
+              () => supabase.from("weekly_releases").select(WEEKLY_RELEASE_SELECT).order("release_date", { ascending: true }).limit(100),
+              "carregar lancamentos",
+              "catalog:weekly-releases",
+              { ttlMs: 30_000 }
             )
           : Promise.resolve(emptyResult),
         currentUserId
@@ -205,9 +271,11 @@ export function DataProvider({ children }) {
             )
           : Promise.resolve(emptyResult),
         currentUserId
-          ? runSupabaseQuery(
+          ? runSupabaseCachedQuery(
               () => supabase.from("categories").select("id,name,sort_order,created_at,updated_at").order("sort_order").order("name").limit(200),
-              "carregar categorias"
+              "carregar categorias",
+              "catalog:categories",
+              { ttlMs: 30_000 }
             )
           : Promise.resolve(emptyResult),
         currentUserId
@@ -222,9 +290,11 @@ export function DataProvider({ children }) {
               "carregar autores favoritos"
             )
           : Promise.resolve(emptyResult),
-        runSupabaseQuery(
+        runSupabaseCachedQuery(
           () => supabase.from("book_ratings_public").select("book_id, rating_sum, rating_count").limit(2000),
-          "carregar notas dos livros"
+          "carregar notas dos livros",
+          "catalog:book-ratings",
+          { ttlMs: 30_000 }
         ),
         currentUserId
           ? runSupabaseQuery(
@@ -234,7 +304,19 @@ export function DataProvider({ children }) {
           : Promise.resolve(emptyResult),
       ]);
 
-      const postIds = postsRes.error ? [] : (postsRes.data || []).map((post) => post.id);
+      if (cancelled) return;
+
+      const booksPage = takePage(booksRes, CATALOG_PAGE_SIZE, isCurrentAdmin);
+      const authorsPage = takePage(authorsRes, AUTHOR_PAGE_SIZE, isCurrentAdmin);
+      const postsPage = takePage(postsRes, POST_PAGE_SIZE, isCurrentAdmin);
+      booksOffsetRef.current = booksPage.rows.length;
+      authorsOffsetRef.current = authorsPage.rows.length;
+      postsOffsetRef.current = postsPage.rows.length;
+      setBooksHasMore(!booksRes.error && booksPage.hasMore);
+      setAuthorsHasMore(!authorsRes.error && authorsPage.hasMore);
+      setPostsHasMore(!postsRes.error && postsPage.hasMore);
+
+      const postIds = postsPage.rows.map((post) => post.id);
       const [postLikesRes, pollRes] = postIds.length > 0
         ? await Promise.all([
             runSupabaseQuery(
@@ -278,10 +360,11 @@ export function DataProvider({ children }) {
       const coverUrlMap = await createSignedUrlMap(
         LIBRARY_BUCKETS.covers,
         [
-          ...(booksRes.data || []).map((book) => book.image_path),
-          ...(authorsRes.data || []).map((author) => author.image_path),
+          ...booksPage.rows.map((book) => book.image_path),
+          ...authorsPage.rows.map((author) => author.image_path),
         ]
       );
+      if (cancelled) return;
       const ratingsByBook = (ratingsRes.error ? [] : ratingsRes.data || []).reduce((acc, r) => {
         acc[r.book_id] = { sum: r.rating_sum || 0, count: r.rating_count || 0 };
         return acc;
@@ -289,7 +372,7 @@ export function DataProvider({ children }) {
       let normalizedBooks = [];
 
       if (!booksRes.error) {
-        normalizedBooks = normalizeBooks(booksRes.data, {
+        normalizedBooks = normalizeBooks(booksPage.rows, {
           progress: progressRes.error ? [] : progressRes.data || [],
           ratingsByBook,
           coverUrlMap,
@@ -300,7 +383,7 @@ export function DataProvider({ children }) {
       else setBooks([]);
 
       if (!authorsRes.error) {
-        setAuthors(normalizeAuthors(authorsRes.data, {
+        setAuthors(normalizeAuthors(authorsPage.rows, {
           coverUrlMap,
           localAuthors: content.authors || [],
         }));
@@ -310,9 +393,9 @@ export function DataProvider({ children }) {
       if (!postsRes.error) {
         const postImageUrlMap = await createSignedUrlMap(
           POST_IMAGE_BUCKET,
-          (postsRes.data || []).flatMap((post) => post.image_paths || [])
+          postsPage.rows.flatMap((post) => post.image_paths || [])
         );
-        setPosts(buildPostViewModels(postsRes.data, {
+        setPosts(buildPostViewModels(postsPage.rows, {
           profiles: profilesRes.error ? [] : profilesRes.data || [],
           books: normalizedBooks,
           likes: postLikesRes.error ? [] : postLikesRes.data || [],
@@ -382,22 +465,190 @@ export function DataProvider({ children }) {
         setMyCounts({ comments: 0, reactions: 0 });
       }
       } catch (err) {
-        console.warn("Erro ao carregar dados do Supabase:", err);
+        if (!cancelled) console.warn("Erro ao carregar dados do Supabase:", err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
     load();
+    return () => {
+      // Impede que uma resposta da conta anterior sobrescreva a nova sessao.
+      // Tambem evita setState depois que a tela raiz foi desmontada.
+      cancelled = true;
+    };
   }, [
     isSupabase,
     authLoading,
     user?.id,
-    authProfile,
+    authProfile?.id,
+    authProfile?.updated_at,
     isAdmin,
     content.books,
     content.authors,
   ]);
+
+  const loadMoreBooks = useCallback(async () => {
+    if (!isSupabase || !user?.id || !booksHasMore || booksLoadingMore) return false;
+    setBooksLoadingMore(true);
+    try {
+      const offset = booksOffsetRef.current;
+      const result = await runSupabaseQuery(
+        () => supabase
+          .from("books")
+          .select(BOOK_SELECT)
+          .order("created_at", { ascending: false })
+          .range(offset, offset + CATALOG_PAGE_SIZE),
+        "carregar mais livros"
+      );
+      if (result?.error) return false;
+
+      const page = takePage(result, CATALOG_PAGE_SIZE);
+      booksOffsetRef.current = offset + page.rows.length;
+      setBooksHasMore(page.hasMore);
+      if (page.rows.length === 0) return false;
+
+      const bookIds = page.rows.map((book) => book.id).filter(Boolean);
+      const [progressRes, ratingsRes] = await Promise.all([
+        runSupabaseQuery(
+          () => supabase.from("reading_progress")
+            .select("book_id,progress,current_page,total_pages,updated_at")
+            .eq("user_id", user.id)
+            .in("book_id", bookIds),
+          "carregar progresso dos livros"
+        ),
+        runSupabaseQuery(
+          () => supabase.from("book_ratings_public")
+            .select("book_id, rating_sum, rating_count")
+            .in("book_id", bookIds),
+          "carregar notas dos livros"
+        ),
+      ]);
+      const coverUrlMap = await createSignedUrlMap(
+        LIBRARY_BUCKETS.covers,
+        page.rows.map((book) => book.image_path)
+      );
+      const ratingsByBook = (ratingsRes.error ? [] : ratingsRes.data || []).reduce((acc, rating) => {
+        acc[rating.book_id] = { sum: rating.rating_sum || 0, count: rating.rating_count || 0 };
+        return acc;
+      }, {});
+      const normalized = normalizeBooks(page.rows, {
+        progress: progressRes.error ? [] : progressRes.data || [],
+        ratingsByBook,
+        coverUrlMap,
+        localBooks: content.books || [],
+      });
+      setBooks((previous) => {
+        const knownIds = new Set(previous.map((book) => book.id));
+        return [...previous, ...normalized.filter((book) => !knownIds.has(book.id))];
+      });
+      return true;
+    } finally {
+      setBooksLoadingMore(false);
+    }
+  }, [isSupabase, user?.id, booksHasMore, booksLoadingMore, content.books]);
+
+  const loadMoreAuthors = useCallback(async () => {
+    if (!isSupabase || !user?.id || !authorsHasMore || authorsLoadingMore) return false;
+    setAuthorsLoadingMore(true);
+    try {
+      const offset = authorsOffsetRef.current;
+      const result = await runSupabaseQuery(
+        () => supabase
+          .from("authors")
+          .select(AUTHOR_SELECT)
+          .order("name")
+          .range(offset, offset + AUTHOR_PAGE_SIZE),
+        "carregar mais autores"
+      );
+      if (result?.error) return false;
+
+      const page = takePage(result, AUTHOR_PAGE_SIZE);
+      authorsOffsetRef.current = offset + page.rows.length;
+      setAuthorsHasMore(page.hasMore);
+      if (page.rows.length === 0) return false;
+
+      const coverUrlMap = await createSignedUrlMap(
+        LIBRARY_BUCKETS.covers,
+        page.rows.map((author) => author.image_path)
+      );
+      const normalized = normalizeAuthors(page.rows, {
+        coverUrlMap,
+        localAuthors: content.authors || [],
+      });
+      setAuthors((previous) => {
+        const knownIds = new Set(previous.map((author) => author.id));
+        return [...previous, ...normalized.filter((author) => !knownIds.has(author.id))];
+      });
+      return true;
+    } finally {
+      setAuthorsLoadingMore(false);
+    }
+  }, [isSupabase, user?.id, authorsHasMore, authorsLoadingMore, content.authors]);
+
+  const loadMorePosts = useCallback(async () => {
+    if (!isSupabase || !user?.id || !postsHasMore || postsLoadingMore) return false;
+    setPostsLoadingMore(true);
+    try {
+      const offset = postsOffsetRef.current;
+      const result = await runSupabaseQuery(
+        () => supabase
+          .from("posts")
+          .select(POST_SELECT)
+          .order("created_at", { ascending: false })
+          .range(offset, offset + POST_PAGE_SIZE),
+        "carregar mais posts"
+      );
+      if (result?.error) return false;
+
+      const page = takePage(result, POST_PAGE_SIZE);
+      postsOffsetRef.current = offset + page.rows.length;
+      setPostsHasMore(page.hasMore);
+      if (page.rows.length === 0) return false;
+
+      const postIds = page.rows.map((post) => post.id).filter(Boolean);
+      const [likesRes, pollsRes] = await Promise.all([
+        runSupabaseQuery(
+          () => supabase.from("post_likes").select("post_id,user_id").in("post_id", postIds).limit(5000),
+          "carregar curtidas dos posts"
+        ),
+        runSupabaseQuery(
+          () => supabase.from("post_polls")
+            .select("id,post_id,question,created_at,post_poll_options(id,poll_id,label,sort_order)")
+            .in("post_id", postIds)
+            .limit(200),
+          "carregar enquetes dos posts"
+        ),
+      ]);
+      const pollIds = pollsRes.error ? [] : (pollsRes.data || []).map((poll) => poll.id).filter(Boolean);
+      const votesRes = pollIds.length > 0
+        ? await runSupabaseQuery(
+            () => supabase.from("post_poll_votes").select("poll_id,option_id,user_id").in("poll_id", pollIds).limit(10000),
+            "carregar votos das enquetes"
+          )
+        : { data: [], error: null };
+      const imageUrlMap = await createSignedUrlMap(
+        POST_IMAGE_BUCKET,
+        page.rows.flatMap((post) => post.image_paths || [])
+      );
+      const newPosts = buildPostViewModels(page.rows, {
+        profiles,
+        books,
+        likes: likesRes.error ? [] : likesRes.data || [],
+        polls: pollsRes.error ? [] : pollsRes.data || [],
+        votes: votesRes.error ? [] : votesRes.data || [],
+        imageUrlMap,
+        currentUserId: user.id,
+      });
+      setPosts((previous) => {
+        const knownIds = new Set(previous.map((post) => post.id));
+        return [...previous, ...newPosts.filter((post) => !knownIds.has(post.id))];
+      });
+      return true;
+    } finally {
+      setPostsLoadingMore(false);
+    }
+  }, [isSupabase, user?.id, postsHasMore, postsLoadingMore, profiles, books]);
 
   // AUTHORS CRUD
   const addAuthor = useCallback(async (data) => {
@@ -413,6 +664,7 @@ export function DataProvider({ children }) {
       const { data: inserted, error } = await supabase.from("authors").insert(payload).select().single();
       if (error) throw error;
       if (inserted) {
+        invalidateSupabaseQueryCache("catalog:authors");
         setAuthors(prev => [...prev, { ...inserted, image: data.previewImage || data.image || "" }]);
         return inserted.id;
       }
@@ -438,6 +690,8 @@ export function DataProvider({ children }) {
       }).eq("id", id);
       if (error) throw error;
 
+      invalidateSupabaseQueryCache("catalog:authors");
+
       if (previous?.image_path && previous.image_path !== data.imagePath) {
         await removeLibraryFile(LIBRARY_BUCKETS.covers, previous.image_path).catch((cleanupError) => {
           console.error("Falha ao remover imagem antiga do autor:", cleanupError);
@@ -457,6 +711,7 @@ export function DataProvider({ children }) {
     if (isSupabase) {
       const { error } = await supabase.from("authors").delete().eq("id", id);
       if (error) throw error;
+      invalidateSupabaseQueryCache("catalog:authors");
       if (author?.image_path) {
         await removeLibraryFile(LIBRARY_BUCKETS.covers, author.image_path).catch((cleanupError) => {
           console.error("Falha ao remover imagem do autor:", cleanupError);
@@ -483,6 +738,7 @@ export function DataProvider({ children }) {
       const { data: inserted, error } = await supabase.from("books").insert(payload).select("*, authors(name)").single();
       if (error) throw error;
       if (!error && inserted) {
+        invalidateSupabaseQueryCache("catalog:books");
         setBooks(prev => [{
           ...inserted,
           image: data.previewImage || data.image || "",
@@ -517,6 +773,8 @@ export function DataProvider({ children }) {
       }).eq("id", id);
       if (error) throw error;
 
+      invalidateSupabaseQueryCache("catalog:books");
+
       await Promise.allSettled([
         previous?.image_path && previous.image_path !== data.imagePath
           ? removeLibraryFile(LIBRARY_BUCKETS.covers, previous.image_path)
@@ -543,6 +801,7 @@ export function DataProvider({ children }) {
     if (isSupabase) {
       const { error } = await supabase.from("books").delete().eq("id", id);
       if (error) throw error;
+      invalidateSupabaseQueryCache("catalog:books");
       await Promise.allSettled([
         book?.image_path ? removeLibraryFile(LIBRARY_BUCKETS.covers, book.image_path) : Promise.resolve(),
         book?.pdf_path ? removeLibraryFile(LIBRARY_BUCKETS.pdfs, book.pdf_path) : Promise.resolve(),
@@ -757,6 +1016,7 @@ export function DataProvider({ children }) {
       .single();
 
     if (error) throw error;
+    invalidateSupabaseQueryCache("catalog:weekly-releases");
     setWeeklyReleases((prev) => [...prev, data].sort((a, b) => new Date(a.release_date) - new Date(b.release_date)));
     return data;
   }, [isSupabase]);
@@ -769,6 +1029,7 @@ export function DataProvider({ children }) {
       setWeeklyReleases((prev) => prev.map((item) => item.id === id ? { ...item, visible: !visible } : item));
       throw error;
     }
+    invalidateSupabaseQueryCache("catalog:weekly-releases");
   }, [isSupabase]);
 
   // CATEGORIES CRUD — categorias dinamimicas gerenciadas pelo admin.
@@ -778,7 +1039,11 @@ export function DataProvider({ children }) {
     if (isSupabase) {
       const { data, error } = await supabase.from("categories").insert({ name: cleanName }).select().single();
       if (error) throw normalizeCategoryError(error);
-      if (data) { setCategories(prev => [...prev, data].sort((a, b) => (a.sort_order - b.sort_order) || a.name.localeCompare(b.name))); return data; }
+      if (data) {
+        invalidateSupabaseQueryCache("catalog:categories");
+        setCategories(prev => [...prev, data].sort((a, b) => (a.sort_order - b.sort_order) || a.name.localeCompare(b.name)));
+        return data;
+      }
       return null;
     }
     const cat = { id: `cat-${Date.now()}`, name: cleanName, sort_order: 0 };
@@ -795,6 +1060,7 @@ export function DataProvider({ children }) {
     if (isSupabase) {
       const { data: updated, error } = await supabase.from("categories").update(payload).eq("id", id).select().single();
       if (error) throw normalizeCategoryError(error);
+      invalidateSupabaseQueryCache("catalog:categories");
       setCategories(prev => prev.map(c => c.id === id ? updated : c));
     } else {
       setCategories(prev => prev.map(c => c.id === id ? { ...c, ...payload } : c));
@@ -805,6 +1071,7 @@ export function DataProvider({ children }) {
     if (isSupabase) {
       const { error } = await supabase.from("categories").delete().eq("id", id);
       if (error) throw error;
+      invalidateSupabaseQueryCache("catalog:categories");
     }
     setCategories(prev => prev.filter(c => c.id !== id));
   }, [isSupabase]);
@@ -918,6 +1185,7 @@ export function DataProvider({ children }) {
     if (!isSupabase || !id) return;
     const { error } = await supabase.from("weekly_releases").delete().eq("id", id);
     if (error) throw error;
+    invalidateSupabaseQueryCache("catalog:weekly-releases");
     setWeeklyReleases((prev) => prev.filter((item) => item.id !== id));
   }, [isSupabase]);
 
@@ -1190,6 +1458,9 @@ export function DataProvider({ children }) {
   return (
     <DataContext.Provider value={{
       books, authors, posts, subscription, subscriptions, profiles, profile, weeklyReleases, loading,
+      booksHasMore, authorsHasMore, postsHasMore,
+      booksLoadingMore, authorsLoadingMore, postsLoadingMore,
+      loadMoreBooks, loadMoreAuthors, loadMorePosts,
       follows, following, followerCounts, followingCounts, savedPostIds,
       categories, bookFavorites, authorFavorites, bookRatingStats,
       collections, collectionItems,

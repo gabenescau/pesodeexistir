@@ -21,6 +21,70 @@ const MAX_PAGE_SIZE = 500;
 const DEFAULT_MAX_ROWS = 2000;
 const DEFAULT_MAX_PAGES = 20;
 
+// Cache curto em memoria para leituras publicas e idempotentes. O mapa de
+// promessas tambem evita que duas montagens simultaneas disparem a mesma
+// consulta. Nunca use para perfil, permissao, assinatura ou carteira.
+const queryCache = new Map();
+
+function cacheEntryIsFresh(entry, now = Date.now()) {
+  return entry && entry.value !== undefined && entry.expiresAt > now;
+}
+
+export function invalidateSupabaseQueryCache(prefix = "") {
+  for (const key of queryCache.keys()) {
+    if (!prefix || key.startsWith(prefix)) queryCache.delete(key);
+  }
+}
+
+export async function runSupabaseCachedQuery(
+  queryFactory,
+  label,
+  cacheKey,
+  { ttlMs = 30_000, retries = 2 } = {}
+) {
+  const key = String(cacheKey || label);
+  const cached = queryCache.get(key);
+  if (cacheEntryIsFresh(cached)) return cached.value;
+  if (cached?.promise) return cached.promise;
+
+  const promise = runSupabaseQuery(queryFactory, label, retries)
+    .then((result) => {
+      if (!result?.error) {
+        queryCache.set(key, {
+          value: result,
+          expiresAt: Date.now() + Math.max(1_000, Number(ttlMs) || 30_000),
+        });
+      } else {
+        queryCache.delete(key);
+      }
+      return result;
+    })
+    .finally(() => {
+      const current = queryCache.get(key);
+      if (current?.promise === promise) {
+        if (current.value !== undefined) queryCache.set(key, current);
+        else queryCache.delete(key);
+      }
+    });
+
+  queryCache.set(key, { promise });
+  return promise;
+}
+
+export function runSupabaseCachedQueryAll(
+  queryFactory,
+  label,
+  cacheKey,
+  { ttlMs = 30_000, retries = 2, ...pagination } = {}
+) {
+  return runSupabaseCachedQuery(
+    () => runSupabaseQueryAll(queryFactory, label, { retries, ...pagination }),
+    label,
+    cacheKey,
+    { ttlMs, retries: 0 }
+  );
+}
+
 // Busca todas as linhas de uma consulta, paginando com .range() em loops.
 // Necessario porque o PostgREST/SignalR limita cada chamada a 1000 linhas por
 // padrao — sem isso listas grandes (livros, autores, posts) aparecem truncadas

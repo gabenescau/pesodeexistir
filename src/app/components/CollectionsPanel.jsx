@@ -4,6 +4,7 @@ import { BookOpen, Hash, Lock, Plus, Search as SearchIcon, X } from "@/lib/icons
 import { useAuth } from "../data/AuthContext";
 import { useData } from "../data/DataContext";
 import { toast } from "@/lib/toast";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 const COLORS = [
   "from-[#0066cc] to-[#0071e3]",
@@ -163,13 +164,14 @@ function AddItemSheet({ open, onClose, books, authors, existingItemIds, onAdd })
   const [tab, setTab] = useState("book");
   const [query, setQuery] = useState("");
   const [addingId, setAddingId] = useState(null);
+  const debouncedQuery = useDebouncedValue(query, 300);
 
   useEffect(() => {
     if (open) { setTab("book"); setQuery(""); setAddingId(null); }
   }, [open]);
 
   const list = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = debouncedQuery.trim().toLowerCase();
     if (tab === "book") {
       return books
         .filter((b) => !existingItemIds.has(`book:${b.id}`))
@@ -180,7 +182,7 @@ function AddItemSheet({ open, onClose, books, authors, existingItemIds, onAdd })
       .filter((a) => !existingItemIds.has(`author:${a.id}`))
       .filter((a) => !q || (a.name || "").toLowerCase().includes(q))
       .slice(0, 60);
-  }, [tab, query, books, authors, existingItemIds]);
+  }, [tab, debouncedQuery, books, authors, existingItemIds]);
 
   async function handlePick(item) {
     if (addingId) return;
