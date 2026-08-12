@@ -49,7 +49,9 @@ export function AuthPage() {
   const [name, setName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resendingConfirmation, setResendingConfirmation] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [lockedUntil, setLockedUntil] = useState(0);
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -59,6 +61,7 @@ export function AuthPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setNotice("");
 
     // Trava local após tentativas seguidas. Isto é conveniência/anti-acidente:
     // um atacante chama a API do Supabase direto e nem passa por aqui. A defesa
@@ -147,7 +150,7 @@ export function AuthPage() {
 
         navigate(`/entrar${location.search}`, { replace: true });
         setPassword("");
-        setError("Conta criada! Confirme seu email pela mensagem enviada pelo Supabase e depois faça login com sua senha.");
+        setNotice("Conta criada. Confirme a mensagem que chegou no seu email e depois entre.");
       }
       setFailedAttempts(0);
     } catch (err) {
@@ -159,12 +162,38 @@ export function AuthPage() {
         setError("Muitas tentativas seguidas. Aguarde 1 minuto antes de tentar de novo.");
       } else {
         setFailedAttempts(attempts);
-        setError(getSupabaseErrorMessage(err));
+        const message = getSupabaseErrorMessage(err);
+        if (message === "Confirme seu email antes de entrar.") {
+          setError("");
+          setNotice("Confirme a mensagem que chegou no seu email e depois entre.");
+        } else {
+          setError(message);
+        }
       }
     } finally {
       setLoading(false);
     }
   };
+
+  async function resendConfirmation() {
+    const cleanEmail = normalizeEmail(email);
+    if (!cleanEmail || resendingConfirmation || !isSupabaseReady()) return;
+    setResendingConfirmation(true);
+    try {
+      const { error: resendError } = await supabase.auth.resend({
+        type: "signup",
+        email: cleanEmail,
+      });
+      if (resendError) throw resendError;
+      setNotice("Enviamos outra mensagem de confirmacao para seu email.");
+      setError("");
+    } catch (err) {
+      setNotice("");
+      setError(getSupabaseErrorMessage(err, "Nao foi possivel reenviar a confirmacao."));
+    } finally {
+      setResendingConfirmation(false);
+    }
+  }
 
   return (
     <main className="auth-page relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--bg-canvas)] px-4 py-8 text-[var(--text-primary)] sm:px-6">
@@ -316,10 +345,29 @@ export function AuthPage() {
               </div>
             )}
 
-            {error && (
-              <p className={`text-xs ${error.includes("criada") ? "text-[var(--accent-mint)]" : "text-red-500"}`}>
+            {error && !notice && (
+              <p role="alert" className="text-xs text-red-500">
                 {error}
               </p>
+            )}
+
+            {notice && (
+              <div role="status" aria-live="polite" className="space-y-2 rounded-[10px] border border-[var(--accent-mint)]/30 bg-[var(--accent-mint)]/10 px-3 py-2.5 text-xs">
+                <p className="text-[var(--accent-mint)]">{notice}</p>
+                <p className="text-amber-300">
+                  Se não encontrar, verifique também a pasta de spam ou lixo eletrônico.
+                </p>
+                {mode === "login" && /confirm/i.test(notice) ? (
+                  <button
+                    type="button"
+                    onClick={resendConfirmation}
+                    disabled={resendingConfirmation || !email}
+                    className="font-medium underline underline-offset-2 disabled:opacity-50"
+                  >
+                    {resendingConfirmation ? "Reenviando..." : "Reenviar confirmacao"}
+                  </button>
+                ) : null}
+              </div>
             )}
 
             <Button className="min-h-12 w-full rounded-[10px] bg-[var(--text-primary)] text-[var(--bg-canvas)] hover:bg-[var(--text-primary)]/90" type="submit" disabled={loading}>
@@ -333,6 +381,7 @@ export function AuthPage() {
               onClick={() => {
                 navigate(`${mode === "login" ? "/cadastro" : "/entrar"}${location.search}`);
                 setError("");
+                setNotice("");
                 setTermsAccepted(false);
                 setMarketingOptIn(false);
               }}
