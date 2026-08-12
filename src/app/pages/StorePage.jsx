@@ -48,6 +48,14 @@ function getProductImages(product) {
       : [];
 }
 
+function isEarlyDrop(product) {
+  if (!product?.early_access_at) return false;
+  const earlyAt = new Date(product.early_access_at).getTime();
+  const publicAt = product.public_release_at ? new Date(product.public_release_at).getTime() : null;
+  const now = Date.now();
+  return Number.isFinite(earlyAt) && earlyAt <= now && (!publicAt || publicAt > now);
+}
+
 function getDropConfig() {
   try {
     const saved = localStorage.getItem("ope_novo_drop_config");
@@ -171,6 +179,11 @@ function ProductCard({ product, onRedeem }) {
         <span className="absolute top-2 left-2 rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)]/90 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
           {CATEGORY_LABELS[product.category] || product.category}
         </span>
+        {isEarlyDrop(product) && (
+          <span className="absolute top-2 right-2 rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)]/90 px-1.5 py-0.5 text-[9px] font-semibold tracking-wider text-[var(--text-primary)]">
+            Pensador primeiro
+          </span>
+        )}
       </div>
 
       <div className="px-3 pt-2.5 pb-3 space-y-2 flex-1 flex flex-col">

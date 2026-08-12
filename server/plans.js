@@ -23,6 +23,7 @@ export const PLAN_CATALOG = {
     description: "Assinatura mensal do Plano Leitor do OPE Club",
     cycle: "MONTHLY",
     priceEnv: "STRIPE_PRICE_LEITOR_MONTHLY",
+    features: ["library", "community", "reading_rewards", "store", "reading_sync", "weekly_releases"],
   },
   "leitor-annual": {
     key: "leitor-annual",
@@ -36,6 +37,7 @@ export const PLAN_CATALOG = {
     description: "Assinatura anual do Plano Leitor do OPE Club",
     cycle: "ANNUALLY",
     priceEnv: "STRIPE_PRICE_LEITOR_ANNUAL",
+    features: ["library", "community", "reading_rewards", "store", "reading_sync", "weekly_releases"],
   },
   "pensador-monthly": {
     key: "pensador-monthly",
@@ -49,6 +51,7 @@ export const PLAN_CATALOG = {
     description: "Assinatura mensal do Plano Pensador do OPE Club",
     cycle: "MONTHLY",
     priceEnv: "STRIPE_PRICE_PENSADOR_MONTHLY",
+    features: ["library", "community", "reading_rewards", "store", "reading_sync", "weekly_releases", "verified_badge", "ranking", "missions", "seasons", "credit_multiplier", "vip_support", "early_drops"],
   },
   "pensador-annual": {
     key: "pensador-annual",
@@ -62,6 +65,7 @@ export const PLAN_CATALOG = {
     description: "Assinatura anual do Plano Pensador do OPE Club",
     cycle: "ANNUALLY",
     priceEnv: "STRIPE_PRICE_PENSADOR_ANNUAL",
+    features: ["library", "community", "reading_rewards", "store", "reading_sync", "weekly_releases", "verified_badge", "ranking", "missions", "seasons", "credit_multiplier", "vip_support", "early_drops"],
   },
 };
 

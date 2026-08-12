@@ -1,10 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Trophy, Coins, Crown, Medal, ArrowLeft } from "@/lib/icons";
+import { Coins, Crown, Medal, ArrowLeft } from "@/lib/icons";
 import { rewardApi } from "@/lib/rewards";
-import { isSupabaseReady, supabase } from "@/app/data/supabase";
-import { useData } from "@/app/data/DataContext";
-import { cn } from "@/lib/utils";
 
 function Avatar({ name, avatar }) {
   if (avatar?.startsWith("http") || avatar?.startsWith("data:")) {
@@ -25,7 +22,6 @@ function Avatar({ name, avatar }) {
 }
 
 export function RankingPage() {
-  const { profiles = [] } = useData() || {};
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -34,48 +30,20 @@ export function RankingPage() {
 
     async function loadRanking() {
       try {
-        // Tentar via API rpc do Supabase
         const result = await rewardApi.creditsRanking(20);
-        if (mounted && Array.isArray(result?.list) && result.list.length > 0) {
-          setEntries(result.list);
-          setLoading(false);
-          return;
-        }
-      } catch {}
-
-      // Fallback: consulta direta via Supabase
-      try {
-        if (isSupabaseReady()) {
-          const { data: rows } = await supabase
-            .from("user_wallets")
-            .select("user_id, credits")
-            .order("credits", { ascending: false })
-            .limit(20);
-
-          if (mounted && rows) {
-            const ranked = rows.map((row, i) => {
-              const profile = profiles.find((p) => p.id === row.user_id) || {};
-              return {
-                rank: i + 1,
-                user_id: row.user_id,
-                credits: row.credits || 0,
-                name: profile.name || "Membro OPE",
-                avatar: profile.avatar_url || profile.avatar || null,
-              };
-            });
-            setEntries(ranked);
-          }
-        }
-      } catch {}
-
-      if (mounted) setLoading(false);
+        if (mounted) setEntries(Array.isArray(result?.list) ? result.list : []);
+      } catch {
+        if (mounted) setEntries([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
     }
 
     loadRanking();
     return () => {
       mounted = false;
     };
-  }, [profiles]);
+  }, []);
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">

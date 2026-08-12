@@ -57,6 +57,20 @@ function getPageItems(current, total) {
   return items;
 }
 
+function toDateTimeLocal(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (part) => String(part).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function toIsoOrNull(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
 function PaginationBar({ currentPage, totalPages, onPageChange }) {
   const safePage = Math.min(currentPage, totalPages);
   const pageItems = getPageItems(safePage, totalPages);
@@ -1707,6 +1721,8 @@ function LojaTab() {
     external_sku: "",
     active: true,
     season_id: "",
+    early_access_at: "",
+    public_release_at: "",
   };
   const [form, setForm] = useState(INITIAL_FORM);
   const [seasons, setSeasons] = useState([]);
@@ -1962,6 +1978,8 @@ function LojaTab() {
       external_sku: form.external_sku.trim() || null,
       active: Boolean(form.active),
       season_id: form.season_id || null,
+      early_access_at: toIsoOrNull(form.early_access_at),
+      public_release_at: toIsoOrNull(form.public_release_at),
     };
     if (!payload.name) { setError("Informe o nome do produto."); return; }
 
@@ -1996,6 +2014,8 @@ function LojaTab() {
         if (error.message?.includes("'images'")) delete fallbackPayload.images;
         if (error.message?.includes("'real_price'")) delete fallbackPayload.real_price;
         if (error.message?.includes("season_id")) delete fallbackPayload.season_id;
+        if (error.message?.includes("early_access_at")) delete fallbackPayload.early_access_at;
+        if (error.message?.includes("public_release_at")) delete fallbackPayload.public_release_at;
 
         const res = editingId
           ? await supabase.from("shop_products").update(fallbackPayload).eq("id", editingId).select("id").maybeSingle()
@@ -2057,6 +2077,8 @@ function LojaTab() {
       external_sku: product.external_sku || "",
       active: product.active !== false,
       season_id: product.season_id || "",
+      early_access_at: toDateTimeLocal(product.early_access_at),
+      public_release_at: toDateTimeLocal(product.public_release_at),
     });
     setVariants(Array.isArray(product.variants) ? product.variants.map((variant) => ({ ...variant })) : []);
   }
@@ -2124,6 +2146,15 @@ function LojaTab() {
             {seasons.map((season) => <option key={season.id} value={season.id}>{season.name} ({season.status})</option>)}
           </select>
           <p className="sm:col-span-2 -mt-1 text-xs text-[var(--text-muted)]">A season e opcional. O produto continua na Loja; este campo apenas define em qual season ele aparece.</p>
+          <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
+            Acesso antecipado Pensador
+            <input className={inputClass} type="datetime-local" value={form.early_access_at} onChange={(e) => setForm({ ...form, early_access_at: e.target.value })} />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
+            Liberar para todos
+            <input className={inputClass} type="datetime-local" value={form.public_release_at} onChange={(e) => setForm({ ...form, public_release_at: e.target.value })} />
+          </label>
+          <p className="sm:col-span-2 -mt-1 text-xs text-[var(--text-muted)]">Deixe as duas datas vazias para publicar imediatamente. O acesso antecipado deve ser anterior à liberação pública.</p>
           <input className={inputClass} placeholder="Descrição" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <input className={inputClass} type="number" min="1" placeholder="Custo em créditos" value={form.credits_cost} onChange={(e) => setForm({ ...form, credits_cost: e.target.value })} />
           <input className={inputClass} type="number" min="0" step="0.01" placeholder="Preço em R$ (opcional, ex: 189.90)" value={form.real_price} onChange={(e) => setForm({ ...form, real_price: e.target.value })} />

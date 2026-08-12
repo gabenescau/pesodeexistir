@@ -1,7 +1,14 @@
 import { Link } from "react-router-dom";
 import { ArrowLeft, Mail, WhatsappLogo, ShieldCheck, ArrowRight } from "@/lib/icons";
+import { useAuth } from "@/app/data/AuthContext";
+import { useData } from "@/app/data/DataContext";
+import { hasPlanFeature } from "@/lib/entitlements";
 
 export function SupportPage() {
+  const { isAdmin } = useAuth();
+  const { subscription } = useData() || {};
+  const prioritySupport = hasPlanFeature({ isAdmin, subscription, feature: "vip_support" });
+
   return (
     <div className="mx-auto w-full min-w-0 max-w-3xl flex-1 space-y-6">
 
@@ -22,6 +29,16 @@ export function SupportPage() {
           Precisa de ajuda com sua assinatura, resgate de produtos ou dúvidas gerais? Fale diretamente com nossa equipe.
         </p>
       </div>
+
+      {prioritySupport ? (
+        <div className="flex items-start gap-3 rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-secondary)]">
+          <ShieldCheck className="mt-0.5 size-4 shrink-0 text-[var(--accent-mint)]" />
+          <div>
+            <p className="font-semibold text-[var(--text-primary)]">Atendimento prioritario Pensador</p>
+            <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">Sua solicitacao pelo WhatsApp recebe prioridade no atendimento da comunidade.</p>
+          </div>
+        </div>
+      ) : null}
 
       {/* Grid de Canais de Suporte */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -106,4 +123,3 @@ export function SupportPage() {
     </div>
   );
 }
-

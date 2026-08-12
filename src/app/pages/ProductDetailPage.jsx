@@ -62,6 +62,11 @@ export function ProductDetailPage() {
   const realPrice = Number(product?.real_price || 0);
   const hasRealPrice = realPrice > 0;
   const isDualPayment = hasRealPrice;
+  const earlyAccessOpen = Boolean(
+    product?.early_access_at
+    && new Date(product.early_access_at).getTime() <= Date.now()
+    && (!product.public_release_at || new Date(product.public_release_at).getTime() > Date.now())
+  );
   const SIZES = ["P", "M", "G", "GG", "XG"];
   const needsSize = product && ["oversized", "hoodie", "moletom"].includes(product.category);
 
@@ -246,6 +251,11 @@ export function ProductDetailPage() {
               <h1 className="mt-1 text-xl font-bold text-[var(--text-primary)] leading-tight">
                 {product.name}
               </h1>
+              {earlyAccessOpen && (
+                <p className="mt-2 inline-flex rounded-[6px] border border-[var(--border)] px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                  Acesso antecipado Pensador
+                </p>
+              )}
             </div>
 
             {/* Valor — dual (créditos + real) ou só créditos */}

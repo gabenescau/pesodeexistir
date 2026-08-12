@@ -5,7 +5,8 @@ import { useData } from "@/app/data/DataContext";
 import { authenticatedApiPost } from "@/lib/authenticated-api";
 import { CYCLES, TIERS, formatBRL, getTierPlanKey, planInfoFromCode } from "@/lib/plans";
 import { getCurrentSubscription, isActiveSubscription } from "@/lib/subscription";
-import { Loader2, ShieldCheck, Check } from "@/lib/icons";
+import { Loader2, ShieldCheck } from "@/lib/icons";
+import { PlanBenefitList } from "@/components/plan-benefit";
 import { toast } from "@/lib/toast";
 import { useCancelSurvey } from "@/components/ui/cancel-survey";
 import { parseCheckoutInput, parseSubscriptionInput } from "@/lib/api-contracts";
@@ -331,18 +332,13 @@ export function SubscribePage() {
               <div className="mb-6 h-px w-full bg-[var(--border)]" />
 
               {/* Lista de Benefícios */}
-              <ul className="mb-8 flex-1 space-y-3">
-                {tier.benefits.map((benefit) => (
-                  <li key={benefit.text} className="flex items-start gap-3 text-xs text-[var(--text-secondary)]">
-                    <Check
-                      className={`mt-0.5 size-4 shrink-0 ${
-                        isPensador ? "text-[var(--accent-mint)]" : "text-[var(--text-primary)]"
-                      }`}
-                    />
-                    <span className="leading-snug">{benefit.text}</span>
-                  </li>
-                ))}
-              </ul>
+              <div className="mb-8 flex-1">
+                <PlanBenefitList
+                  benefits={tier.benefits}
+                  itemClassName="flex items-start gap-3 text-xs text-[var(--text-secondary)]"
+                  iconClassName={`mt-0.5 size-4 shrink-0 ${isPensador ? "text-[var(--accent-mint)]" : "text-[var(--text-primary)]"}`}
+                />
+              </div>
 
               {/* Botão de Assinatura */}
               <button

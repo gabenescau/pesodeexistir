@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Trophy, Coins, Crown, Medal } from "@/lib/icons";
+import { Trophy, Crown, Medal } from "@/lib/icons";
 import { rewardApi } from "@/lib/rewards";
-import { isSupabaseReady, supabase } from "@/app/data/supabase";
-import { useData } from "@/app/data/DataContext";
 import { cn } from "@/lib/utils";
 
 function Avatar({ name, avatar }) {
@@ -25,7 +23,6 @@ function Avatar({ name, avatar }) {
 }
 
 export function MonthlyRankingWidget({ limit = 5 }) {
-  const { profiles = [] } = useData() || {};
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -35,45 +32,19 @@ export function MonthlyRankingWidget({ limit = 5 }) {
     async function loadRanking() {
       try {
         const result = await rewardApi.creditsRanking(limit);
-        if (mounted && Array.isArray(result?.list) && result.list.length > 0) {
-          setEntries(result.list);
-          setLoading(false);
-          return;
-        }
-      } catch {}
-
-      try {
-        if (isSupabaseReady()) {
-          const { data: rows } = await supabase
-            .from("user_wallets")
-            .select("user_id, credits")
-            .order("credits", { ascending: false })
-            .limit(limit);
-
-          if (mounted && rows) {
-            const ranked = rows.map((row, i) => {
-              const profile = profiles.find((p) => p.id === row.user_id) || {};
-              return {
-                rank: i + 1,
-                user_id: row.user_id,
-                credits: row.credits || 0,
-                name: profile.name || "Membro OPE",
-                avatar: profile.avatar_url || profile.avatar || null,
-              };
-            });
-            setEntries(ranked);
-          }
-        }
-      } catch {}
-
-      if (mounted) setLoading(false);
+        if (mounted) setEntries(Array.isArray(result?.list) ? result.list : []);
+      } catch {
+        if (mounted) setEntries([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
     }
 
     loadRanking();
     return () => {
       mounted = false;
     };
-  }, [limit, profiles]);
+  }, [limit]);
 
   return (
     <section className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-5 space-y-4">

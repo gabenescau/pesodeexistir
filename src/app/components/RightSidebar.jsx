@@ -1,11 +1,17 @@
 import { Coins } from "@/lib/icons";
 import { useRewards } from "@/app/data/RewardsContext";
+import { useAuth } from "@/app/data/AuthContext";
+import { useData } from "@/app/data/DataContext";
+import { hasPlanFeature } from "@/lib/entitlements";
 import { MissionsWidget } from "./MissionsWidget";
 import { ReferralWidget } from "./ReferralWidget";
 import { InstallAppWidget } from "./InstallAppWidget";
 
 export function RightSidebar() {
   const { wallet } = useRewards() || {};
+  const { isAdmin } = useAuth();
+  const { subscription } = useData() || {};
+  const canSeeMissions = hasPlanFeature({ isAdmin, subscription, feature: "missions" });
 
   return (
     <aside className="hidden w-[260px] shrink-0 space-y-5 xl:block xl:sticky xl:top-20">
@@ -22,7 +28,7 @@ export function RightSidebar() {
         </section>
       )}
 
-      {wallet && <MissionsWidget />}
+      {wallet && canSeeMissions && <MissionsWidget />}
 
       {wallet && <ReferralWidget />}
 

@@ -63,10 +63,10 @@ export function AppShell() {
         <Route path="notificacoes" element={<SubscriptionGuard><NotificacoesPage /></SubscriptionGuard>} />
         <Route path="loja" element={<SubscriptionGuard><StorePage /></SubscriptionGuard>} />
         <Route path="loja/produto/:id" element={<SubscriptionGuard><ProductDetailPage /></SubscriptionGuard>} />
-        <Route path="missoes" element={<SubscriptionGuard><DailyMissionsPage /></SubscriptionGuard>} />
+        <Route path="missoes" element={<SubscriptionGuard feature="missions"><DailyMissionsPage /></SubscriptionGuard>} />
         <Route path="indicacoes" element={<SubscriptionGuard><ReferralPage /></SubscriptionGuard>} />
-        <Route path="seasons" element={<SubscriptionGuard><SeasonPage /></SubscriptionGuard>} />
-        <Route path="ranking" element={<SubscriptionGuard><RankingPage /></SubscriptionGuard>} />
+        <Route path="seasons" element={<SubscriptionGuard feature="seasons"><SeasonPage /></SubscriptionGuard>} />
+        <Route path="ranking" element={<SubscriptionGuard feature="ranking"><RankingPage /></SubscriptionGuard>} />
         <Route path="instalar" element={<SubscriptionGuard><InstallAppPage /></SubscriptionGuard>} />
         <Route path="meus-resgates" element={<SubscriptionGuard><MyRedemptionsPage /></SubscriptionGuard>} />
         <Route path="suporte" element={<SupportPage />} />
