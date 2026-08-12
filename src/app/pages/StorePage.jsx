@@ -95,14 +95,14 @@ function DropBannerSection({ products, onVerTudo }) {
           onClick={() => navigate(`/app/loja/produto/${featured.id}`)}
           className="group relative shrink-0 snap-start w-[210px] sm:w-[260px] h-[220px] sm:h-[260px] cursor-pointer overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)] hover:border-[var(--border-strong)] transition-all"
         >
-          <div className="h-full w-full overflow-hidden bg-[#121214] flex items-center justify-center p-1">
+          <div className="h-full w-full overflow-hidden bg-[var(--bg-canvas)]">
             {featuredImages.length > 0 ? (
-              <img src={featuredImages[0]} alt={featured.name} className="h-full w-full object-contain transition-transform duration-500 group-hover:scale-[1.03]" />
+              <img src={featuredImages[0]} alt={featured.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
             ) : (
               <div className="flex h-full items-center justify-center"><Storefront className="size-10 text-[var(--text-muted)]" /></div>
             )}
           </div>
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-3.5 flex flex-col justify-end">
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent p-3.5 flex flex-col justify-end">
             <p className="text-[9px] font-semibold uppercase tracking-wider text-white/60">{CATEGORY_LABELS[featured.category] || featured.category}</p>
             <p className="text-xs sm:text-sm font-bold text-white leading-tight mt-0.5 line-clamp-2">{featured.name}</p>
             <div className="flex items-center gap-2 mt-1">
@@ -115,7 +115,7 @@ function DropBannerSection({ products, onVerTudo }) {
           </div>
         </div>
 
-        {/* Itens menores — menor de altura (h-[220px] sm:h-[260px]) e normal de largura (w-[145px] sm:w-[180px]) */}
+        {/* Itens menores — imagens sem borda preta (edge-to-edge object-cover) */}
         {rest.map((p) => {
           const imgs = getProductImages(p);
           const rp = Number(p.real_price || 0);
@@ -125,13 +125,13 @@ function DropBannerSection({ products, onVerTudo }) {
               onClick={() => navigate(`/app/loja/produto/${p.id}`)}
               className="group relative shrink-0 snap-start w-[145px] sm:w-[180px] h-[220px] sm:h-[260px] cursor-pointer overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)] hover:border-[var(--border-strong)] transition-all"
             >
-              <div className="h-full w-full overflow-hidden bg-[#121214] flex items-center justify-center p-1">
+              <div className="h-full w-full overflow-hidden bg-[var(--bg-canvas)]">
                 {imgs.length > 0
-                  ? <img src={imgs[0]} alt={p.name} className="h-full w-full object-contain transition-transform duration-500 group-hover:scale-[1.03]" />
+                  ? <img src={imgs[0]} alt={p.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
                   : <div className="flex h-full items-center justify-center"><Storefront className="size-7 text-[var(--text-muted)]" /></div>
                 }
               </div>
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-3 flex flex-col justify-end">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent p-3 flex flex-col justify-end">
                 <p className="text-[8px] font-semibold uppercase tracking-wider text-white/60 mb-0.5">{CATEGORY_LABELS[p.category] || p.category}</p>
                 <p className="text-[11px] sm:text-xs font-bold text-white leading-tight line-clamp-2">{p.name}</p>
                 <div className="mt-1 flex items-center gap-1.5">
