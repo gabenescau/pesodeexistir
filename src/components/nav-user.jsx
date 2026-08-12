@@ -65,10 +65,10 @@ export function NavUser() {
             </button>
             <button
               type="button"
-              onClick={() => go("/app/planos")}
+              onClick={() => go("/app/configuracoes?aba=assinatura")}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]"
             >
-              <CreditCard className="size-4" /> Planos
+              <CreditCard className="size-4" /> Assinatura
             </button>
             <button
               type="button"

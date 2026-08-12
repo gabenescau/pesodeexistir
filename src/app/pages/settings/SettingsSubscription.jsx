@@ -17,7 +17,8 @@ import { useData } from "../../data/DataContext";
 import { useCancelSurvey } from "@/components/ui/cancel-survey";
 import { PlanBenefitList } from "@/components/plan-benefit";
 import { authenticatedApiPost } from "@/lib/authenticated-api";
-import { planInfoFromCode, planPriceLabel } from "@/lib/plans";
+import { CYCLES, TIERS, getTierPlanKey, planInfoFromCode, planPriceLabel } from "@/lib/plans";
+import { parseSubscriptionInput } from "@/lib/api-contracts";
 import { isActiveSubscription } from "@/lib/subscription";
 import { toast } from "@/lib/toast";
 
@@ -40,6 +41,8 @@ export function SettingsSubscription() {
   const cancelSurvey = useCancelSurvey();
   const [working, setWorking] = useState("");
   const [managedSubscription, setManagedSubscription] = useState(subscription);
+  const [selectedTier, setSelectedTier] = useState("leitor");
+  const [selectedCycle, setSelectedCycle] = useState("monthly");
 
   useEffect(() => {
     setManagedSubscription(subscription);
@@ -63,6 +66,10 @@ export function SettingsSubscription() {
   const recurringStripe = managedSubscription?.provider === "stripe" && Boolean(managedSubscription?.provider_subscription_id);
   const statusInfo = STATUS_LABELS[managedSubscription?.status] || { text: "Desconhecido", color: "var(--text-muted)" };
   const cancelScheduled = active && Boolean(managedSubscription?.cancel_at_period_end);
+  const selectedPlanKey = getTierPlanKey(selectedTier, selectedCycle);
+  const currentPlanKey = planInfo ? getTierPlanKey(planInfo.tier, planInfo.cycle) : null;
+  const requestedPlan = managedSubscription?.metadata?.requested_plan;
+  const planChangePending = requestedPlan && requestedPlan !== managedSubscription?.plan ? requestedPlan : null;
   const periodEnd = useMemo(() => {
     if (!managedSubscription?.current_period_end) return null;
     return new Date(managedSubscription.current_period_end).toLocaleDateString("pt-BR", {
@@ -71,6 +78,12 @@ export function SettingsSubscription() {
       year: "numeric",
     });
   }, [managedSubscription?.current_period_end]);
+
+  useEffect(() => {
+    if (!planInfo) return;
+    setSelectedTier(planInfo.tier);
+    setSelectedCycle(planInfo.cycle);
+  }, [planInfo?.tier, planInfo?.cycle]);
 
   async function handleCancel() {
     if (!managedSubscription || working) return;
@@ -117,6 +130,44 @@ export function SettingsSubscription() {
     }
   }
 
+  async function handleChangePlan() {
+    if (!managedSubscription || working) return;
+    if (!recurringStripe) {
+      navigate(`/app/planos?plan=${selectedTier}&ciclo=${selectedCycle}`);
+      return;
+    }
+    if (selectedPlanKey === currentPlanKey) {
+      toast.info("Este ja e o seu plano atual.");
+      return;
+    }
+    if (planChangePending) {
+      toast.info("Essa mudanca ja esta aguardando confirmacao da Stripe.");
+      return;
+    }
+
+    setWorking("change");
+    try {
+      const result = await authenticatedApiPost("/api/stripe-change-plan", parseSubscriptionInput({
+        subscriptionId: managedSubscription.id,
+        plan: selectedPlanKey,
+      }));
+      setManagedSubscription((current) => ({
+        ...current,
+        metadata: {
+          ...current?.metadata,
+          requested_plan: result.requestedPlan || selectedPlanKey,
+        },
+      }));
+      toast.success(result.pending
+        ? "Mudanca enviada. A Stripe vai confirmar a nova cobranca."
+        : "Plano alterado com sucesso.");
+    } catch (error) {
+      toast.error(error?.message || "Nao foi possivel alterar o plano.");
+    } finally {
+      setWorking("");
+    }
+  }
+
   return (
     <SettingsLayout title="Assinatura" subtitle="Seu plano no OPE Club" onBack={() => setSearchParams({})}>
       <SettingsSection icon={CreditCard} label="Plano atual">
@@ -151,12 +202,79 @@ export function SettingsSubscription() {
         ) : null}
 
         <div className="flex flex-col gap-2 border-t border-[var(--border)] px-4 py-4 sm:flex-row sm:flex-wrap sm:px-5">
-          {active ? <button type="button" onClick={() => navigate("/app/planos")} className="flex min-h-11 items-center justify-center gap-2 rounded-[9px] bg-[var(--text-primary)] px-4 text-sm font-medium text-[var(--bg-card)] transition-opacity hover:opacity-90"><ArrowUpRight className="size-4" />Alterar plano</button> : isAdmin ? <button type="button" onClick={() => navigate("/app/admin")} className="min-h-11 rounded-[9px] bg-[var(--text-primary)] px-4 text-sm font-medium text-[var(--bg-card)]">Abrir painel admin</button> : <button type="button" onClick={() => navigate("/app/planos")} className="min-h-11 rounded-[9px] bg-[var(--text-primary)] px-4 text-sm font-medium text-[var(--bg-card)]">Assinar agora</button>}
+          {active ? <button type="button" onClick={() => document.getElementById("subscription-plan-manager")?.scrollIntoView({ behavior: "smooth", block: "center" })} className="flex min-h-11 items-center justify-center gap-2 rounded-[9px] bg-[var(--text-primary)] px-4 text-sm font-medium text-[var(--bg-card)] transition-opacity hover:opacity-90"><ArrowUpRight className="size-4" />Alterar plano</button> : isAdmin ? <button type="button" onClick={() => navigate("/app/admin")} className="min-h-11 rounded-[9px] bg-[var(--text-primary)] px-4 text-sm font-medium text-[var(--bg-card)]">Abrir painel admin</button> : <button type="button" onClick={() => navigate("/app/planos")} className="min-h-11 rounded-[9px] bg-[var(--text-primary)] px-4 text-sm font-medium text-[var(--bg-card)]">Assinar agora</button>}
           {active && recurringStripe ? <button type="button" onClick={openPortal} disabled={Boolean(working)} className="flex min-h-11 items-center justify-center gap-2 rounded-[9px] border border-[var(--border)] px-4 text-sm text-[var(--text-primary)] transition-colors hover:bg-[var(--hover-overlay)] disabled:opacity-50">{working === "portal" ? <Loader2 className="size-4 animate-spin" /> : <CreditCard className="size-4" />}Faturas e pagamento</button> : null}
           {active && recurringStripe && cancelScheduled ? <button type="button" onClick={handleResume} disabled={Boolean(working)} className="flex min-h-11 items-center justify-center gap-2 rounded-[9px] border border-[var(--accent-mint)]/40 px-4 text-sm text-[var(--accent-mint)] transition-colors hover:bg-[var(--accent-mint)]/10 disabled:opacity-50">{working === "resume" ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}Manter renovacao</button> : null}
           {active && recurringStripe && !cancelScheduled ? <button type="button" onClick={handleCancel} disabled={Boolean(working)} className="min-h-11 rounded-[9px] border border-red-500/30 px-4 text-sm text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50">{working === "cancel" ? "Cancelando..." : "Cancelar renovacao"}</button> : null}
         </div>
       </SettingsSection>
+
+      {active && recurringStripe ? (
+        <SettingsSection icon={RefreshCw} label="Mudar plano">
+          <div id="subscription-plan-manager" className="space-y-4 px-4 py-4 sm:px-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-medium text-[var(--text-primary)]">Escolha o novo ciclo e nivel</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">A Stripe calcula a diferenca e confirma a alteracao com seguranca.</p>
+              </div>
+              <div className="inline-flex w-fit rounded-full border border-[var(--border)] bg-[var(--bg-page)] p-1" role="radiogroup" aria-label="Ciclo da assinatura">
+                {Object.values(CYCLES).map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={selectedCycle === item.id}
+                    onClick={() => setSelectedCycle(item.id)}
+                    className={`min-h-9 rounded-full px-3 text-xs font-medium transition-colors ${selectedCycle === item.id ? "bg-[var(--text-primary)] text-[var(--bg-card)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              {Object.values(TIERS).map((tier) => {
+                const selected = selectedTier === tier.id;
+                const pending = planChangePending === `ope_club_${tier.id}_${selectedCycle}`;
+                return (
+                  <button
+                    key={tier.id}
+                    type="button"
+                    onClick={() => setSelectedTier(tier.id)}
+                    className={`rounded-[10px] border p-3 text-left transition-colors ${selected ? "border-[var(--text-primary)] bg-[var(--hover-overlay)]" : "border-[var(--border)] hover:border-[var(--border-strong)]"}`}
+                    aria-pressed={selected}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold text-[var(--text-primary)]">{tier.label.replace("Plano ", "")}</p>
+                        <p className="mt-1 text-[11px] text-[var(--text-muted)]">{tier.description}</p>
+                      </div>
+                      {pending ? <span className="text-[10px] font-medium text-amber-400">Em analise</span> : null}
+                    </div>
+                    <p className="mt-3 text-xs text-[var(--text-secondary)]">{CYCLES[selectedCycle]?.label}</p>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-col gap-2 border-t border-[var(--border)] pt-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-[var(--text-muted)]">
+                {selectedPlanKey === currentPlanKey ? "Este e o plano atual." : `Selecionado: ${TIERS[selectedTier]?.label} · ${CYCLES[selectedCycle]?.label}`}
+              </p>
+              <button
+                type="button"
+                onClick={handleChangePlan}
+                disabled={Boolean(working) || selectedPlanKey === currentPlanKey || Boolean(planChangePending)}
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[9px] bg-[var(--text-primary)] px-4 text-xs font-semibold text-[var(--bg-card)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                {working === "change" ? <Loader2 className="size-4 animate-spin" /> : null}
+                {working === "change" ? "Enviando..." : "Confirmar alteracao"}
+              </button>
+            </div>
+          </div>
+        </SettingsSection>
+      ) : null}
 
       {active && recurringStripe ? (
         <SettingsSection icon={ShieldCheck} label="Gerenciamento seguro">

@@ -8,8 +8,7 @@ import { getCurrentSubscription, isActiveSubscription } from "@/lib/subscription
 import { Loader2, ShieldCheck } from "@/lib/icons";
 import { PlanBenefitList } from "@/components/plan-benefit";
 import { toast } from "@/lib/toast";
-import { useCancelSurvey } from "@/components/ui/cancel-survey";
-import { parseCheckoutInput, parseSubscriptionInput } from "@/lib/api-contracts";
+import { parseCheckoutInput } from "@/lib/api-contracts";
 
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
@@ -17,12 +16,11 @@ const TIER_ORDER = ["pensador", "leitor"];
 
 export function SubscribePage() {
   const { user, isAdmin } = useAuth();
-  const { subscription, cancelSubscription } = useData();
+  const { subscription } = useData();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const checkoutState = searchParams.get("checkout");
   const checkoutSessionId = searchParams.get("session_id");
-  const cancelSurvey = useCancelSurvey();
   const requestedTier = searchParams.get("plan");
   const requestedCycle = searchParams.get("ciclo");
   const [tierId, setTierId] = useState(TIERS[requestedTier] ? requestedTier : "pensador");
@@ -100,23 +98,10 @@ export function SubscribePage() {
     }
     setWorking("checkout");
     try {
-      const currentPlanKey = currentInfo ? `${currentInfo.tier}-${currentInfo.cycle}` : null;
-      const changingRecurringPlan =
-        active && isRecurringStripe && currentPlanKey && currentPlanKey !== planKey;
-      if (changingRecurringPlan) {
-        const changePlanInput = parseSubscriptionInput({
-          subscriptionId: visibleSubscription.id,
-          plan: planKey,
-        });
-        const result = await authenticatedApiPost("/api/stripe-change-plan", { ...changePlanInput });
-        toast.success(
-          result.pending
-            ? "Alteração solicitada. O plano muda quando a Stripe confirmar a cobrança."
-            : "Plano alterado com sucesso."
-        );
+      if (active && isRecurringStripe) {
+        navigate("/app/configuracoes?aba=assinatura");
         return;
       }
-
       const checkoutInput = parseCheckoutInput({
         plan: planKey,
         paymentMethod: "CARD",
@@ -143,22 +128,6 @@ export function SubscribePage() {
       return;
     }
     void handlePlanAction(getTierPlanKey(nextTierId, cycle));
-  }
-
-  async function handleCancel() {
-    if (!visibleSubscription || working) return;
-    const answer = await cancelSurvey.perguntar();
-    if (!answer?.confirmado) return;
-    setWorking("cancel");
-    try {
-      const updated = await cancelSubscription(visibleSubscription.id);
-      setCurrentSubscription(updated);
-      toast.success("A renovação foi cancelada. O acesso continua até o fim do ciclo.");
-    } catch (error) {
-      toast.error(error?.message || "Não foi possível cancelar a assinatura.");
-    } finally {
-      setWorking("");
-    }
   }
 
   if (loading) {
@@ -221,16 +190,6 @@ export function SubscribePage() {
             >
               Gerenciar
             </button>
-            {!isAdmin && isRecurringStripe && !visibleSubscription.cancel_at_period_end && (
-              <button
-                type="button"
-                onClick={handleCancel}
-                disabled={Boolean(working)}
-                className="min-h-9 rounded-[8px] border border-[var(--border)] px-4 text-xs font-medium text-red-400 disabled:opacity-50 hover:bg-red-500/10 transition-colors"
-              >
-                {working === "cancel" ? "Cancelando..." : "Cancelar renovação"}
-              </button>
-            )}
           </div>
         </section>
       )}
@@ -369,7 +328,6 @@ export function SubscribePage() {
         })}
       </div>
 
-      {cancelSurvey.dialog}
     </main>
   );
 }
