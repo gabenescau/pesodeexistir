@@ -89,11 +89,11 @@ function DropBannerSection({ products, onVerTudo }) {
         </button>
       </div>
 
-      <div className="flex items-stretch gap-3 overflow-x-auto snap-x snap-mandatory pb-2" style={{ scrollbarWidth: "none" }}>
+      <div className="flex items-start gap-3 overflow-x-auto snap-x snap-mandatory pb-2" style={{ scrollbarWidth: "none" }}>
         {/* Featured — grande */}
         <div
           onClick={() => navigate(`/app/loja/produto/${featured.id}`)}
-          className="group relative shrink-0 snap-start w-[240px] sm:w-[280px] h-[320px] sm:h-[370px] cursor-pointer overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)] hover:border-[var(--border-strong)] transition-all"
+          className="group relative shrink-0 snap-start w-[68%] sm:w-[280px] aspect-[3/4] cursor-pointer overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)] hover:border-[var(--border-strong)] transition-all"
         >
           <div className="h-full w-full overflow-hidden bg-[var(--bg-canvas)]">
             {featuredImages.length > 0 ? (
@@ -115,7 +115,7 @@ function DropBannerSection({ products, onVerTudo }) {
           </div>
         </div>
 
-        {/* Itens menores — alinhados perfeitamente com a mesma altura */}
+        {/* Itens menores — enquadrados na proporção natural da imagem (aspect-[3/4]) */}
         {rest.map((p) => {
           const imgs = getProductImages(p);
           const rp = Number(p.real_price || 0);
@@ -123,7 +123,7 @@ function DropBannerSection({ products, onVerTudo }) {
             <div
               key={p.id}
               onClick={() => navigate(`/app/loja/produto/${p.id}`)}
-              className="group relative shrink-0 snap-start w-[155px] sm:w-[190px] h-[320px] sm:h-[370px] cursor-pointer overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)] hover:border-[var(--border-strong)] transition-all"
+              className="group relative shrink-0 snap-start w-[46%] sm:w-[185px] aspect-[3/4] cursor-pointer overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)] hover:border-[var(--border-strong)] transition-all"
             >
               <div className="h-full w-full overflow-hidden bg-[var(--bg-canvas)]">
                 {imgs.length > 0
@@ -134,7 +134,7 @@ function DropBannerSection({ products, onVerTudo }) {
               <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent p-3 flex flex-col justify-end">
                 <p className="text-[9px] font-semibold uppercase tracking-wider text-white/60 mb-0.5">{CATEGORY_LABELS[p.category] || p.category}</p>
                 <p className="text-xs font-bold text-white leading-tight line-clamp-2">{p.name}</p>
-                <div className="mt-1.5 flex items-center gap-1.5">
+                <div className="mt-1 flex items-center gap-1.5">
                   <span className="text-[10px] font-semibold text-white/90">{p.credits_cost?.toLocaleString("pt-BR")} cr.</span>
                   {rp > 0 && <span className="text-[9px] text-white/50">ou R$ {rp.toFixed(2)}</span>}
                 </div>
