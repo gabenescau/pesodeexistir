@@ -3255,6 +3255,7 @@ export function AdminPage() {
       </div>
 
       <div>
+        {activeTab === "dashboard" && <DashboardTab />}
         {activeTab === "users" && <UsersTab />}
         {activeTab === "creditos" && <CreditsTab />}
         {activeTab === "pedidos" && <PedidosTab />}
