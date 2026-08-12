@@ -4,15 +4,19 @@ import {
   getAuthenticatedUser,
   getProfile,
   getSubscription,
+  listUserSubscriptions,
   logAuditEvent,
   logServerError,
   sendClientError,
   sendError,
   sendSuccess,
+  updateSubscription,
 } from "../server/supabase.js";
 import {
   getSiteUrl,
   getStripe,
+  resolveStripeSubscriptionForBilling,
+  stripeSubscriptionPatch,
 } from "../server/stripe.js";
 import { parseSubscriptionIdInput } from "../src/lib/api-contracts.js";
 
@@ -21,7 +25,10 @@ export default async function handler(req, res) {
 
   try {
     const user = await getAuthenticatedUser(req);
-    const { subscriptionId } = parseSubscriptionIdInput(req.body);
+    const syncOnly = req.body?.mode === "sync";
+    const { subscriptionId } = syncOnly
+      ? { subscriptionId: typeof req.body?.subscriptionId === "string" ? req.body.subscriptionId : null }
+      : parseSubscriptionIdInput(req.body);
     if (!await enforceRateLimit(req, res, {
       scope: "stripe_portal",
       limit: 8,
@@ -29,10 +36,16 @@ export default async function handler(req, res) {
       userId: user.id,
     })) return;
 
-    const [profile, subscription] = await Promise.all([
+    const [profile, localSubscription] = await Promise.all([
       getProfile(user.id),
-      getSubscription(subscriptionId),
+      subscriptionId
+        ? getSubscription(subscriptionId)
+        : listUserSubscriptions(user.id).then((items) => items.find((item) =>
+          item.provider === "stripe" &&
+          ["active", "trialing", "past_due", "pending", "paused"].includes(item.status)
+        ) || null),
     ]);
+    let subscription = localSubscription;
     if (!subscription) {
       return sendClientError(req, res, 404, "Assinatura nao encontrada");
     }
@@ -44,14 +57,26 @@ export default async function handler(req, res) {
     if (subscription.provider !== "stripe") {
       return sendClientError(req, res, 400, "Assinatura nao gerenciada por Stripe");
     }
-    if (!subscription.provider_customer_id) {
+    const stripe = getStripe();
+    const resolved = await resolveStripeSubscriptionForBilling(subscription);
+    const customerId = resolved?.customerId || subscription.provider_customer_id;
+    if (!customerId) {
       return sendClientError(req, res, 409, "Assinatura sem cliente Stripe vinculado");
     }
-
-    const stripe = getStripe();
+    if (resolved?.subscription) {
+      const synced = await updateSubscription(subscription.id, stripeSubscriptionPatch(resolved.subscription, subscription));
+      if (synced) subscription = synced;
+      if (syncOnly) {
+        return sendSuccess(req, res, { subscription, synchronized: true });
+      }
+      if (!["active", "trialing", "past_due", "paused"].includes(resolved.subscription.status)) {
+        return sendClientError(req, res, 409, "Esta assinatura nao esta disponivel para gerenciamento");
+      }
+    }
+    if (syncOnly) return sendSuccess(req, res, { subscription, synchronized: false });
     const siteUrl = getSiteUrl();
     const session = await stripe.billingPortal.sessions.create({
-      customer: subscription.provider_customer_id,
+      customer: customerId,
       return_url: `${siteUrl}/app/configuracoes/assinatura`,
     });
 

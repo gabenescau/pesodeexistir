@@ -86,6 +86,7 @@ export function parseSubscriptionIdInput(input) {
   return {
     subscriptionId: uuid(body.subscriptionId, "Assinatura"),
     immediate: body.immediate === true,
+    resume: body.resume === true,
   };
 }
 

@@ -256,6 +256,104 @@ export function getPlanByPriceId(priceId) {
   );
 }
 
+function stripeObjectId(value) {
+  if (typeof value === "string") return value;
+  return value?.id || null;
+}
+
+function stripeTime(seconds) {
+  const value = Number(seconds);
+  return Number.isFinite(value) && value > 0
+    ? new Date(value * 1000).toISOString()
+    : null;
+}
+
+// Older local records may have only a checkout id or a customer id. Resolve
+// the canonical Stripe subscription before exposing billing actions.
+export async function resolveStripeSubscriptionForBilling(localSubscription) {
+  const stripe = getStripe();
+  const candidates = [];
+
+  if (localSubscription?.provider_subscription_id) {
+    candidates.push(async () => stripe.subscriptions.retrieve(
+      localSubscription.provider_subscription_id,
+      { expand: ["items.data.price"] }
+    ));
+  }
+
+  if (localSubscription?.provider_order_id?.startsWith("cs_")) {
+    candidates.push(async () => {
+      const session = await stripe.checkout.sessions.retrieve(
+        localSubscription.provider_order_id,
+        { expand: ["subscription"] }
+      );
+      if (!session.subscription) return null;
+      if (typeof session.subscription === "object") return session.subscription;
+      return stripe.subscriptions.retrieve(session.subscription, {
+        expand: ["items.data.price"],
+      });
+    });
+  }
+
+  const customerId = stripeObjectId(localSubscription?.provider_customer_id);
+  if (customerId) {
+    candidates.push(async () => {
+      const subscriptions = await stripe.subscriptions.list({
+        customer: customerId,
+        status: "all",
+        limit: 100,
+        expand: ["data.items.data.price"],
+      });
+      const userId = localSubscription.user_id;
+      return subscriptions.data
+        .filter((item) => !userId || item.metadata?.user_id === userId || item.id === localSubscription.provider_subscription_id)
+        .sort((a, b) => Number(b.created || 0) - Number(a.created || 0))[0] || null;
+    });
+  }
+
+  for (const load of candidates) {
+    try {
+      const subscription = await load();
+      if (subscription?.id) {
+        return {
+          subscription,
+          customerId: stripeObjectId(subscription.customer) || customerId,
+        };
+      }
+    } catch (error) {
+      if (error?.code === "resource_missing" || Number(error?.statusCode) === 404) continue;
+      throw error;
+    }
+  }
+
+  return null;
+}
+
+export function stripeSubscriptionPatch(remote, existing = {}) {
+  const price = remote?.items?.data?.[0]?.price;
+  const priceId = stripeObjectId(price);
+  const plan = getPlanByPriceId(priceId);
+  const customerId = stripeObjectId(remote?.customer);
+  return {
+    ...(plan ? { plan: plan.plan } : {}),
+    status: mapStripeStatus(remote?.status),
+    provider: "stripe",
+    provider_product_id: stripeObjectId(price?.product) || existing.provider_product_id || null,
+    provider_subscription_id: remote?.id || existing.provider_subscription_id || null,
+    provider_customer_id: customerId || existing.provider_customer_id || null,
+    current_period_start: stripeTime(remote?.current_period_start),
+    current_period_end: stripeTime(remote?.current_period_end),
+    cancel_at_period_end: Boolean(remote?.cancel_at_period_end),
+    canceled_at: stripeTime(remote?.canceled_at),
+    metadata: {
+      ...existing.metadata,
+      ...(priceId ? { price_id: priceId } : {}),
+      billing_sync: "stripe",
+      billing_synced_at: new Date().toISOString(),
+    },
+  };
+}
+
 function normalizeSiteUrl(value) {
   const raw = String(value || "").trim();
   if (!raw) return "";

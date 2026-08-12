@@ -69,6 +69,9 @@ export function ProductDetailPage() {
   );
   const SIZES = ["P", "M", "G", "GG", "XG"];
   const needsSize = product && ["oversized", "hoodie", "moletom"].includes(product.category);
+  const selectedVariantId = product?.variants?.find(
+    (variant) => variant.active !== false && variant.size === selectedSize
+  )?.id || null;
 
   const similarProducts = useMemo(() => {
     if (!product) return [];
@@ -85,7 +88,9 @@ export function ProductDetailPage() {
           order.customer.name,
           order.customer.email,
           { linha1: `${order.address.street}, ${order.address.number} — ${order.address.city}/${order.address.state}` },
-          order.idempotencyKey
+          order.idempotencyKey,
+          order.variantId || selectedVariantId,
+          order.quantity || quantity
         );
         refresh().catch(() => {});
       } catch (err) {
@@ -548,6 +553,7 @@ export function ProductDetailPage() {
         paymentMethod={selectedPayment}
         onConfirm={handleCheckoutConfirm}
         selectedSize={selectedSize || null}
+        selectedVariantId={needsSize ? selectedVariantId : null}
         quantity={quantity}
       />
     </div>

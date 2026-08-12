@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Storefront, Truck, ChevronRight, ArrowRight } from "@/lib/icons";
 import { useRewards } from "@/app/data/RewardsContext";
@@ -209,7 +209,7 @@ function ProductCard({ product, onRedeem }) {
 }
 
 export function StorePage() {
-  const { wallet, products, loading, error, loadProducts, redeemProduct, refresh } = useRewards();
+  const { wallet, products, loading, error, redeemProduct, refresh } = useRewards();
   const [activeCategory, setActiveCategory] = useState("all");
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedPayment, setSelectedPayment] = useState("credits");
@@ -220,11 +220,9 @@ export function StorePage() {
 
   const SIZES = ["P", "M", "G", "GG", "XG"];
   const needsSize = selectedProduct && ["oversized", "hoodie", "moletom"].includes(selectedProduct.category);
-
-  useEffect(() => {
-    loadProducts().catch(() => {});
-    refresh().catch(() => {});
-  }, [loadProducts, refresh]);
+  const selectedVariantId = selectedProduct?.variants?.find(
+    (variant) => variant.active !== false && variant.size === selectedSize
+  )?.id || null;
 
   const availableCategories = useMemo(() => {
     const cats = new Set(
@@ -264,7 +262,7 @@ export function StorePage() {
       if (order.paymentMethod === "credits") {
         await redeemProduct(selectedProduct.id, order.customer.name, order.customer.email,
         { linha1: `${order.address.street}, ${order.address.number} — ${order.address.city}/${order.address.state}` },
-          order.idempotencyKey);
+          order.idempotencyKey, order.variantId || selectedVariantId, order.quantity || quantity);
       }
       refresh().catch(() => {});
     } catch (err) {
@@ -368,6 +366,7 @@ export function StorePage() {
         paymentMethod={selectedPayment}
         onConfirm={handleCheckoutConfirm}
         selectedSize={needsSize ? selectedSize : null}
+        selectedVariantId={needsSize ? selectedVariantId : null}
         quantity={quantity}
       />
 

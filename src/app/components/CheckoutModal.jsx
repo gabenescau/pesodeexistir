@@ -69,7 +69,7 @@ function Field({ label, value, onChange, type = "text", placeholder, icon: Icon,
   );
 }
 
-export function CheckoutModal({ isOpen, onClose, product, paymentMethod = "credits", onConfirm, selectedSize, quantity = 1 }) {
+export function CheckoutModal({ isOpen, onClose, product, paymentMethod = "credits", onConfirm, selectedSize, selectedVariantId = null, quantity = 1 }) {
   const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
@@ -133,6 +133,7 @@ export function CheckoutModal({ isOpen, onClose, product, paymentMethod = "credi
           creditsCost: paymentMethod === "credits" ? product.credits_cost * quantity : null,
           realPrice: paymentMethod === "real" ? ((product.real_price || 0) * quantity || null) : null,
           size: selectedSize || null,
+          variantId: selectedVariantId || null,
           quantity,
           customer: { name: form.name, email: form.email, phone: form.phone },
           address: {
@@ -151,8 +152,10 @@ export function CheckoutModal({ isOpen, onClose, product, paymentMethod = "credi
         // fallback localStorage se o Supabase nao estiver configurado.
         if (isSupabaseReady()) {
           if (!user?.id) throw new Error("Sessao obrigatoria para criar o pedido");
-          const { data, error } = await supabase.rpc("create_shop_order", {
+          const { data, error } = await supabase.rpc("create_shop_order_with_variant", {
             p_product_id: product.id || null,
+            p_variant_id: selectedVariantId || null,
+            p_quantity: quantity,
             p_payment_method: paymentMethod,
             p_customer: { name: form.name, email: form.email, phone: form.phone },
             p_address: {

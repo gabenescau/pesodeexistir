@@ -35,8 +35,10 @@ export const rewardApi = {
   rewardLikesReceived: (ownerId) => rpc("reward_likes_received", { p_owner_id: ownerId }),
   completeDailyMission: () => rpc("complete_daily_mission"),
   completeWeeklyMission: () => rpc("complete_weekly_mission"),
-  redeemProduct: (productId, customerName, customerEmail, address, idempotencyKey) => rpc("redeem_product", {
+  redeemProduct: (productId, customerName, customerEmail, address, idempotencyKey, variantId = null, quantity = 1) => rpc("redeem_product_with_variant", {
     p_product_id: productId,
+    p_variant_id: variantId,
+    p_quantity: quantity,
     p_customer_name: customerName,
     p_customer_email: customerEmail,
     p_address: { ...(address && typeof address === "object" ? address : {}), idempotency_key: idempotencyKey || globalThis.crypto?.randomUUID?.() || `redeem-${Date.now()}-${Math.random().toString(36).slice(2)}` },

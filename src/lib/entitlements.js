@@ -11,6 +11,7 @@ export const PLAN_FEATURES = Object.freeze({
     "store",
     "reading_sync",
     "weekly_releases",
+    "missions",
   ]),
   pensador: Object.freeze([
     "library",
@@ -21,7 +22,6 @@ export const PLAN_FEATURES = Object.freeze({
     "weekly_releases",
     "verified_badge",
     "ranking",
-    "missions",
     "seasons",
     "credit_multiplier",
     "vip_support",

@@ -3,6 +3,17 @@ import { useAuth } from "./AuthContext";
 import { rewardApi, normalizeWalletState } from "@/lib/rewards";
 
 const RewardsContext = createContext(null);
+const CATALOG_CACHE_TTL_MS = 60_000;
+const REDEMPTIONS_CACHE_TTL_MS = 15_000;
+const catalogCache = new Map();
+const catalogRequests = new Map();
+const redemptionsCache = new Map();
+const redemptionRequests = new Map();
+
+function getCacheEntry(cache, userId) {
+  const entry = cache.get(userId);
+  return entry && entry.expiresAt > Date.now() ? entry : null;
+}
 
 // Estado global de XP / Creditos / streak / missoes. O servidor e a fonte da
 // verdade; cada acao chama um RPC que devolve o snapshot jsonb atualizado da
@@ -28,7 +39,23 @@ export function RewardsProvider({ children }) {
     }
   }, []);
 
-  const loadProducts = useCallback(async () => {
+  const loadProducts = useCallback(async ({ force = false } = {}) => {
+    const cacheKey = user?.id || "anonymous";
+    if (!force) {
+      const cached = getCacheEntry(catalogCache, cacheKey);
+      if (cached) {
+        if ((user?.id || "anonymous") === cacheKey) setProducts(cached.data);
+        return cached.data;
+      }
+      const pending = catalogRequests.get(cacheKey);
+      if (pending) {
+        const result = await pending;
+        if ((user?.id || "anonymous") === cacheKey) setProducts(result);
+        return result;
+      }
+    }
+
+    const request = (async () => {
     const { supabase, isSupabaseReady } = await import("./supabase");
     if (!isSupabaseReady()) {
       if (import.meta.env.PROD) {
@@ -125,8 +152,7 @@ export function RewardsProvider({ children }) {
         ];
         try { localStorage.setItem("ope_shop_products_dev", JSON.stringify(localProducts)); } catch {}
       }
-      setProducts(localProducts.filter((p) => p.active !== false));
-      return localProducts;
+      return localProducts.filter((p) => p.active !== false);
     }
     const { data, error } = await supabase
       .from("shop_products")
@@ -134,7 +160,7 @@ export function RewardsProvider({ children }) {
       // remains purchasable even when it has no season assignment.
       // Use the table shape returned by PostgREST instead of naming optional
       // columns such as images that may not exist in older deployments.
-      .select("*")
+      .select("id,name,description,category,credits_cost,min_months_active,image_url,images,active,external_sku,created_at,updated_at,real_price,stock,season_id,early_access_at,public_release_at")
       .eq("active", true)
       .order("credits_cost", { ascending: true });
     if (error) {
@@ -177,11 +203,37 @@ export function RewardsProvider({ children }) {
         variants: variantsByProduct.get(product.id) || [],
       };
     });
-    setProducts(catalog);
     return catalog;
-  }, []);
+    })();
 
-  const loadMyRedemptions = useCallback(async () => {
+    catalogRequests.set(cacheKey, request);
+    try {
+      const result = await request;
+      catalogCache.set(cacheKey, { data: result, expiresAt: Date.now() + CATALOG_CACHE_TTL_MS });
+      if ((user?.id || "anonymous") === cacheKey) setProducts(result);
+      return result;
+    } finally {
+      if (catalogRequests.get(cacheKey) === request) catalogRequests.delete(cacheKey);
+    }
+  }, [user?.id]);
+
+  const loadMyRedemptions = useCallback(async ({ force = false } = {}) => {
+    const cacheKey = user?.id || "anonymous";
+    if (!force) {
+      const cached = getCacheEntry(redemptionsCache, cacheKey);
+      if (cached) {
+        if ((user?.id || "anonymous") === cacheKey) setMyRedemptions(cached.data);
+        return cached.data;
+      }
+      const pending = redemptionRequests.get(cacheKey);
+      if (pending) {
+        const result = await pending;
+        if ((user?.id || "anonymous") === cacheKey) setMyRedemptions(result);
+        return result;
+      }
+    }
+
+    const request = (async () => {
     const { supabase, isSupabaseReady } = await import("./supabase");
     if (!isSupabaseReady()) {
       setMyRedemptions([]);
@@ -193,9 +245,19 @@ export function RewardsProvider({ children }) {
       .order("created_at", { ascending: false })
       .limit(100);
     if (error) throw error;
-    setMyRedemptions(data || []);
     return data || [];
-  }, []);
+    })();
+
+    redemptionRequests.set(cacheKey, request);
+    try {
+      const result = await request;
+      redemptionsCache.set(cacheKey, { data: result, expiresAt: Date.now() + REDEMPTIONS_CACHE_TTL_MS });
+      if ((user?.id || "anonymous") === cacheKey) setMyRedemptions(result);
+      return result;
+    } finally {
+      if (redemptionRequests.get(cacheKey) === request) redemptionRequests.delete(cacheKey);
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     if (!isAuthenticated || !user?.id) {
@@ -268,7 +330,7 @@ export function RewardsProvider({ children }) {
   const redeemProduct = useCallback(async (productId, customerName, customerEmail, address, idempotencyKey, variantId = null, quantity = 1) => {
     const raw = await rewardApi.redeemProduct(productId, customerName, customerEmail, address, idempotencyKey, variantId, quantity);
     if (raw?.wallet) applyRpcResult(raw.wallet);
-    await loadMyRedemptions();
+    await loadMyRedemptions({ force: true });
     return raw;
   }, [applyRpcResult, loadMyRedemptions]);
 

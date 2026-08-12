@@ -11,7 +11,11 @@ import {
   sendSuccess,
   updateSubscription,
 } from "../server/supabase.js";
-import { getStripe } from "../server/stripe.js";
+import {
+  getStripe,
+  resolveStripeSubscriptionForBilling,
+  stripeSubscriptionPatch,
+} from "../server/stripe.js";
 import { parseSubscriptionIdInput } from "../src/lib/api-contracts.js";
 
 export default async function handler(req, res) {
@@ -19,7 +23,7 @@ export default async function handler(req, res) {
 
   try {
     const user = await getAuthenticatedUser(req);
-    const { subscriptionId, immediate } = parseSubscriptionIdInput(req.body);
+    const { subscriptionId, immediate, resume } = parseSubscriptionIdInput(req.body);
     if (!await enforceRateLimit(req, res, {
       scope: "cancel_subscription",
       limit: 8,
@@ -46,14 +50,44 @@ export default async function handler(req, res) {
     const now = new Date().toISOString();
     let updated;
 
-    if (subscription.provider === "stripe" && subscription.provider_subscription_id) {
-      // Admin "remover" cancela imediatamente no Stripe (fim imediato do acesso).
-      // Usuario comum cancela no fim do periodo (cancel_at_period_end).
+    if (resume) {
+      if (subscription.provider !== "stripe") {
+        return sendClientError(req, res, 400, "Assinatura nao gerenciada por Stripe");
+      }
+      const resolved = await resolveStripeSubscriptionForBilling(subscription);
+      if (!resolved?.subscription) {
+        return sendClientError(req, res, 409, "Nao encontramos a assinatura ativa na Stripe");
+      }
+      if (!["active", "trialing", "past_due", "paused"].includes(resolved.subscription.status)) {
+        return sendClientError(req, res, 409, "Esta assinatura nao esta ativa na Stripe");
+      }
+      if (!resolved.subscription.cancel_at_period_end) return sendSuccess(req, res, subscription);
       const stripe = getStripe();
-      if (immediate && isAdmin) {
-        await stripe.subscriptions.cancel(subscription.provider_subscription_id, {
-          idempotencyKey: `ope-cancel-${subscription.provider_subscription_id}-immediate`,
-        });
+      const remote = await stripe.subscriptions.update(
+        resolved.subscription.id,
+        { cancel_at_period_end: false },
+        { idempotencyKey: `ope-resume-${resolved.subscription.id}` }
+      );
+      const patch = stripeSubscriptionPatch(remote, subscription);
+      updated = await updateSubscription(subscription.id, {
+        ...patch,
+        metadata: { ...patch.metadata, resumed_by: user.id, resumed_at: now },
+      });
+      logAuditEvent("subscription.cancelation.resumed", req, {
+        actorId: user.id,
+        targetId: subscription.id,
+        outcome: "success",
+        provider: "stripe",
+      });
+      return sendSuccess(req, res, updated || subscription);
+    }
+
+    if (subscription.provider === "stripe") {
+      const resolved = await resolveStripeSubscriptionForBilling(subscription);
+      if (!resolved?.subscription) {
+        if (!isAdmin) {
+          return sendClientError(req, res, 409, "Nao encontramos a assinatura ativa na Stripe");
+        }
         updated = await updateSubscription(subscription.id, {
           status: "canceled",
           cancel_at_period_end: false,
@@ -61,40 +95,38 @@ export default async function handler(req, res) {
           metadata: {
             ...subscription.metadata,
             canceled_by: user.id,
-            cancellation: "stripe_immediate_admin",
-            requested_at: now,
+            cancellation_mode: "stripe_local_admin_revoke",
           },
         });
       } else {
-        const remote = await stripe.subscriptions.update(
-          subscription.provider_subscription_id,
-          { cancel_at_period_end: true },
-          { idempotencyKey: `ope-cancel-${subscription.provider_subscription_id}-period-end` }
-        );
+        if (!["active", "trialing", "past_due", "paused"].includes(resolved.subscription.status)) {
+          return sendClientError(req, res, 409, "Esta assinatura nao esta ativa na Stripe");
+        }
+        // Admin "remover" cancela imediatamente no Stripe (fim imediato do acesso).
+        // Usuario comum cancela no fim do periodo (cancel_at_period_end).
+        const stripe = getStripe();
+        const remote = immediate && isAdmin
+          ? await stripe.subscriptions.cancel(resolved.subscription.id, {
+              idempotencyKey: `ope-cancel-${resolved.subscription.id}-immediate`,
+            })
+          : await stripe.subscriptions.update(
+              resolved.subscription.id,
+              { cancel_at_period_end: true },
+              { idempotencyKey: `ope-cancel-${resolved.subscription.id}-period-end` }
+            );
+        const patch = stripeSubscriptionPatch(remote, subscription);
         updated = await updateSubscription(subscription.id, {
-          cancel_at_period_end: Boolean(remote.cancel_at_period_end),
+          ...patch,
           metadata: {
-            ...subscription.metadata,
+            ...patch.metadata,
             canceled_by: user.id,
-            cancellation: "stripe_cancel_at_period_end",
+            cancellation: immediate && isAdmin
+              ? "stripe_immediate_admin"
+              : "stripe_cancel_at_period_end",
             requested_at: now,
           },
         });
       }
-    } else if (subscription.provider === "stripe") {
-      if (!isAdmin) {
-        return sendClientError(req, res, 409, "Este acesso nao possui renovacao automatica para cancelar.");
-      }
-      updated = await updateSubscription(subscription.id, {
-        status: "canceled",
-        cancel_at_period_end: false,
-        canceled_at: now,
-        metadata: {
-          ...subscription.metadata,
-          canceled_by: user.id,
-          cancellation_mode: "stripe_pix_admin_revoke",
-        },
-      });
     } else {
       // Provedores locais (manual_admin, legados): encerra imediatamente no banco.
       if (!isAdmin) {

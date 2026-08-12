@@ -23,6 +23,7 @@ export const TIERS = {
       { text: "Resgate de livros e roupas na Loja OPE", feature: "store" },
       { text: "Sincroniza\u00e7\u00e3o do progresso de leitura", feature: "reading_sync" },
       { text: "Lan\u00e7amentos semanais e cat\u00e1logo atualizado", feature: "weekly_releases" },
+      { text: "Miss\u00f5es di\u00e1rias e semanais", feature: "missions" },
     ],
   },
   pensador: {
@@ -46,7 +47,6 @@ export const TIERS = {
       { text: "Lan\u00e7amentos semanais e cat\u00e1logo atualizado", feature: "weekly_releases" },
       { text: "Selo de Pensador verificado", feature: "verified_badge", icon: "verified", exclusive: true },
       { text: "Ranking mensal de cr\u00e9ditos", feature: "ranking", exclusive: true },
-      { text: "Miss\u00f5es di\u00e1rias, semanais e Seasons", feature: "missions", exclusive: true },
       { text: "Acesso a cole\u00e7\u00f5es exclusivas das Seasons", feature: "seasons", exclusive: true },
       { text: "Multiplicador 2x nas recompensas de atividade", feature: "credit_multiplier", exclusive: true },
       { text: "Atendimento priorit\u00e1rio pelo WhatsApp", feature: "vip_support", exclusive: true },

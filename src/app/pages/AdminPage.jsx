@@ -3220,10 +3220,7 @@ function PedidosTab() {
     setError("");
     try {
       if (isSupabaseReady()) {
-        const { data, error } = await supabase
-          .from("orders")
-          .select("*")
-          .order("created_at", { ascending: false });
+        const { data, error } = await supabase.rpc("admin_list_orders", { p_limit: 200 });
         if (error) throw error;
         setOrders((data || []).map(toLocal));
       } else {
@@ -3249,7 +3246,10 @@ function PedidosTab() {
     setOrders(optimistic);
     if (isSupabaseReady()) {
       try {
-        const { error } = await supabase.from("orders").update({ status: newStatus }).eq("id", id);
+        const { error } = await supabase.rpc("admin_update_order_status", {
+          p_order_id: id,
+          p_status: newStatus,
+        });
         if (error) throw error;
       } catch {
         load();
