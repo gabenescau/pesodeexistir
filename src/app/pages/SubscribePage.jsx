@@ -5,7 +5,6 @@ import { useData } from "@/app/data/DataContext";
 import { authenticatedApiPost } from "@/lib/authenticated-api";
 import { CYCLES, TIERS, formatBRL, getTierPlanKey, planInfoFromCode } from "@/lib/plans";
 import { getCurrentSubscription, isActiveSubscription } from "@/lib/subscription";
-import { PlanBenefitList } from "@/components/plan-benefit";
 import { Loader2, ShieldCheck, Check } from "@/lib/icons";
 import { toast } from "@/lib/toast";
 import { useCancelSurvey } from "@/components/ui/cancel-survey";
@@ -13,7 +12,6 @@ import { parseCheckoutInput, parseSubscriptionInput } from "@/lib/api-contracts"
 
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
-// Render tiers in this order — Pensador (most expensive) first
 const TIER_ORDER = ["pensador", "leitor"];
 
 export function SubscribePage() {
@@ -172,46 +170,43 @@ export function SubscribePage() {
   const orderedTiers = TIER_ORDER.map((id) => TIERS[id]).filter(Boolean);
 
   return (
-    <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 sm:py-12">
+    <main className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 sm:py-16">
 
-      {/* ── Header ── */}
-      <header className="mb-8 text-center">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.15em] text-[var(--accent-mint)]">
+      {/* ── Header Clean ── */}
+      <header className="mb-10 text-center">
+        <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-[var(--text-muted)]">
           OPE Club
         </p>
-        <h1 className="text-2xl font-bold text-[var(--text-primary)] sm:text-3xl">
+        <h1 className="text-3xl font-extrabold tracking-tight text-[var(--text-primary)] sm:text-4xl">
           Invista na sua leitura
         </h1>
-        <p className="mt-2 text-sm text-[var(--text-muted)]">
-          Cancele a qualquer momento. Sem taxa, sem burocracia.
-        </p>
       </header>
 
-      {/* ── Checkout message ── */}
+      {/* ── Checkout feedback ── */}
       {checkoutMessage && (
-        <div className="mb-6 flex items-start gap-3 rounded-[10px] border border-[var(--border)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-secondary)]">
+        <div className="mb-8 flex items-center justify-center gap-3 rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-secondary)] shadow-sm">
           {working === "confirm" ? (
-            <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin" />
+            <Loader2 className="size-4 animate-spin text-[var(--accent-mint)]" />
           ) : (
-            <ShieldCheck className="mt-0.5 size-4 shrink-0 text-[var(--accent-mint)]" />
+            <ShieldCheck className="size-4 text-[var(--accent-mint)]" />
           )}
-          {checkoutMessage}
+          <span>{checkoutMessage}</span>
         </div>
       )}
 
-      {/* ── Active subscription banner ── */}
+      {/* ── Plano Ativo ── */}
       {(active || isAdmin) && (
-        <section className="mb-6 flex flex-col gap-3 rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <section className="mb-8 flex flex-col gap-3 rounded-[16px] border border-[var(--border)] bg-[var(--bg-card)] p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-wider text-[var(--text-muted)]">Plano atual</p>
-            <p className="mt-1 font-semibold text-[var(--text-primary)]">
+            <p className="text-xs uppercase tracking-wider text-[var(--text-muted)]">Seu plano atual</p>
+            <p className="mt-0.5 text-base font-bold text-[var(--text-primary)]">
               {isAdmin ? "Acesso administrativo" : currentInfo?.tierLabel || "OPE Club"}
             </p>
             {!isAdmin && visibleSubscription?.current_period_end && (
-              <p className="mt-1 text-xs text-[var(--text-muted)]">
+              <p className="mt-0.5 text-xs text-[var(--text-muted)]">
                 {visibleSubscription.cancel_at_period_end
                   ? "Renovação cancelada, acesso até "
-                  : "Próximo ciclo em "}
+                  : "Próxima renovação em "}
                 {new Date(visibleSubscription.current_period_end).toLocaleDateString("pt-BR")}
               </p>
             )}
@@ -220,7 +215,7 @@ export function SubscribePage() {
             <button
               type="button"
               onClick={() => navigate("/app/configuracoes?aba=assinatura")}
-              className="min-h-10 rounded-[8px] border border-[var(--border)] px-4 text-sm text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] transition-colors"
+              className="min-h-9 rounded-[8px] border border-[var(--border)] px-4 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] transition-colors"
             >
               Gerenciar
             </button>
@@ -229,7 +224,7 @@ export function SubscribePage() {
                 type="button"
                 onClick={handleCancel}
                 disabled={Boolean(working)}
-                className="min-h-10 rounded-[8px] border border-[var(--border)] px-4 text-sm text-red-400 disabled:opacity-50 hover:bg-red-500/5 transition-colors"
+                className="min-h-9 rounded-[8px] border border-[var(--border)] px-4 text-xs font-medium text-red-400 disabled:opacity-50 hover:bg-red-500/10 transition-colors"
               >
                 {working === "cancel" ? "Cancelando..." : "Cancelar renovação"}
               </button>
@@ -238,10 +233,10 @@ export function SubscribePage() {
         </section>
       )}
 
-      {/* ── Billing cycle toggle ── */}
-      <div className="mb-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+      {/* ── Frequência de cobrança (Mensal / Anual) ── */}
+      <div className="mb-8 flex flex-col items-center gap-2">
         <div
-          className="flex rounded-full border border-[var(--border)] bg-[var(--bg-card)] p-1"
+          className="inline-flex rounded-full border border-[var(--border)] bg-[var(--bg-card)] p-1 shadow-sm"
           role="radiogroup"
           aria-label="Frequência de cobrança"
         >
@@ -254,16 +249,16 @@ export function SubscribePage() {
                 role="radio"
                 aria-checked={selected}
                 onClick={() => setCycle(item.id)}
-                className={`flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-mint)] ${
+                className={`flex items-center gap-1.5 rounded-full px-5 py-2 text-xs font-bold transition-all focus-visible:outline-none ${
                   selected
                     ? "bg-[var(--text-primary)] text-[var(--bg-card)] shadow-sm"
-                    : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                    : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                 }`}
               >
                 {item.label}
                 {item.id === "annual" && (
                   <span
-                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                    className={`rounded-full px-1.5 py-0.5 text-[9px] font-extrabold ${
                       selected
                         ? "bg-[var(--accent-mint)] text-[var(--bg-canvas)]"
                         : "bg-[var(--accent-mint)]/15 text-[var(--accent-mint)]"
@@ -276,15 +271,10 @@ export function SubscribePage() {
             );
           })}
         </div>
-        {cycle === "annual" && (
-          <p className="text-xs text-[var(--accent-mint)] font-medium">
-            Economize até {TIERS.pensador.annualDiscountPercent}% com o plano anual
-          </p>
-        )}
       </div>
 
-      {/* ── Plan cards — Pensador first on all screen sizes ── */}
-      <div className="grid gap-4 sm:grid-cols-2">
+      {/* ── Cards de Planos Clean — Pensador primeiro ── */}
+      <div className="grid gap-6 sm:grid-cols-2">
         {orderedTiers.map((tier) => {
           const isPensador = tier.id === "pensador";
           const isSelected = tier.id === tierId;
@@ -298,67 +288,76 @@ export function SubscribePage() {
           return (
             <div
               key={tier.id}
-              className={`relative flex flex-col rounded-[20px] border p-6 transition-all ${
+              className={`relative flex flex-col rounded-[24px] border p-6 sm:p-8 transition-all ${
                 isPensador
-                  ? "border-[var(--text-primary)] bg-[var(--bg-card)] shadow-[0_8px_40px_rgba(0,0,0,0.18)] order-first sm:order-first"
+                  ? "border-[var(--text-primary)] bg-[var(--bg-card)] shadow-[0_12px_48px_rgba(0,0,0,0.25)] order-first sm:order-first"
                   : "border-[var(--border)] bg-[var(--bg-card)]"
               }`}
             >
-              {/* Badge */}
+              {/* Badge Pensador */}
               {isPensador && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[var(--text-primary)] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[var(--bg-card)]">
-                  Mais completo
-                </span>
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <span className="rounded-full bg-[var(--text-primary)] px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest text-[var(--bg-card)] shadow-sm">
+                    Mais completo
+                  </span>
+                </div>
               )}
 
-              {/* Tier name + description */}
-              <div className="mb-5">
-                <p className={`text-xs font-semibold uppercase tracking-widest ${isPensador ? "text-[var(--accent-mint)]" : "text-[var(--text-muted)]"}`}>
+              {/* Título & Descrição */}
+              <div className="mb-6">
+                <h3 className="text-lg font-bold uppercase tracking-wider text-[var(--text-primary)]">
                   {tier.id === "pensador" ? "Pensador" : "Leitor"}
-                </p>
-                <p className="mt-1 text-sm text-[var(--text-muted)] leading-relaxed">
+                </h3>
+                <p className="mt-1.5 text-xs leading-relaxed text-[var(--text-muted)]">
                   {tier.description}
                 </p>
               </div>
 
-              {/* Price */}
-              <div className="mb-1 flex items-end gap-1.5">
-                <span className="text-4xl font-bold tracking-tight text-[var(--text-primary)]">
+              {/* Preço */}
+              <div className="mb-1 flex items-baseline gap-1">
+                <span className="text-4xl font-extrabold tracking-tight text-[var(--text-primary)]">
                   {formatBRL(monthlyDisplay)}
                 </span>
-                <span className="mb-1 text-sm text-[var(--text-muted)]">/mês</span>
+                <span className="text-xs font-medium text-[var(--text-muted)]">/mês</span>
               </div>
-              <p className="mb-6 text-xs text-[var(--text-muted)]">
+              <p className="mb-6 text-[11px] text-[var(--text-muted)]">
                 {cycle === "annual"
                   ? `${formatBRL(tier.annualPrice)} cobrados por ano`
                   : "cobrado mensalmente"}
               </p>
 
-              {/* Benefits */}
-              <ul className="mb-6 flex-1 space-y-2.5">
-                {tier.benefits.slice(0, 7).map((benefit) => (
-                  <li key={benefit.text} className="flex items-start gap-2.5 text-sm text-[var(--text-secondary)]">
-                    <Check className={`mt-0.5 size-4 shrink-0 ${benefit.exclusive ? "text-[var(--accent-mint)]" : "text-[var(--text-primary)]"}`} />
-                    <span>{benefit.text}</span>
+              {/* Divisor minimalista */}
+              <div className="mb-6 h-px w-full bg-[var(--border)]" />
+
+              {/* Lista de Benefícios */}
+              <ul className="mb-8 flex-1 space-y-3">
+                {tier.benefits.map((benefit) => (
+                  <li key={benefit.text} className="flex items-start gap-3 text-xs text-[var(--text-secondary)]">
+                    <Check
+                      className={`mt-0.5 size-4 shrink-0 ${
+                        isPensador ? "text-[var(--accent-mint)]" : "text-[var(--text-primary)]"
+                      }`}
+                    />
+                    <span className="leading-snug">{benefit.text}</span>
                   </li>
                 ))}
               </ul>
 
-              {/* CTA */}
+              {/* Botão de Assinatura */}
               <button
                 type="button"
                 disabled={Boolean(working)}
                 onClick={() => handlePlanSelection(tier.id)}
-                className={`flex min-h-11 w-full items-center justify-center gap-2 rounded-full text-sm font-semibold transition-all disabled:opacity-60 ${
+                className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-full text-xs font-bold transition-all disabled:opacity-60 ${
                   isPensador
-                    ? "bg-[var(--text-primary)] text-[var(--bg-card)] hover:opacity-90"
-                    : "border border-[var(--border)] text-[var(--text-primary)] hover:bg-[var(--hover-overlay)]"
+                    ? "bg-[var(--text-primary)] text-[var(--bg-card)] hover:opacity-90 active:scale-[0.99]"
+                    : "border border-[var(--border)] text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] active:scale-[0.99]"
                 }`}
               >
                 {working === "checkout" && isSelected ? (
                   <>
                     <Loader2 className="size-4 animate-spin" />
-                    Redirecionando...
+                    Processando...
                   </>
                 ) : isCurrentPlan ? (
                   "Plano atual"
@@ -372,37 +371,6 @@ export function SubscribePage() {
           );
         })}
       </div>
-
-      {/* ── Trust badges ── */}
-      <div className="mt-8 flex flex-wrap items-center justify-center gap-4 text-xs text-[var(--text-muted)]">
-        <span className="flex items-center gap-1.5">
-          <ShieldCheck className="size-4 text-[var(--accent-mint)]" />
-          Checkout seguro via Stripe
-        </span>
-        <span className="flex items-center gap-1.5">
-          <Check className="size-4 text-[var(--accent-mint)]" />
-          Cancele a qualquer momento
-        </span>
-        <span className="flex items-center gap-1.5">
-          <Check className="size-4 text-[var(--accent-mint)]" />
-          Sem taxas de cancelamento
-        </span>
-      </div>
-
-      {/* ── Full benefit breakdown ── */}
-      <section className="mt-8 rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)] p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-            {selectedTier.label} inclui
-          </h3>
-          <ShieldCheck className="size-4 text-[var(--accent-mint)]" />
-        </div>
-        <PlanBenefitList
-          benefits={selectedTier.benefits}
-          itemClassName="flex items-start gap-2 text-sm text-[var(--text-secondary)] py-2 border-b border-[var(--border)] last:border-0"
-          iconClassName="mt-0.5 size-4 shrink-0 text-[var(--accent-mint)]"
-        />
-      </section>
 
       {cancelSurvey.dialog}
     </main>

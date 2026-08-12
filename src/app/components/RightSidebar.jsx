@@ -2,7 +2,6 @@ import { Coins } from "@/lib/icons";
 import { useRewards } from "@/app/data/RewardsContext";
 import { MissionsWidget } from "./MissionsWidget";
 import { ReferralWidget } from "./ReferralWidget";
-import { MonthlyRankingWidget } from "./MonthlyRankingWidget";
 import { InstallAppWidget } from "./InstallAppWidget";
 
 export function RightSidebar() {
@@ -24,8 +23,6 @@ export function RightSidebar() {
       )}
 
       {wallet && <MissionsWidget />}
-
-      <MonthlyRankingWidget limit={5} />
 
       {wallet && <ReferralWidget />}
 
