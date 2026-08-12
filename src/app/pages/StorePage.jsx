@@ -64,7 +64,7 @@ function DropBannerSection({ products, onVerTudo }) {
 
   const dropProducts = config.productIds.length > 0
     ? products.filter((p) => config.productIds.includes(p.id))
-    : products.slice(0, 4);
+    : products.filter((p) => ["oversized", "hoodie", "moletom"].includes(p.category)).concat(products).filter((v, i, a) => a.findIndex(t => t.id === v.id) === i).slice(0, 8);
 
   if (dropProducts.length === 0) return null;
 
@@ -89,20 +89,20 @@ function DropBannerSection({ products, onVerTudo }) {
         </button>
       </div>
 
-      <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-1" style={{ scrollbarWidth: "none" }}>
+      <div className="flex items-stretch gap-3 overflow-x-auto snap-x snap-mandatory pb-2" style={{ scrollbarWidth: "none" }}>
         {/* Featured — grande */}
         <div
           onClick={() => navigate(`/app/loja/produto/${featured.id}`)}
-          className="group relative shrink-0 snap-start w-[68%] sm:w-[280px] cursor-pointer overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)] hover:border-[var(--border-strong)] transition-all"
+          className="group relative shrink-0 snap-start w-[240px] sm:w-[280px] h-[320px] sm:h-[370px] cursor-pointer overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)] hover:border-[var(--border-strong)] transition-all"
         >
-          <div className="aspect-[3/4] overflow-hidden bg-[var(--bg-canvas)]">
+          <div className="h-full w-full overflow-hidden bg-[var(--bg-canvas)]">
             {featuredImages.length > 0 ? (
               <img src={featuredImages[0]} alt={featured.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
             ) : (
               <div className="flex h-full items-center justify-center"><Storefront className="size-10 text-[var(--text-muted)]" /></div>
             )}
           </div>
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4">
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent p-4 flex flex-col justify-end">
             <p className="text-[9px] font-semibold uppercase tracking-wider text-white/60">{CATEGORY_LABELS[featured.category] || featured.category}</p>
             <p className="text-sm font-bold text-white leading-tight mt-0.5 line-clamp-2">{featured.name}</p>
             <div className="flex items-center gap-2 mt-1.5">
@@ -115,7 +115,7 @@ function DropBannerSection({ products, onVerTudo }) {
           </div>
         </div>
 
-        {/* Itens menores */}
+        {/* Itens menores — alinhados perfeitamente com a mesma altura */}
         {rest.map((p) => {
           const imgs = getProductImages(p);
           const rp = Number(p.real_price || 0);
@@ -123,18 +123,19 @@ function DropBannerSection({ products, onVerTudo }) {
             <div
               key={p.id}
               onClick={() => navigate(`/app/loja/produto/${p.id}`)}
-              className="group relative shrink-0 snap-start w-[46%] sm:w-[185px] cursor-pointer overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)] hover:border-[var(--border-strong)] transition-all"
+              className="group relative shrink-0 snap-start w-[155px] sm:w-[190px] h-[320px] sm:h-[370px] cursor-pointer overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)] hover:border-[var(--border-strong)] transition-all"
             >
-              <div className="aspect-[3/4] overflow-hidden bg-[var(--bg-canvas)]">
+              <div className="h-full w-full overflow-hidden bg-[var(--bg-canvas)]">
                 {imgs.length > 0
                   ? <img src={imgs[0]} alt={p.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
                   : <div className="flex h-full items-center justify-center"><Storefront className="size-7 text-[var(--text-muted)]" /></div>
                 }
               </div>
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent p-3">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent p-3 flex flex-col justify-end">
+                <p className="text-[9px] font-semibold uppercase tracking-wider text-white/60 mb-0.5">{CATEGORY_LABELS[p.category] || p.category}</p>
                 <p className="text-xs font-bold text-white leading-tight line-clamp-2">{p.name}</p>
-                <div className="mt-1 flex items-center gap-1.5">
-                  <span className="text-[10px] text-white/80">{p.credits_cost?.toLocaleString("pt-BR")} cr.</span>
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  <span className="text-[10px] font-semibold text-white/90">{p.credits_cost?.toLocaleString("pt-BR")} cr.</span>
                   {rp > 0 && <span className="text-[9px] text-white/50">ou R$ {rp.toFixed(2)}</span>}
                 </div>
               </div>
