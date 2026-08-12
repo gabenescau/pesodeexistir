@@ -89,11 +89,11 @@ function DropBannerSection({ products, onVerTudo }) {
         </button>
       </div>
 
-      <div className="flex items-stretch gap-3 overflow-x-auto snap-x snap-mandatory pb-2" style={{ scrollbarWidth: "none" }}>
-        {/* Featured — grande */}
+      <div className="flex items-start gap-3 overflow-x-auto snap-x snap-mandatory pb-2" style={{ scrollbarWidth: "none" }}>
+        {/* Featured — grande como na segunda imagem */}
         <div
           onClick={() => navigate(`/app/loja/produto/${featured.id}`)}
-          className="group relative shrink-0 snap-start w-[210px] sm:w-[260px] h-[220px] sm:h-[260px] cursor-pointer overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)] hover:border-[var(--border-strong)] transition-all"
+          className="group relative shrink-0 snap-start w-[68%] sm:w-[280px] aspect-[3/4] cursor-pointer overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)] hover:border-[var(--border-strong)] transition-all"
         >
           <div className="h-full w-full overflow-hidden bg-[var(--bg-canvas)]">
             {featuredImages.length > 0 ? (
@@ -102,20 +102,20 @@ function DropBannerSection({ products, onVerTudo }) {
               <div className="flex h-full items-center justify-center"><Storefront className="size-10 text-[var(--text-muted)]" /></div>
             )}
           </div>
-          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent p-3.5 flex flex-col justify-end">
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent p-4 flex flex-col justify-end">
             <p className="text-[9px] font-semibold uppercase tracking-wider text-white/60">{CATEGORY_LABELS[featured.category] || featured.category}</p>
-            <p className="text-xs sm:text-sm font-bold text-white leading-tight mt-0.5 line-clamp-2">{featured.name}</p>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-[11px] sm:text-xs font-semibold text-white/90">{featured.credits_cost?.toLocaleString("pt-BR")} créditos</span>
-              {featuredRealPrice > 0 && <span className="text-[9px] text-white/50">ou R$ {featuredRealPrice.toFixed(2)}</span>}
+            <p className="text-sm font-bold text-white leading-tight mt-0.5 line-clamp-2">{featured.name}</p>
+            <div className="flex items-center gap-2 mt-1.5">
+              <span className="text-xs font-semibold text-white/90">{featured.credits_cost?.toLocaleString("pt-BR")} créditos</span>
+              {featuredRealPrice > 0 && <span className="text-[10px] text-white/50">ou R$ {featuredRealPrice.toFixed(2)}</span>}
             </div>
           </div>
-          <div className="absolute top-2.5 left-2.5">
+          <div className="absolute top-3 left-3">
             <span className="rounded-[6px] bg-white/10 backdrop-blur-sm border border-white/20 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">Drop</span>
           </div>
         </div>
 
-        {/* Itens menores — imagens sem borda preta (edge-to-edge object-cover) */}
+        {/* Itens menores — tamanho compacto correto sem borda preta */}
         {rest.map((p) => {
           const imgs = getProductImages(p);
           const rp = Number(p.real_price || 0);
