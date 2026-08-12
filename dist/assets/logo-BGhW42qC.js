@@ -1,0 +1,1 @@
+import{sn as e}from"./icons-hwF4-JhD.js";var t=e(),n=({className:e=``,...n})=>(0,t.jsxs)(`span`,{className:`inline-block shrink-0 whitespace-normal font-serif font-[400] leading-[.78] tracking-[-0.02em] ${e}`,...n,children:[(0,t.jsx)(`span`,{className:`block`,children:`OPE`}),(0,t.jsx)(`span`,{className:`block`,children:`CLUB`})]});export{n as t};

@@ -3255,11 +3255,10 @@ export function AdminPage() {
       </div>
 
       <div>
-        {activeTab === "dashboard" && <DashboardTab />}
-        {activeTab === "users" && <UsersManagementTab />}
+        {activeTab === "users" && <UsersTab />}
         {activeTab === "creditos" && <CreditsTab />}
         {activeTab === "pedidos" && <PedidosTab />}
-        {activeTab === "subscriptions" && <SubscriptionsTab />}
+        {activeTab === "subscriptions" && <UsersTab />}
         {activeTab === "posts" && <PostsTab />}
         {activeTab === "releases" && <WeeklyReleasesTab />}
         {activeTab === "categories" && <CategoriesTab />}

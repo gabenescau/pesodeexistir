@@ -1,47 +1,75 @@
-import { useState } from "react";
-import { Smartphone } from "@/lib/icons";
+import { useEffect, useState } from "react";
+import { Smartphone, Download } from "@/lib/icons";
 
 const STEPS = {
   android: [
     {
-      icon: "⋮",
-      text: "Toque no menu (três pontos) no canto superior direito do Chrome",
+      text: "No Chrome (Android / PC), toque no menu (três pontos ⋮) no canto superior direito.",
     },
     {
-      icon: "＋",
-      text: 'Selecione "Adicionar à tela inicial"',
+      text: 'Selecione a opção "Instalar aplicativo" ou "Instalar OPE Club".',
     },
     {
-      icon: "✓",
-      text: 'Toque em "Adicionar" para confirmar',
+      text: 'Clique em "Instalar" para confirmar a instalação na sua área de trabalho/tela inicial.',
     },
     {
-      icon: "🚀",
-      text: "Pronto! O app aparece na sua tela inicial",
+      text: "Pronto! O aplicativo abrirá em janela dedicada de alta velocidade.",
     },
   ],
   iphone: [
     {
-      icon: "⎋",
-      text: 'Toque no ícone de compartilhar (quadrado com seta) na barra inferior do Safari',
+      text: 'No Safari do iPhone, toque no ícone de Compartilhar (quadrado com seta pra cima) na barra inferior.',
     },
     {
-      icon: "＋",
-      text: 'Role para baixo e selecione "Adicionar à Tela de Início"',
+      text: 'Role para baixo e selecione "Adicionar à Tela de Início".',
     },
     {
-      icon: "✓",
-      text: 'Toque em "Adicionar" no canto superior direito',
+      text: 'Toque em "Adicionar" no canto superior direito.',
     },
     {
-      icon: "🚀",
-      text: "Pronto! O OPE Club abre como app nativo",
+      text: "Pronto! O ícone do OPE Club estará disponível na sua tela de início.",
     },
   ],
 };
 
 export function InstallAppWidget() {
   const [tab, setTab] = useState("android");
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [isInstalled, setIsInstalled] = useState(false);
+
+  useEffect(() => {
+    function handleBeforeInstallPrompt(e) {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    }
+
+    function handleAppInstalled() {
+      setIsInstalled(true);
+      setDeferredPrompt(null);
+    }
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener("appinstalled", handleAppInstalled);
+
+    if (window.matchMedia("(display-mode: standalone)").matches) {
+      setIsInstalled(true);
+    }
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", handleAppInstalled);
+    };
+  }, []);
+
+  async function handleInstallClick() {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === "accepted") {
+      setIsInstalled(true);
+    }
+    setDeferredPrompt(null);
+  }
 
   return (
     <section className="rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] p-5 space-y-4">
@@ -49,19 +77,36 @@ export function InstallAppWidget() {
       <div className="flex items-center gap-2">
         <Smartphone className="size-4 text-[var(--accent-mint)]" />
         <h3 className="text-xs font-semibold uppercase tracking-widest text-[var(--text-muted)]">
-          Instalar como App
+          Instalar Aplicativo
         </h3>
       </div>
 
       <p className="text-xs leading-relaxed text-[var(--text-secondary)]">
-        Adicione o OPE Club à sua tela inicial para acesso rápido, como um app nativo.
+        Instale o aplicativo OPE Club no seu celular ou computador para ter navegação em tela cheia e acesso rápido.
       </p>
+
+      {/* Botão de instalação direta do Chrome (quando suportado) */}
+      {deferredPrompt && !isInstalled && (
+        <button
+          type="button"
+          onClick={handleInstallClick}
+          className="flex w-full items-center justify-center gap-2 rounded-[10px] bg-[var(--text-primary)] py-2.5 text-xs font-semibold text-[var(--bg-card)] hover:opacity-90 transition-opacity"
+        >
+          <Download className="size-4" /> Instalar OPE Club no Dispositivo
+        </button>
+      )}
+
+      {isInstalled && (
+        <div className="rounded-[8px] border border-green-500/30 bg-green-500/10 p-2.5 text-center text-xs font-semibold text-green-400">
+          ✓ OPE Club já está instalado no seu dispositivo!
+        </div>
+      )}
 
       {/* Tab switcher */}
       <div className="flex rounded-[8px] border border-[var(--border)] bg-[var(--bg-canvas)] p-0.5">
         {[
-          { id: "android", label: "Android" },
-          { id: "iphone", label: "iPhone" },
+          { id: "android", label: "Chrome / Android / PC" },
+          { id: "iphone", label: "Safari / iPhone" },
         ].map((t) => (
           <button
             key={t.id}
@@ -93,7 +138,7 @@ export function InstallAppWidget() {
       </ol>
 
       <p className="text-[10px] text-[var(--text-muted)] leading-relaxed">
-        Funciona no Chrome (Android) e Safari (iPhone). O app abre sem barra de navegador.
+        Suporta instalação nativa PWA em todos os navegadores modernos (Chrome, Safari, Edge, Brave).
       </p>
     </section>
   );

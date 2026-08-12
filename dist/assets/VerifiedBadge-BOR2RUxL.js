@@ -1,1 +1,0 @@
-import{Dt as e,on as t}from"./icons-Eo4IThf8.js";var n=t();function r({className:t=`size-4 text-[var(--accent-mint)]`,title:r=`Verificado`}){return(0,n.jsx)(e,{weight:`fill`,"aria-label":r,role:`img`,className:t})}export{r as t};

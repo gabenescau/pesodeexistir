@@ -282,4 +282,5 @@ export const X = Phosphor.X;
 export const MapPin = Phosphor.MapPin;
 export const Phone = Phosphor.Phone;
 export const Coins = Phosphor.Coins;
+export const Download = Phosphor.DownloadSimple;
 export const XIcon = Phosphor.X;

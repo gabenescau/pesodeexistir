@@ -1,0 +1,1 @@
+import{on as e,sn as t}from"./icons-hwF4-JhD.js";import{t as n}from"./utils-B6KiDbIe.js";var r=t();function i({liked:t=!1,className:i=``,...a}){return(0,r.jsx)(e,{weight:t?`fill`:`regular`,color:t?`#ef4444`:`currentColor`,className:n(`shrink-0`,i),...a})}export{i as t};
