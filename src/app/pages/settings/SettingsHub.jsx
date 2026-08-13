@@ -11,6 +11,10 @@ import { handleDoPerfil } from "@/lib/mentions";
 import { VerifiedBadge } from "../../components/VerifiedBadge";
 import { UserTitlePill } from "../../components/UserTitlePill";
 import { isActiveSubscription } from "@/lib/subscription";
+import { isSupabaseReady } from "../../data/supabase";
+import { authenticatedApiPost } from "@/lib/authenticated-api";
+import { toast } from "@/lib/toast";
+import { useState } from "react";
 
 function HubRow({ icon: Icon, title, description, onClick, danger, right }) {
   return (
@@ -57,6 +61,7 @@ export function SettingsHub() {
   const { user, logout, isAdmin } = useAuth();
   const { profile, subscription, collections } = useData();
   const confirm = useConfirmDialog();
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const go = (aba) => setSearchParams({ aba });
   const nome = profile?.name || user?.user_metadata?.name || user?.email?.split("@")[0] || "Visitante";
@@ -87,7 +92,22 @@ export function SettingsHub() {
       danger: true,
     });
     if (!ok) return;
-    navigate("/entrar");
+    if (!isSupabaseReady() || !user?.id || deletingAccount) {
+      toast.error("Nao foi possivel validar sua sessao. Entre novamente e tente outra vez.");
+      return;
+    }
+
+    setDeletingAccount(true);
+    try {
+      await authenticatedApiPost("/api/delete-account", { confirmation: "DELETE_ACCOUNT" });
+      await logout();
+      toast.success("Sua conta foi excluida permanentemente.");
+      navigate("/entrar", { replace: true });
+    } catch (error) {
+      toast.error(error?.message || "Nao foi possivel excluir a conta. Tente novamente em instantes.");
+    } finally {
+      setDeletingAccount(false);
+    }
   }
 
   return (
@@ -170,7 +190,13 @@ export function SettingsHub() {
             <h2 className="text-[11px] font-semibold uppercase tracking-wider text-red-400">Zona de perigo</h2>
           </header>
           <div className="mt-1 divide-y divide-red-900/20">
-            <HubRow icon={Trash2} title="Excluir conta" description="Acao permanente e irreversivel" onClick={handleDeleteAccount} danger />
+            <HubRow
+              icon={Trash2}
+              title={deletingAccount ? "Excluindo conta..." : "Excluir conta"}
+              description="Acao permanente e irreversivel"
+              onClick={handleDeleteAccount}
+              danger
+            />
             <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--hover-overlay)] text-[var(--text-muted)]">

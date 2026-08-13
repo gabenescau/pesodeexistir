@@ -18,6 +18,7 @@ export function SettingsAccount() {
   const confirm = useConfirmDialog();
   const [newEmail, setNewEmail] = useState(user?.email || "");
   const [savingEmail, setSavingEmail] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const active = isActiveSubscription(subscription);
 
@@ -48,14 +49,17 @@ export function SettingsAccount() {
       danger: true,
     });
     if (!ok) return;
+    setDeletingAccount(true);
     try {
       if (!isSupabaseReady() || !user?.id) throw new Error("Sessao indisponivel");
       await authenticatedApiPost("/api/delete-account", { confirmation: "DELETE_ACCOUNT" });
       await logout();
-      toast.success("Sua conta foi excluida.");
-      navigate("/");
-    } catch {
-      toast.error("Nao foi possivel excluir a conta. Tente novamente em instantes.");
+      toast.success("Sua conta foi excluida permanentemente.");
+      navigate("/entrar", { replace: true });
+    } catch (error) {
+      toast.error(error?.message || "Nao foi possivel excluir a conta. Tente novamente em instantes.");
+    } finally {
+      setDeletingAccount(false);
     }
   }
 
@@ -107,7 +111,7 @@ export function SettingsAccount() {
         </header>
         <SettingsRow
           icon={Shield}
-          title="Excluir conta"
+          title={deletingAccount ? "Excluindo conta..." : "Excluir conta"}
           description="Acao permanente e irreversivel"
           onClick={handleDelete}
           danger

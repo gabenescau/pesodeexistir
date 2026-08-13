@@ -12,6 +12,56 @@ import {
 import { getStripe } from "../server/stripe.js";
 import { parseDeleteAccountInput } from "../src/lib/api-contracts.js";
 
+const USER_STORAGE_BUCKETS = ["avatars", "post-media"];
+
+function getStorageHeaders() {
+  const key = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const headers = { apikey: key };
+  if (!key?.startsWith("sb_secret_")) headers.Authorization = `Bearer ${key}`;
+  return headers;
+}
+
+async function deleteUserStorageFiles(userId) {
+  for (const bucket of USER_STORAGE_BUCKETS) {
+    let offset = 0;
+    while (true) {
+      const listResponse = await fetch(
+        `${process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/list/${bucket}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...getStorageHeaders(),
+          },
+          body: JSON.stringify({ prefix: `${userId}/`, limit: 1000, offset, sortBy: { column: "name", order: "asc" } }),
+        }
+      );
+      if (!listResponse.ok) throw new Error(`Supabase: storage list ${listResponse.status}`);
+      const objects = await listResponse.json();
+      const paths = (Array.isArray(objects) ? objects : [])
+        .map((object) => object?.name)
+        .filter(Boolean)
+        .map((name) => name.startsWith(`${userId}/`) ? name : `${userId}/${name}`);
+      if (!paths.length) break;
+
+      const removeResponse = await fetch(
+        `${process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/${bucket}/remove`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...getStorageHeaders(),
+          },
+          body: JSON.stringify({ prefixes: paths }),
+        }
+      );
+      if (!removeResponse.ok) throw new Error(`Supabase: storage remove ${removeResponse.status}`);
+      if (paths.length < 1000) break;
+      offset += paths.length;
+    }
+  }
+}
+
 export default async function handler(req, res) {
   if (!allowPost(req, res)) return;
 
@@ -41,6 +91,8 @@ export default async function handler(req, res) {
         });
       }
     }
+
+    await deleteUserStorageFiles(user.id);
 
     logAuditEvent("account.delete.requested", req, {
       actorId: user.id,

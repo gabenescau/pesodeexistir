@@ -75,7 +75,10 @@ export function AuthPage() {
 
     const cleanEmail = normalizeEmail(email);
     const cleanName = sanitizeSingleLine(name, 80);
-    if (!cleanEmail) return;
+    if (!cleanEmail) {
+      setError("Digite um email valido.");
+      return;
+    }
     if (!isSupabaseReady()) {
       if (import.meta.env.PROD) {
         setError("O servico de autenticacao esta temporariamente indisponivel. Tente novamente em instantes.");
@@ -126,7 +129,7 @@ export function AuthPage() {
         // raw_user_meta_data. Escrever em profiles aqui so funciona se o signUp
         // ja tiver devolvido sessao (confirmacao de email desligada): sem
         // sessao, auth.uid() e NULL e o RLS recusa o insert.
-        if (data.session && data.user) {
+        if (data?.session && data?.user) {
           const { error: profileError } = await supabase
             .from("profiles")
             .update({
@@ -162,7 +165,19 @@ export function AuthPage() {
         setError("Muitas tentativas seguidas. Aguarde 1 minuto antes de tentar de novo.");
       } else {
         setFailedAttempts(attempts);
-        const message = getSupabaseErrorMessage(err);
+        console.error("Falha na autenticacao", {
+          mode,
+          code: err?.code || null,
+          status: err?.status || null,
+          name: err?.name || null,
+          message: err?.message || String(err || "erro desconhecido"),
+        });
+        const message = getSupabaseErrorMessage(
+          err,
+          mode === "signup"
+            ? "Nao foi possivel criar sua conta agora. Tente novamente em alguns minutos."
+            : "Nao foi possivel entrar agora. Tente novamente em alguns minutos."
+        );
         if (message === "Confirme seu email antes de entrar.") {
           setError("");
           setNotice("Confirme a mensagem que chegou no seu email e depois entre.");
