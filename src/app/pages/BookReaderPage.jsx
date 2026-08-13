@@ -13,52 +13,28 @@ import { toast } from "@/lib/toast";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
-const SIGNED_URL_TTL_SECONDS = 60 * 60;
 const MIN_ZOOM = 50;
 const MAX_ZOOM = 200;
 const DEFAULT_ZOOM = 100;
 
-function base64ToBlobUrl(base64, mimeType = "application/pdf") {
-  try {
-    const byteChars = atob(base64);
-    const byteNums = Array.from({ length: byteChars.length });
-    for (let i = 0; i < byteChars.length; i++) byteNums[i] = byteChars.charCodeAt(i);
-    return URL.createObjectURL(new Blob([new Uint8Array(byteNums)], { type: mimeType }));
-  } catch {
-    return null;
+// A URL do PDF nunca e criada no navegador. O endpoint valida a sessao, o
+// plano, a data de lancamento e o objeto antes de devolver uma URL temporaria.
+async function resolvePdfUrl(bookId) {
+  if (!bookId || !isSupabaseReady()) return null;
+  const { data: { session } = {} } = await supabase.auth.getSession();
+  if (!session?.access_token) {
+    throw new Error("Sua sessao expirou. Entre novamente para continuar.");
   }
-}
 
-function extractPdfStoragePath(pdfFile) {
-  if (!/^(https?:|data:|blob:|\/)/i.test(pdfFile)) return pdfFile;
-  const marker = "/storage/v1/object/public/pdfs/";
-  const index = pdfFile.indexOf(marker);
-  if (index === -1) return null;
-  return decodeURIComponent(pdfFile.slice(index + marker.length));
-}
-
-async function resolvePdfUrl(pdfFile) {
-  if (!pdfFile) return null;
-  if (pdfFile.startsWith("data:")) return base64ToBlobUrl(pdfFile.split(",")[1]);
-  if (pdfFile.startsWith("http") || pdfFile.startsWith("/")) {
-    const storagePath = isSupabaseReady() ? extractPdfStoragePath(pdfFile) : null;
-    if (!storagePath) return pdfFile;
-    const { data, error } = await supabase.storage
-      .from("pdfs")
-      .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
-    if (error || !data?.signedUrl) {
-      throw new Error("Este livro ainda não está liberado para você (assinatura ativa e data de lançamento alcançada).");
-    }
-    return data.signedUrl;
+  const response = await fetch(`/api/book-pdf/${encodeURIComponent(bookId)}`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    cache: "no-store",
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(payload?.error || "Nao foi possivel liberar este livro para sua conta.");
   }
-  if (isSupabaseReady()) {
-    const { data, error } = await supabase.storage
-      .from("pdfs")
-      .createSignedUrl(pdfFile, SIGNED_URL_TTL_SECONDS);
-    if (error || !data?.signedUrl) throw new Error("Este livro ainda não está liberado para sua conta.");
-    return data.signedUrl;
-  }
-  return base64ToBlobUrl(pdfFile);
+  return payload?.data?.url || null;
 }
 
 export function BookReaderPage() {
@@ -115,7 +91,7 @@ export function BookReaderPage() {
     }
   }, []);
 
-  const rawPdfFile = book?.pdfFile || book?.pdf_url;
+  const rawPdfFile = book?.id || null;
   const bloqueado = Boolean(book) && !release.liberado;
   const progress = totalPages ? Math.round((page / totalPages) * 100) : Number(book?.progress || 0);
 

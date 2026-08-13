@@ -2,6 +2,8 @@ import { useMemo } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { BookOpen, Bookmark as BookmarkIcon, ChevronLeft, Lock, Share2, StarIcon, Globe as GlobeIcon } from "@/lib/icons";
 import { useData } from "../data/DataContext";
+import { useAuth } from "../data/AuthContext";
+import { isActiveSubscription } from "@/lib/subscription";
 import { contagemRegressiva, formatarData } from "@/lib/releases";
 import { relatedBooks as recomendarLivros } from "@/lib/recommendations";
 import { CreatePost } from "../components/CreatePost";
@@ -30,10 +32,11 @@ function StarButton({ value, active, onRate }) {
 export function BookDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const {
     getBookById, getAuthorById, getReleaseStatus, toggleFavoriteBook,
     isFavoriteBook, books, rateBook, myBookRating, bookRatingStats,
-    posts, deletePost,
+    posts, deletePost, subscription,
   } = useData();
   const book = getBookById(id);
   const release = getReleaseStatus(id);
@@ -50,7 +53,8 @@ export function BookDetailPage() {
   }
 
   const author = getAuthorById(book.authorId || book.author_id);
-  const hasPdf = Boolean(book.pdfFile || book.pdf_url);
+  const hasPdf = Boolean(book.hasPdf || book.pdfFile || book.pdf_url);
+  const hasReadingAccess = isAdmin || isActiveSubscription(subscription);
   const favoritado = isFavoriteBook(book.id);
   const progresso = Number(book.progress || 0);
   const isCompleted = progresso >= 100;
@@ -87,9 +91,12 @@ export function BookDetailPage() {
   const totalAvaliacoes = statsDesteLivro?.count || 0;
 
   function handleStartReading() {
-    if (hasPdf && release.liberado) {
-      navigate(`/app/ler/${book.id}`);
+    if (!hasPdf || !release.liberado) return;
+    if (!hasReadingAccess) {
+      navigate("/app/planos");
+      return;
     }
+    navigate(`/app/ler/${book.id}`);
   }
 
   function handleRate(valor) {
@@ -113,6 +120,8 @@ export function BookDetailPage() {
 
   const ctaLabel = !hasPdf || !release.liberado
     ? "Indisponivel"
+    : !hasReadingAccess
+      ? "Assinar para ler"
     : isCompleted ? "Continuar lendo"
     : progresso > 0 ? "Continuar lendo"
     : "Comecar a ler";

@@ -1,6 +1,7 @@
 {
   "rewrites": [
     { "source": "/api/health", "destination": "/api/cron-reconcile-stripe?health=1" },
+    { "source": "/api/book-pdf/:bookId", "destination": "/api/stripe-session?mode=book-pdf&bookId=:bookId" },
     { "source": "/api/:path*", "destination": "/api/:path*" },
     { "source": "/:path*", "destination": "/index.html" }
   ],

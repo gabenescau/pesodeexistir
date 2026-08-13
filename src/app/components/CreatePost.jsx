@@ -4,7 +4,6 @@ import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
 import { useRewards } from "@/app/data/RewardsContext";
 import { isSupabaseReady, supabase } from "@/app/data/supabase";
-import { canUsePaidSocialFeatures } from "@/lib/entitlements";
 import { handleDoPerfil, normalizar, resolverMencao, tokenizarMencoes } from "@/lib/mentions";
 import {
   MAX_POST_IMAGES,
@@ -13,7 +12,6 @@ import {
   POST_IMAGE_BUCKET,
   sanitizePollOptions,
 } from "@/lib/social";
-import { SubscribeModal } from "./SubscribeModal";
 import { VerifiedBadge } from "./VerifiedBadge";
 import { sanitizePlainText, sanitizeSingleLine } from "@/lib/sanitize";
 import { secureUpload } from "@/lib/secure-upload";
@@ -52,13 +50,12 @@ async function uploadPostImages(files) {
 }
 
 export function CreatePost({ initialBookId = null, tag = null }) {
-  const { user, profile, isAdmin } = useAuth();
-  const { addPost, books, authors, profiles, subscription } = useData();
+  const { user, profile } = useAuth();
+  const { addPost, books, authors, profiles } = useData();
   const { rewardPost } = useRewards();
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
   const [open, setOpen] = useState(false);
-  const [subscribeOpen, setSubscribeOpen] = useState(false);
   const [text, setText] = useState("");
   const [bookId, setBookId] = useState(initialBookId);
   const [imageFiles, setImageFiles] = useState([]);
@@ -75,7 +72,6 @@ export function CreatePost({ initialBookId = null, tag = null }) {
   const avatar = profile?.avatar || user?.user_metadata?.avatar_url;
   const initial = name.charAt(0).toUpperCase();
   const selectedBook = books.find((book) => book.id === bookId);
-  const canPublish = canUsePaidSocialFeatures({ isAdmin, subscription });
 
   const mentionedChips = useMemo(() => {
     const seen = new Set();
@@ -177,10 +173,7 @@ export function CreatePost({ initialBookId = null, tag = null }) {
   }
 
   async function handleSubmit() {
-    if (!canPublish) {
-      setSubscribeOpen(true);
-      return;
-    }
+    if (!user?.id) return;
     const cleanText = sanitizePlainText(text, MAX_POST_TEXT);
     const cleanPollQuestion = sanitizeSingleLine(pollQuestion, 240);
     const cleanPollOptions = sanitizePollOptions(pollOptions);
@@ -222,26 +215,12 @@ export function CreatePost({ initialBookId = null, tag = null }) {
     <>
       <button
         type="button"
-        onClick={() => canPublish ? setOpen(true) : setSubscribeOpen(true)}
+        onClick={() => setOpen(true)}
         className="flex min-h-11 w-full shrink-0 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--border)] bg-[var(--bg-card)] px-4 text-sm font-medium text-[var(--text-primary)] shadow-[var(--shadow-sm)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-card-hover)] sm:w-auto"
       >
         <Plus className="size-4" />
         Criar post
       </button>
-
-      <SubscribeModal
-        open={subscribeOpen}
-        onClose={() => setSubscribeOpen(false)}
-        title="Membros pagantes"
-        description="Postar, comentar e responder sao recursos exclusivos de quem assina o OPE Club. Voce pode continuar lendo e curtindo tudo de graca."
-        benefits={[
-          "Publicar posts na comunidade",
-          "Comentar e responder conversas",
-          "Participar dos clubes de leitura",
-          "Acessar a biblioteca completa",
-          "Receber lancamentos semanais",
-        ]}
-      />
 
       {open && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-4 animate-in fade-in duration-150">

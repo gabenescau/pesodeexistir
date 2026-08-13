@@ -149,6 +149,9 @@ export function DataProvider({ children }) {
           : { data: authProfile || null, error: null };
         const currentProfile = currentProfileRes.error ? null : currentProfileRes.data;
         const isCurrentAdmin = isAdmin || currentProfile?.role === "admin";
+        const isCurrentContentManager =
+          isCurrentAdmin || currentProfile?.role === "editor";
+        const catalogBookSelect = BOOK_SELECT;
         const emptyResult = { data: [], error: null };
 
       // Admin le a tabela inteira (role, gestao de assinaturas). O email agora
@@ -158,6 +161,7 @@ export function DataProvider({ children }) {
       // suficiente para o feed sem vazar email de ninguem.
       const [
         booksRes,
+        adminBookAssetsRes,
         authorsRes,
         progressRes,
         subsRes,
@@ -173,19 +177,25 @@ export function DataProvider({ children }) {
         ratingsRes,
         myRatingsRes,
       ] = await Promise.all([
-        isCurrentAdmin
+        isCurrentContentManager
           ? runSupabaseQueryAll(
-              () => supabase.from("books").select(BOOK_SELECT).order("created_at", { ascending: false }),
+              () => supabase.from("books").select(catalogBookSelect).order("created_at", { ascending: false }),
               "carregar livros",
               { maxRows: 2000, maxPages: 8 }
             )
           : runSupabaseCachedQuery(
-              () => supabase.from("books").select(BOOK_SELECT).order("created_at", { ascending: false }).range(0, CATALOG_PAGE_SIZE),
+              () => supabase.from("books").select(catalogBookSelect).order("created_at", { ascending: false }).range(0, CATALOG_PAGE_SIZE),
               "carregar livros",
               "catalog:books:page:0",
               { ttlMs: 45_000 }
             ),
-        isCurrentAdmin
+        isCurrentContentManager
+          ? runSupabaseQuery(
+              () => supabase.rpc("admin_book_pdf_assets"),
+              "carregar arquivos PDF do painel"
+            )
+          : Promise.resolve(emptyResult),
+        isCurrentContentManager
           ? runSupabaseQueryAll(
               () => supabase.from("authors").select(AUTHOR_SELECT).order("name"),
               "carregar autores",
@@ -306,13 +316,34 @@ export function DataProvider({ children }) {
 
       if (cancelled) return;
 
-      const booksPage = takePage(booksRes, CATALOG_PAGE_SIZE, isCurrentAdmin);
-      const authorsPage = takePage(authorsRes, AUTHOR_PAGE_SIZE, isCurrentAdmin);
+      const adminAssetsByBookId = new Map(
+        (adminBookAssetsRes.error ? [] : adminBookAssetsRes.data || [])
+          .filter((asset) => asset?.book_id)
+          .map((asset) => [asset.book_id, asset])
+      );
+      const booksWithAdminAssets =
+        isCurrentContentManager && !adminBookAssetsRes.error
+        ? (booksRes.data || []).map((book) => ({
+            ...book,
+            ...(adminAssetsByBookId.get(book.id) || null),
+          }))
+        : booksRes.data;
+      const booksResult = { ...booksRes, data: booksWithAdminAssets };
+      const booksPage = takePage(
+        booksResult,
+        CATALOG_PAGE_SIZE,
+        isCurrentContentManager
+      );
+      const authorsPage = takePage(
+        authorsRes,
+        AUTHOR_PAGE_SIZE,
+        isCurrentContentManager
+      );
       const postsPage = takePage(postsRes, POST_PAGE_SIZE, isCurrentAdmin);
       booksOffsetRef.current = booksPage.rows.length;
       authorsOffsetRef.current = authorsPage.rows.length;
       postsOffsetRef.current = postsPage.rows.length;
-      setBooksHasMore(!booksRes.error && booksPage.hasMore);
+      setBooksHasMore(!booksResult.error && booksPage.hasMore);
       setAuthorsHasMore(!authorsRes.error && authorsPage.hasMore);
       setPostsHasMore(!postsRes.error && postsPage.hasMore);
 
@@ -371,7 +402,7 @@ export function DataProvider({ children }) {
       }, {});
       let normalizedBooks = [];
 
-      if (!booksRes.error) {
+      if (!booksResult.error) {
         normalizedBooks = normalizeBooks(booksPage.rows, {
           progress: progressRes.error ? [] : progressRes.data || [],
           ratingsByBook,
@@ -546,7 +577,7 @@ export function DataProvider({ children }) {
     } finally {
       setBooksLoadingMore(false);
     }
-  }, [isSupabase, user?.id, booksHasMore, booksLoadingMore, content.books]);
+  }, [isSupabase, user?.id, isAdmin, booksHasMore, booksLoadingMore, content.books]);
 
   const loadMoreAuthors = useCallback(async () => {
     if (!isSupabase || !user?.id || !authorsHasMore || authorsLoadingMore) return false;
@@ -735,7 +766,7 @@ export function DataProvider({ children }) {
       bio: sanitizePlainText(data.bio, 20000) || null,
     };
     if (isSupabase) {
-      const { data: inserted, error } = await supabase.from("books").insert(payload).select("*, authors(name)").single();
+      const { data: inserted, error } = await supabase.from("books").insert(payload).select("id,title,image,image_path,author_id,category,bio,progress,created_at,updated_at,has_pdf,authors(name)").single();
       if (error) throw error;
       if (!error && inserted) {
         invalidateSupabaseQueryCache("catalog:books");
@@ -745,7 +776,9 @@ export function DataProvider({ children }) {
           authorId: inserted.author_id,
           authorName: inserted.authors?.name || "",
           author: inserted.authors?.name || "",
-          pdfFile: inserted.pdf_path || inserted.pdf_url,
+          pdfFile: data.pdfPath || data.pdfFile || "",
+          pdf_path: data.pdfPath || null,
+          pdf_url: data.pdfFile || null,
         }, ...prev]);
         return inserted.id;
       }

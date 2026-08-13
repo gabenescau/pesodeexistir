@@ -243,6 +243,60 @@ export async function supabaseRequest(path, options = {}) {
   return text ? JSON.parse(text) : null;
 }
 
+export async function createSignedStorageUrl(bucket, objectPath, expiresIn = 3600) {
+  requireConfig();
+  const normalizedBucket = String(bucket || "").trim();
+  const normalizedPath = String(objectPath || "").trim();
+  const ttl = Number(expiresIn);
+  if (!/^[a-z0-9][a-z0-9_-]{1,62}$/i.test(normalizedBucket)) {
+    const error = new Error("Bucket invalido");
+    error.status = 500;
+    throw error;
+  }
+  if (
+    !normalizedPath ||
+    normalizedPath.startsWith("/") ||
+    normalizedPath.includes("..") ||
+    normalizedPath.includes("\\") ||
+    normalizedPath.includes("://") ||
+    [...normalizedPath].some((character) => {
+      const code = character.charCodeAt(0);
+      return code <= 31 || code === 127;
+    }) ||
+    normalizedPath.length > 500
+  ) {
+    const error = new Error("Objeto invalido");
+    error.status = 400;
+    error.userSafe = true;
+    throw error;
+  }
+  const safeTtl = Number.isFinite(ttl) ? Math.min(Math.max(Math.floor(ttl), 60), 3600) : 3600;
+  const encodedPath = normalizedPath.split("/").map((part) => encodeURIComponent(part)).join("/");
+  const response = await fetchWithTimeout(
+    `${SUPABASE_URL}/storage/v1/object/sign/${encodeURIComponent(normalizedBucket)}/${encodedPath}`,
+    {
+      method: "POST",
+      headers: { ...getServiceHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ expiresIn: safeTtl }),
+    },
+  );
+  if (!response.ok) {
+    const error = new Error(`Supabase Storage: ${await response.text()}`);
+    error.status = response.status;
+    throw error;
+  }
+  const payload = await response.json();
+  const signedPath = payload?.signedURL || payload?.signedUrl;
+  if (!signedPath) {
+    const error = new Error("Storage nao retornou uma URL assinada");
+    error.status = 502;
+    throw error;
+  }
+  if (signedPath.startsWith("http")) return signedPath;
+  if (signedPath.startsWith("/storage/v1/")) return `${SUPABASE_URL}${signedPath}`;
+  return `${SUPABASE_URL}/storage/v1/${signedPath.replace(/^\//, "")}`;
+}
+
 function getClientAddress(req) {
   // Em Vercel, estes headers sao preenchidos pelo proxy da plataforma. Fora
   // dela, nao confiamos em X-Forwarded-For enviado pelo proprio cliente.

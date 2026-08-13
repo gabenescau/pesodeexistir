@@ -8,11 +8,15 @@ import {
   sendError,
   sendSuccess,
 } from "../server/supabase.js";
+import { handleBookPdf } from "../server/book-pdf.js";
 import { fulfillPaidCheckoutSession } from "../server/stripe-sync.js";
 import { getStripe } from "../server/stripe.js";
 import { parseStripeSessionInput } from "../src/lib/api-contracts.js";
 
 export default async function handler(req, res) {
+  if (new URL(req.url || "/api/stripe-session", "https://app.pesodeexistir.online").searchParams.get("mode") === "book-pdf") {
+    return handleBookPdf(req, res);
+  }
   if (!allowPost(req, res)) return;
 
   try {

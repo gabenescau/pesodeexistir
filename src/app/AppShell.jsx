@@ -48,30 +48,30 @@ export function AppShell() {
       <Suspense fallback={<PageLoading />}>
         <Routes>
           <Route path="/" element={<Navigate to="inicio" replace />} />
-        {/* Inicio == Comunidade: leitura aberta; postar/comentar exige plano/admin. */}
-        <Route path="inicio" element={<SubscriptionGuard><CommunityPage /></SubscriptionGuard>} />
+        {/* Comunidade, catalogo e loja sao acessiveis a qualquer usuario autenticado. */}
+        <Route path="inicio" element={<CommunityPage />} />
         {/* Rota legada /comunidade redireciona para /inicio (mesma pagina). */}
         <Route path="comunidade" element={<Navigate to="/app/inicio" replace />} />
-        <Route path="biblioteca" element={<SubscriptionGuard><LibraryPage /></SubscriptionGuard>} />
-        <Route path="autores" element={<SubscriptionGuard><AuthorsPage /></SubscriptionGuard>} />
-        <Route path="livro/:id" element={<SubscriptionGuard><BookDetailPage /></SubscriptionGuard>} />
+        <Route path="biblioteca" element={<LibraryPage />} />
+        <Route path="autores" element={<AuthorsPage />} />
+        <Route path="livro/:id" element={<BookDetailPage />} />
         <Route path="ler/:id" element={<SubscriptionGuard><BookReaderPage /></SubscriptionGuard>} />
-        <Route path="autor/:id" element={<SubscriptionGuard><AuthorPage /></SubscriptionGuard>} />
-        <Route path="explorar" element={<SubscriptionGuard><ExplorePage /></SubscriptionGuard>} />
-        <Route path="lancamentos" element={<SubscriptionGuard><ReleasesPage /></SubscriptionGuard>} />
-        <Route path="sugestoes" element={<SubscriptionGuard><SuggestionsPage /></SubscriptionGuard>} />
-        <Route path="notificacoes" element={<SubscriptionGuard><NotificacoesPage /></SubscriptionGuard>} />
-        <Route path="loja" element={<SubscriptionGuard><StorePage /></SubscriptionGuard>} />
-        <Route path="loja/produto/:id" element={<SubscriptionGuard><ProductDetailPage /></SubscriptionGuard>} />
+        <Route path="autor/:id" element={<AuthorPage />} />
+        <Route path="explorar" element={<ExplorePage />} />
+        <Route path="lancamentos" element={<ReleasesPage />} />
+        <Route path="sugestoes" element={<SuggestionsPage />} />
+        <Route path="notificacoes" element={<NotificacoesPage />} />
+        <Route path="loja" element={<StorePage />} />
+        <Route path="loja/produto/:id" element={<ProductDetailPage />} />
         <Route path="missoes" element={<SubscriptionGuard feature="missions"><DailyMissionsPage /></SubscriptionGuard>} />
-        <Route path="indicacoes" element={<SubscriptionGuard><ReferralPage /></SubscriptionGuard>} />
+        <Route path="indicacoes" element={<ReferralPage />} />
         <Route path="seasons" element={<SubscriptionGuard feature="seasons"><SeasonPage /></SubscriptionGuard>} />
         <Route path="ranking" element={<SubscriptionGuard feature="ranking"><RankingPage /></SubscriptionGuard>} />
-        <Route path="instalar" element={<SubscriptionGuard><InstallAppPage /></SubscriptionGuard>} />
-        <Route path="meus-resgates" element={<SubscriptionGuard><MyRedemptionsPage /></SubscriptionGuard>} />
+        <Route path="instalar" element={<InstallAppPage />} />
+        <Route path="meus-resgates" element={<MyRedemptionsPage />} />
         <Route path="suporte" element={<SupportPage />} />
-        <Route path="minha-lista" element={<SubscriptionGuard><MyListPage /></SubscriptionGuard>} />
-        <Route path="post/:id" element={<SubscriptionGuard><PostDetailPage /></SubscriptionGuard>} />
+        <Route path="minha-lista" element={<MyListPage />} />
+        <Route path="post/:id" element={<PostDetailPage />} />
         <Route path="planos" element={<SubscribePage />} />
         <Route path="perfil" element={<Navigate to="/app/configuracoes?aba=perfil" replace />} />
         <Route path="perfil/:id" element={<PublicProfilePage />} />

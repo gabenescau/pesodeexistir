@@ -1,6 +1,9 @@
 // Catalog domain boundary. Queries and asset normalization live here so pages
 // do not need to know the database column aliases used by legacy content.
-export const BOOK_SELECT = "id,title,image,image_path,author_id,pdf_url,pdf_path,category,bio,progress,created_at,updated_at,authors(name)";
+export const BOOK_SELECT_PUBLIC = "id,title,image,image_path,author_id,category,bio,progress,created_at,updated_at,has_pdf,authors(name)";
+// Os caminhos dos PDFs nunca entram em uma consulta normal. O painel admin
+// recebe esses campos separadamente pela RPC protegida de assets.
+export const BOOK_SELECT = BOOK_SELECT_PUBLIC;
 export const AUTHOR_SELECT = "id,name,image,image_path,theme,era,bio,created_at,updated_at";
 export const WEEKLY_RELEASE_SELECT = "id,book_id,release_date,visible,created_at,books(id,title,image,image_path,author_id,category,bio,authors(name))";
 
@@ -44,6 +47,7 @@ export function normalizeBooks(rows, {
         "livros"
       ),
       pdfFile: firstFilled(book.pdf_path, book.pdf_url),
+      hasPdf: Boolean(book.has_pdf || book.pdf_path || book.pdf_url),
       progress: userProgress?.progress ?? 0,
       currentPage: userProgress?.current_page ?? 1,
       totalPages: userProgress?.total_pages ?? null,

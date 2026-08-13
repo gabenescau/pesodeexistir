@@ -10,7 +10,6 @@ import { isVerifiedProfile, relativeTime } from "@/lib/social";
 import { EmojiReactions } from "./EmojiReactions";
 import { PostPoll } from "./PostPoll";
 import { RichText } from "./RichText";
-import { SubscribeModal } from "./SubscribeModal";
 import { VerifiedBadge } from "./VerifiedBadge";
 import { sanitizePlainText } from "@/lib/sanitize";
 import { toast } from "@/lib/toast";
@@ -105,7 +104,6 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
   const [replyingTo, setReplyingTo] = useState(null);
   const [busy, setBusy] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [subscribeOpen, setSubscribeOpen] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
   const authorProfile = post.authorProfile || profiles.find((profile) => profile.id === post.user_id);
@@ -166,7 +164,7 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
 
   async function submitComment() {
     if (!user?.id) {
-      setSubscribeOpen(true);
+      toast.error("Entre na sua conta para comentar.");
       return;
     }
     const text = sanitizePlainText(comment, 2000);
@@ -329,7 +327,7 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
             <HeartIcon liked={liked} className="size-[18px]" />
             <span>{likes}</span>
           </button>
-          <button type="button" onClick={() => canComment ? setShowComment((value) => !value) : setSubscribeOpen(true)} className="flex min-h-10 items-center gap-1.5 rounded-full px-2 text-xs text-[var(--text-muted)] hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)] sm:px-3">
+          <button type="button" onClick={() => canComment && setShowComment((value) => !value)} className="flex min-h-10 items-center gap-1.5 rounded-full px-2 text-xs text-[var(--text-muted)] hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)] sm:px-3">
             <MessageCircle className="size-[18px]" strokeWidth={1.5} />
             <span>{replyCount}</span>
           </button>
@@ -369,10 +367,7 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
               canDelete={isAdmin || item.user_id === user?.id}
               onDelete={deleteComment}
               onReply={(reply, profile) => {
-                if (!canComment) {
-                  setSubscribeOpen(true);
-                  return;
-                }
+                if (!canComment) return;
                 setReplyingTo(reply);
                 setComment(`@${handleDoPerfil(profile)} `);
               }}
@@ -380,19 +375,6 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
           ))}
         </div>
       )}
-      <SubscribeModal
-        open={subscribeOpen}
-        onClose={() => setSubscribeOpen(false)}
-        title="Membros pagantes"
-        description="Postar, comentar e responder sao recursos exclusivos de quem assina o OPE Club. Voce pode continuar lendo e curtindo tudo de graca."
-        benefits={[
-          "Publicar posts na comunidade",
-          "Comentar e responder conversas",
-          "Participar dos clubes de leitura",
-          "Acessar a biblioteca completa",
-          "Receber lancamentos semanais",
-        ]}
-      />
       {deleteError && <p className="text-xs text-red-400">{deleteError}</p>}
       {confirm.dialog}
     </article>
