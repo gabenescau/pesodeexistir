@@ -26,6 +26,13 @@ export function getSupabaseErrorMessage(error, fallback = "Erro ao autenticar.")
     return "Esse email ja tem uma conta. Faca login ou use outro email.";
   }
 
+  if (
+    /username|profiles_username|character varying\(24\)/i.test(message) &&
+    /24|length|limit|check|constraint|too long/i.test(message)
+  ) {
+    return "Seu identificador ficou muito grande. Use um nome de ate 24 caracteres e tente novamente.";
+  }
+
   if (/database error saving new user/i.test(message)) {
     return "Nao foi possivel criar sua conta porque houve um problema ao salvar seus dados. Tente novamente em alguns minutos.";
   }
