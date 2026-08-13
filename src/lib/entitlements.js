@@ -20,6 +20,7 @@ export const PLAN_FEATURES = Object.freeze({
     "store",
     "reading_sync",
     "weekly_releases",
+    "missions",
     "verified_badge",
     "ranking",
     "seasons",

@@ -66,6 +66,7 @@ export function normalizeWalletState(raw) {
     missions: {
       daily: {
         done: Boolean(raw.missions?.daily?.done),
+        definition: raw.missions?.daily?.definition || null,
         objectives: {
           login: Boolean(raw.missions?.daily?.objectives?.login),
           reading30: Boolean(raw.missions?.daily?.objectives?.reading30),

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/app/data/AuthContext";
-import { getCurrentSubscription } from "@/lib/subscription";
+import { useData } from "@/app/data/DataContext";
 import { hasPlanFeature } from "@/lib/entitlements";
 import { Lock } from "@/lib/icons";
 
@@ -25,11 +25,17 @@ function Paywall({ feature }) {
         </div>
         <div className="space-y-2">
           <h2 className="text-base font-semibold text-[var(--text-primary)]">
-            {feature ? "Este recurso faz parte do Plano Pensador" : "Sua assinatura nao esta ativa"}
+            {feature === "missions"
+              ? "As missoes fazem parte dos planos Leitor e Pensador"
+              : feature
+                ? "Este recurso faz parte do Plano Pensador"
+                : "Sua assinatura nao esta ativa"}
           </h2>
           <p className="text-sm leading-relaxed text-[var(--text-muted)]">
-            {feature
-              ? "Atualize seu plano para liberar este recurso e os beneficios exclusivos."
+            {feature === "missions"
+              ? "Tenha um plano ativo para receber novos objetivos todos os dias e trocar seus creditos na loja."
+              : feature
+                ? "Atualize seu plano para liberar este recurso e os beneficios exclusivos."
               : "Para acessar este conteudo, voce precisa de um plano ativo do OPE Club."}
           </p>
         </div>
@@ -48,6 +54,7 @@ function Paywall({ feature }) {
 
 export function SubscriptionGuard({ children, feature }) {
   const { user, isAdmin, loading: authLoading } = useAuth();
+  const { subscription, loading: dataLoading } = useData();
   const [state, setState] = useState("loading");
 
   useEffect(() => {
@@ -59,25 +66,16 @@ export function SubscriptionGuard({ children, feature }) {
       setState("unauthenticated");
       return;
     }
+    if (dataLoading) {
+      setState("loading");
+      return;
+    }
     if (isAdmin) {
       setState("active");
       return;
     }
-
-    let cancelled = false;
-    getCurrentSubscription(user.id)
-      .then((subscription) => {
-        if (cancelled) return;
-        setState(hasPlanFeature({ isAdmin, subscription, feature }) ? "active" : "inactive");
-      })
-      .catch(() => {
-        // Fail closed when the entitlement lookup cannot be trusted.
-        if (!cancelled) setState("inactive");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [user, isAdmin, authLoading, feature]);
+    setState(hasPlanFeature({ isAdmin, subscription, feature }) ? "active" : "inactive");
+  }, [user, isAdmin, authLoading, dataLoading, subscription, feature]);
 
   if (state === "loading") {
     return (
