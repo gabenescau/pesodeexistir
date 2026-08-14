@@ -3,6 +3,10 @@ export function getSupabaseErrorMessage(error, fallback = "Erro ao autenticar.")
 
   if (typeof error === "string") return error;
 
+  // AuthContext already mapped this provider error to a safe, user-facing
+  // message while retaining only non-sensitive diagnostics.
+  if (error.userSafe && error.message) return error.message;
+
   const rawMessage =
     error.message ||
     error.error_description ||
@@ -15,6 +19,10 @@ export function getSupabaseErrorMessage(error, fallback = "Erro ao autenticar.")
   const message = String(rawMessage);
 
   if (/invalid login credentials/i.test(message)) {
+    return "Email ou senha incorretos.";
+  }
+
+  if (/invalid_credentials/i.test(String(error.code || ""))) {
     return "Email ou senha incorretos.";
   }
 

@@ -176,7 +176,15 @@ export function AuthProvider({ children }) {
       email: normalizeEmail(email),
       password,
     });
-    if (error) throw new Error(getSupabaseErrorMessage(error));
+    if (error) {
+      // Keep the provider code/status for the UI mapper and diagnostics, but
+      // never expose the raw provider payload directly to the user.
+      const safeError = new Error(getSupabaseErrorMessage(error));
+      safeError.code = error.code || null;
+      safeError.status = error.status || null;
+      safeError.userSafe = true;
+      throw safeError;
+    }
   }, []);
 
   const logout = useCallback(async () => {
