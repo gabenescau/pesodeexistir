@@ -27,17 +27,55 @@ function isActiveSubscription(subscription) {
   return Number.isNaN(timestamp) || timestamp >= Date.now();
 }
 
-function getObjectPath(book) {
-  const raw = String(book?.pdf_path || book?.pdf_url || "").trim();
-  if (!raw) return "";
-  const marker = "/storage/v1/object/public/pdfs/";
-  const markerIndex = raw.indexOf(marker);
-  const path = markerIndex >= 0 ? raw.slice(markerIndex + marker.length) : raw;
-  try {
-    return decodeURIComponent(path);
-  } catch {
-    return path;
+function decodePath(value) {
+  let decoded = String(value || "");
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const next = decodeURIComponent(decoded);
+      if (next === decoded) break;
+      decoded = next;
+    } catch {
+      break;
+    }
   }
+  return decoded;
+}
+
+function getObjectPaths(book) {
+  const candidates = [book?.pdf_path, book?.pdf_url]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+  const paths = [];
+
+  for (const raw of candidates) {
+    let path = raw;
+    try {
+      if (/^https?:\/\//i.test(raw)) path = new URL(raw).pathname;
+    } catch {
+      continue;
+    }
+
+    path = decodePath(path.split(/[?#]/, 1)[0]).replace(/^\/+/, "");
+    const storageMarker = path.match(
+      /(?:^|\/)storage\/v1\/object\/(?:public|authenticated|sign)\/pdfs\/(.+)$/i,
+    );
+    if (storageMarker?.[1]) path = storageMarker[1];
+    if (path.toLowerCase().startsWith("pdfs/")) path = path.slice("pdfs/".length);
+    path = decodePath(path).replace(/^\/+/, "");
+
+    if (path && !path.includes(String.fromCharCode(0)) && !paths.includes(path)) {
+      paths.push(path);
+    }
+  }
+
+  return paths;
+}
+
+function getBookIdFromRequest(req) {
+  const url = new URL(req.url || "/api/book-pdf", "https://app.pesodeexistir.online");
+  const fromQuery = url.searchParams.get("bookId");
+  const fromPath = url.pathname.match(/\/api\/book-pdf\/([^/]+)$/i)?.[1];
+  return fromQuery || fromPath || "";
 }
 
 function todayIso() {
@@ -58,8 +96,7 @@ export async function handleBookPdf(req, res) {
       userId: user.id,
     })) return;
 
-    const url = new URL(req.url || "/api/book-pdf", "https://app.pesodeexistir.online");
-    const bookId = requireUuid(url.searchParams.get("bookId"), "bookId");
+    const bookId = requireUuid(getBookIdFromRequest(req), "bookId");
     const [profile, books] = await Promise.all([
       getProfile(user.id),
       supabaseRequest(`books?id=eq.${encodeURIComponent(bookId)}&select=id,pdf_path,pdf_url&limit=1`),
@@ -84,9 +121,24 @@ export async function handleBookPdf(req, res) {
       }
     }
 
-    const objectPath = getObjectPath(book);
-    if (!objectPath) return sendClientError(req, res, 404, "Este livro ainda nao possui um PDF");
-    const signedUrl = await createSignedStorageUrl("pdfs", objectPath, SIGNED_URL_TTL_SECONDS);
+    const objectPaths = getObjectPaths(book);
+    if (objectPaths.length === 0) return sendClientError(req, res, 404, "Este livro ainda nao possui um PDF");
+
+    let signedUrl = null;
+    let lastStorageError = null;
+    for (const objectPath of objectPaths) {
+      try {
+        signedUrl = await createSignedStorageUrl("pdfs", objectPath, SIGNED_URL_TTL_SECONDS);
+        break;
+      } catch (error) {
+        lastStorageError = error;
+        if (![400, 404].includes(Number(error?.status))) throw error;
+      }
+    }
+    if (!signedUrl) {
+      if (lastStorageError) throw lastStorageError;
+      return sendClientError(req, res, 404, "Este livro ainda nao possui um PDF");
+    }
     res.setHeader("Cache-Control", "private, no-store");
     return sendSuccess(req, res, {
       url: signedUrl,
