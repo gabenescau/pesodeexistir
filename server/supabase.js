@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { createClient } from "@supabase/supabase-js";
 import { hasPermission, normalizeRole, PERMISSIONS } from "../src/lib/rbac.js";
 import { getCheckoutAttemptConflict } from "./stripe.js";
 
@@ -22,6 +23,7 @@ const PRODUCTION_ORIGINS = new Set([
   "https://www.pesodeexistir.online",
   "https://app.pesodeexistir.online",
 ]);
+let serviceClient;
 
 function allowedOrigins() {
   const configured = String(process.env.CORS_ALLOWED_ORIGINS || "")
@@ -92,6 +94,20 @@ export function getBearerToken(req) {
     return code <= 31 || code === 127;
   })) return null;
   return token;
+}
+
+function getServiceClient() {
+  requireConfig();
+  if (!serviceClient) {
+    serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    });
+  }
+  return serviceClient;
 }
 
 export function isUuid(value) {
@@ -284,22 +300,16 @@ export async function createSignedStorageUrl(bucket, objectPath, expiresIn = 360
     throw error;
   }
   const safeTtl = Number.isFinite(ttl) ? Math.min(Math.max(Math.floor(ttl), 60), 3600) : 3600;
-  const encodedPath = normalizedPath.split("/").map((part) => encodeURIComponent(part)).join("/");
-  const response = await fetchWithTimeout(
-    `${SUPABASE_URL}/storage/v1/object/sign/${encodeURIComponent(normalizedBucket)}/${encodedPath}`,
-    {
-      method: "POST",
-      headers: { ...getServiceHeaders(), "Content-Type": "application/json" },
-      body: JSON.stringify({ expiresIn: safeTtl }),
-    },
-  );
-  if (!response.ok) {
-    const error = new Error(`Supabase Storage: ${await response.text()}`);
-    error.status = response.status;
+  const { data, error: storageError } = await getServiceClient()
+    .storage
+    .from(normalizedBucket)
+    .createSignedUrl(normalizedPath, safeTtl);
+  if (storageError) {
+    const error = new Error(`Supabase Storage: ${storageError.message || "falha ao assinar objeto"}`);
+    error.status = Number(storageError.statusCode || storageError.status) || 502;
     throw error;
   }
-  const payload = await response.json();
-  const signedPath = payload?.signedURL || payload?.signedUrl;
+  const signedPath = data?.signedUrl || data?.signedURL;
   if (!signedPath) {
     const error = new Error("Storage nao retornou uma URL assinada");
     error.status = 502;
