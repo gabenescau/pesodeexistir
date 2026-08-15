@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /app/
+Disallow: /assinar
+Disallow: /pagamento/
+Disallow: /entrar
+Disallow: /cadastro
+
+Sitemap: https://pesodeexistir.online/sitemap.xml
