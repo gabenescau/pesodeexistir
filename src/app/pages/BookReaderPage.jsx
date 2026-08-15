@@ -69,6 +69,7 @@ export function BookReaderPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [pdfUrl, setPdfUrl] = useState(null);
+  const [resolvingUrl, setResolvingUrl] = useState(true);
   const [zoom, setZoom] = useState(initialZoom);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [showHint, setShowHint] = useState(false);
@@ -98,17 +99,38 @@ export function BookReaderPage() {
   useEffect(() => {
     let active = true;
     setPdfUrl(null);
-    if (!rawPdfFile || bloqueado) return undefined;
+    setError("");
+    setResolvingUrl(true);
+    setLoading(true);
+    if (!rawPdfFile || bloqueado) {
+      setResolvingUrl(false);
+      setLoading(false);
+      return undefined;
+    }
     resolvePdfUrl(rawPdfFile)
-      .then((url) => { if (active) setPdfUrl(url); })
-      .catch((err) => { if (active) setError(err?.message || "Não foi possível abrir este livro."); });
+      .then((url) => {
+        if (!active) return;
+        setPdfUrl(url);
+        setResolvingUrl(false);
+        if (!url) setLoading(false);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setError(err?.message || "Não foi possível abrir este livro.");
+        setResolvingUrl(false);
+        setLoading(false);
+      });
     return () => { active = false; };
   }, [rawPdfFile, bloqueado]);
 
   useEffect(() => {
     let cancelled = false;
     async function loadPdf() {
-      if (!pdfUrl) { setPdf(null); setLoading(false); return; }
+      if (!pdfUrl) {
+        setPdf(null);
+        if (!resolvingUrl) setLoading(false);
+        return;
+      }
       setLoading(true);
       setError("");
       try {
@@ -126,12 +148,13 @@ export function BookReaderPage() {
       } catch (err) {
         if (!cancelled) setError(err?.message || "Não foi possível abrir o PDF dentro do app.");
       } finally {
-        if (!cancelled) setLoading(false); }
+        if (!cancelled) setLoading(false);
+      }
     }
     loadPdf();
     return () => { cancelled = true; renderTaskRef.current?.cancel?.(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pdfUrl]);
+  }, [pdfUrl, resolvingUrl]);
 
   useEffect(() => {
     if (!book?.id || !totalPages || loading || error) return undefined;
