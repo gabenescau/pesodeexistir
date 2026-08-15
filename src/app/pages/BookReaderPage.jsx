@@ -20,21 +20,46 @@ const DEFAULT_ZOOM = 100;
 // A URL do PDF nunca e criada no navegador. O endpoint valida a sessao, o
 // plano, a data de lancamento e o objeto antes de devolver uma URL temporaria.
 async function resolvePdfUrl(bookId) {
-  if (!bookId || !isSupabaseReady()) return null;
+  if (!bookId) throw new Error("Livro invalido.");
+  if (!isSupabaseReady()) {
+    throw new Error("A conexao segura com a biblioteca nao esta disponivel. Recarregue a pagina e tente novamente.");
+  }
   const { data: { session } = {} } = await supabase.auth.getSession();
   if (!session?.access_token) {
     throw new Error("Sua sessao expirou. Entre novamente para continuar.");
   }
 
-  const response = await fetch(`/api/book-pdf/${encodeURIComponent(bookId)}`, {
-    headers: { Authorization: `Bearer ${session.access_token}` },
-    cache: "no-store",
-  });
-  const payload = await response.json().catch(() => null);
+  const headers = { Authorization: `Bearer ${session.access_token}` };
+  const requestOptions = { headers, cache: "no-store" };
+  let response = await fetch(`/api/book-pdf/${encodeURIComponent(bookId)}`, requestOptions);
+  let contentType = response.headers.get("content-type") || "";
+  let payload = contentType.includes("application/json")
+    ? await response.json().catch(() => null)
+    : null;
+
+  // If a deployment serves the SPA fallback for the pretty API route, call
+  // the underlying serverless handler directly. A 4xx JSON response is kept
+  // intact so authorization failures are never bypassed by this fallback.
+  if (!payload && !contentType.includes("application/json")) {
+    response = await fetch(
+      `/api/stripe-session?mode=book-pdf&bookId=${encodeURIComponent(bookId)}`,
+      requestOptions,
+    );
+    contentType = response.headers.get("content-type") || "";
+    payload = contentType.includes("application/json")
+      ? await response.json().catch(() => null)
+      : null;
+  }
+
   if (!response.ok) {
     throw new Error(payload?.error || "Nao foi possivel liberar este livro para sua conta.");
   }
-  return payload?.data?.url || null;
+
+  const signedUrl = payload?.success === true && payload?.data?.url;
+  if (typeof signedUrl !== "string" || !/^https:\/\//i.test(signedUrl)) {
+    throw new Error("Nao foi possivel confirmar a liberacao deste livro. Tente novamente.");
+  }
+  return signedUrl;
 }
 
 export function BookReaderPage() {
