@@ -8,7 +8,7 @@ import { getCurrentSubscription, isActiveSubscription } from "@/lib/subscription
 import { Loader2, ShieldCheck } from "@/lib/icons";
 import { PlanBenefitList } from "@/components/plan-benefit";
 import { toast } from "@/lib/toast";
-import { parseCheckoutInput } from "@/lib/api-contracts";
+import { parseAsaasCheckoutInput } from "@/lib/api-contracts";
 
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
@@ -20,7 +20,7 @@ export function SubscribePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const checkoutState = searchParams.get("checkout");
-  const checkoutSessionId = searchParams.get("session_id");
+  const checkoutAttemptId = searchParams.get("attempt_id");
   const requestedTier = searchParams.get("plan");
   const requestedCycle = searchParams.get("ciclo");
   const [tierId, setTierId] = useState(TIERS[requestedTier] ? requestedTier : "pensador");
@@ -34,9 +34,6 @@ export function SubscribePage() {
   const active = isActiveSubscription(visibleSubscription);
   const currentInfo = planInfoFromCode(visibleSubscription?.plan);
   const selectedTier = TIERS[tierId];
-  const isRecurringStripe =
-    visibleSubscription?.provider === "stripe" &&
-    Boolean(visibleSubscription?.provider_subscription_id);
 
   useEffect(() => {
     if (!user) {
@@ -53,26 +50,28 @@ export function SubscribePage() {
   }, [navigate, user]);
 
   useEffect(() => {
-    if (checkoutState === "canceled") {
-      toast.info("Checkout cancelado. Nenhuma cobrança foi feita.");
+    if (checkoutState === "canceled" || checkoutState === "expired") {
+      toast.info(checkoutState === "expired"
+        ? "Checkout expirado. Nenhuma cobrança foi feita."
+        : "Checkout cancelado. Nenhuma cobrança foi feita.");
       setSearchParams({}, { replace: true });
       return;
     }
-    if (checkoutState !== "success" || !checkoutSessionId || !user) return;
+    if (checkoutState !== "success" || !checkoutAttemptId || !user) return;
 
     let cancelled = false;
     async function confirmCheckout() {
       setWorking("confirm");
-      setCheckoutMessage("Confirmando o pagamento com a Stripe...");
+      setCheckoutMessage("Confirmando o pagamento com o Asaas...");
       try {
         for (let attempt = 0; attempt < 12; attempt += 1) {
-          const result = await authenticatedApiPost("/api/stripe-session", { sessionId: checkoutSessionId });
-          if (result.fulfilled) {
+          const result = await authenticatedApiPost("/api/asaas-billing", { action: "status", attemptId: checkoutAttemptId });
+          if (result.paid) {
             toast.success("Pagamento confirmado. Seu acesso está ativo.");
             window.location.replace("/app/inicio?payment=success");
             return;
           }
-          if (result.status === "expired") throw new Error("O checkout expirou sem pagamento.");
+          if (result.status === "expired" || result.status === "canceled") throw new Error("O checkout terminou sem pagamento.");
           if (attempt < 11) await sleep(2500);
           if (cancelled) return;
         }
@@ -88,30 +87,25 @@ export function SubscribePage() {
     }
     confirmCheckout();
     return () => { cancelled = true; };
-  }, [checkoutSessionId, checkoutState, setSearchParams, user]);
+  }, [checkoutAttemptId, checkoutState, setSearchParams, user]);
 
   async function handlePlanAction(planKey) {
     if (working) return;
-    if (!isAdmin && active && !isRecurringStripe) {
+    if (!isAdmin && active) {
       toast.info("Seu acesso atual continua válido até a data exibida. Depois disso, escolha um novo plano.");
       return;
     }
     setWorking("checkout");
     try {
-      if (active && isRecurringStripe) {
-        navigate("/app/configuracoes?aba=assinatura");
-        return;
-      }
-      const checkoutInput = parseCheckoutInput({
+      const checkoutInput = parseAsaasCheckoutInput({
         plan: planKey,
-        paymentMethod: "CARD",
         attemptId:
           window.crypto?.randomUUID?.() ||
           `checkout-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       });
-      setCheckoutMessage("Redirecionando você para o checkout seguro da Stripe...");
-      const result = await authenticatedApiPost("/api/stripe-checkout", checkoutInput);
-      if (!result?.url) throw new Error("A Stripe não retornou o endereço do checkout.");
+      setCheckoutMessage("Redirecionando você para o checkout seguro do Asaas (Pix ou cartão)...");
+      const result = await authenticatedApiPost("/api/asaas-billing", { ...checkoutInput, action: "create" });
+      if (!result?.url) throw new Error("O Asaas não retornou o endereço do checkout.");
       window.location.assign(result.url);
     } catch (error) {
       setCheckoutMessage("");

@@ -90,6 +90,21 @@ export function parseSubscriptionIdInput(input) {
   };
 }
 
+export function parseAsaasCheckoutInput(input) {
+  const body = objectInput(input);
+  const plan = planKey(body.plan || body.planKey || "leitor-monthly");
+  const attemptId = body.attemptId == null ? null : requiredString(body.attemptId, "Tentativa de checkout", 100);
+  if (attemptId && !ATTEMPT_ID_PATTERN.test(attemptId)) throw new ContractError("Tentativa de checkout invalida");
+  return { plan, attemptId };
+}
+
+export function parseAsaasAttemptInput(input) {
+  const body = objectInput(input);
+  const attemptId = requiredString(body.attemptId, "Tentativa de checkout", 100);
+  if (!ATTEMPT_ID_PATTERN.test(attemptId)) throw new ContractError("Tentativa de checkout invalida");
+  return { attemptId };
+}
+
 export function parseStripeSessionInput(input) {
   const body = objectInput(input);
   const sessionId = requiredString(body.sessionId, "Checkout", 255);

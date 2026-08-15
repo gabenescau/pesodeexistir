@@ -51,6 +51,9 @@ export default async function handler(req, res) {
     let updated;
 
     if (resume) {
+      if (subscription.provider === "asaas") {
+        return sendClientError(req, res, 409, "Este pagamento Asaas e avulso e nao possui renovacao automatica para reativar.");
+      }
       if (subscription.provider !== "stripe") {
         return sendClientError(req, res, 400, "Assinatura nao gerenciada por Stripe");
       }
@@ -80,6 +83,10 @@ export default async function handler(req, res) {
         provider: "stripe",
       });
       return sendSuccess(req, res, updated || subscription);
+    }
+
+    if (subscription.provider === "asaas") {
+      return sendClientError(req, res, 409, "Este pagamento Asaas e avulso. O acesso permanece ativo ate a data de termino; nao existe renovacao para cancelar.");
     }
 
     if (subscription.provider === "stripe") {

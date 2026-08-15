@@ -84,8 +84,14 @@ function getServiceHeaders() {
 }
 
 export function getBearerToken(req) {
-  const authorization = req.headers.authorization || "";
-  return authorization.match(/^Bearer\s+(.+)$/i)?.[1] || null;
+  const authorization = String(req.headers.authorization || "");
+  const token = authorization.match(/^Bearer\s+([^\s]+)$/i)?.[1] || null;
+  if (!token || token.length > 4096) return null;
+  if ([...token].some((character) => {
+    const code = character.charCodeAt(0);
+    return code <= 31 || code === 127;
+  })) return null;
+  return token;
 }
 
 export function isUuid(value) {
@@ -218,7 +224,14 @@ export async function getAuthenticatedUser(req) {
     throw error;
   }
 
-  return response.json();
+  const user = await response.json().catch(() => null);
+  if (!user || !isUuid(user.id) || user.aud !== "authenticated") {
+    const error = new Error("Sessao invalida ou expirada");
+    error.status = 401;
+    error.userSafe = true;
+    throw error;
+  }
+  return user;
 }
 
 export async function supabaseRequest(path, options = {}) {
@@ -420,7 +433,7 @@ export async function enforceRateLimit(req, res, {
 
 export async function getProfile(userId) {
   const rows = await supabaseRequest(
-    `profiles?id=eq.${encodeURIComponent(userId)}&select=id,role`
+    `profiles?id=eq.${encodeURIComponent(userId)}&select=id,role,name`
   );
   return rows?.[0] || null;
 }
@@ -522,7 +535,16 @@ export async function getOpenCheckoutAttempts(userId) {
   return Array.isArray(rows) ? rows : [];
 }
 
-export async function claimCheckoutAttempt({ attemptId, userId, planKey, paymentMethod }) {
+export async function claimCheckoutAttempt({
+  attemptId,
+  userId,
+  planKey,
+  paymentMethod,
+  provider = "stripe",
+  externalReference = null,
+  customerEmail = null,
+  customerName = null,
+}) {
   const existing = await supabaseRequest(
     `billing_checkout_attempts?attempt_id=eq.${encodeURIComponent(attemptId)}&limit=1&select=*`
   );
@@ -547,7 +569,16 @@ export async function claimCheckoutAttempt({ attemptId, userId, planKey, payment
     const rows = await supabaseRequest("billing_checkout_attempts", {
       method: "POST",
       headers: { Prefer: "return=representation" },
-      body: JSON.stringify({ attempt_id: attemptId, user_id: userId, plan_key: planKey, payment_method: paymentMethod }),
+      body: JSON.stringify({
+        attempt_id: attemptId,
+        user_id: userId,
+        plan_key: planKey,
+        payment_method: paymentMethod,
+        provider,
+        external_reference: externalReference,
+        customer_email: customerEmail,
+        customer_name: customerName,
+      }),
     });
     return { attempt: rows?.[0] || null, reused: false };
   } catch (error) {
