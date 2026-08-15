@@ -57,9 +57,12 @@ function getObjectPaths(book) {
 
     path = decodePath(path.split(/[?#]/, 1)[0]).replace(/^\/+/, "");
     const storageMarker = path.match(
-      /(?:^|\/)storage\/v1\/object\/(?:public|authenticated|sign)\/pdfs\/(.+)$/i,
+      /(?:^|\/)(?:storage\/v1\/)?(?:object\/)?(?:public|authenticated|sign)\/pdfs\/(.+)$/i,
     );
     if (storageMarker?.[1]) path = storageMarker[1];
+    // Older records may contain only the storage visibility prefix, for
+    // example `public/pdfs/file.pdf` or `object/public/pdfs/file.pdf`.
+    path = path.replace(/^(?:storage\/v1\/)?(?:object\/)?(?:public|authenticated|sign)\/pdfs\//i, "");
     if (path.toLowerCase().startsWith("pdfs/")) path = path.slice("pdfs/".length);
     path = decodePath(path).replace(/^\/+/, "");
 
