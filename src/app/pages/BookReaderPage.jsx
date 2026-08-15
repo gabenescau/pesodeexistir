@@ -92,6 +92,7 @@ export function BookReaderPage() {
   const [totalPages, setTotalPages] = useState(Number(book?.totalPages || 0));
   const initialPageRef = useRef(Number(book?.currentPage || 1));
   const [loading, setLoading] = useState(true);
+  const [resolvingPdf, setResolvingPdf] = useState(true);
   const [error, setError] = useState("");
   const [pdfUrl, setPdfUrl] = useState(null);
   const [zoom, setZoom] = useState(initialZoom);
@@ -123,16 +124,32 @@ export function BookReaderPage() {
   useEffect(() => {
     let active = true;
     setPdfUrl(null);
-    if (!rawPdfFile || bloqueado) return undefined;
-    resolvePdfUrl(rawPdfFile)
+    setError("");
+    setResolvingPdf(true);
+    if (!rawPdfFile || bloqueado) {
+      setResolvingPdf(false);
+      return undefined;
+    }
+    const pdfRequest = resolvePdfUrl(rawPdfFile);
+    pdfRequest
       .then((url) => { if (active) setPdfUrl(url); })
       .catch((err) => { if (active) setError(err?.message || "Não foi possível abrir este livro."); });
-    return () => { active = false; };
+    pdfRequest.then(
+      () => { if (active) setResolvingPdf(false); },
+      () => { if (active) setResolvingPdf(false); },
+    );
+    return () => {
+      active = false;
+    };
   }, [rawPdfFile, bloqueado]);
 
   useEffect(() => {
     let cancelled = false;
     async function loadPdf() {
+      if (resolvingPdf) {
+        setLoading(true);
+        return;
+      }
       if (!pdfUrl) { setPdf(null); setLoading(false); return; }
       setLoading(true);
       setError("");
@@ -156,7 +173,7 @@ export function BookReaderPage() {
     loadPdf();
     return () => { cancelled = true; renderTaskRef.current?.cancel?.(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pdfUrl]);
+  }, [pdfUrl, resolvingPdf]);
 
   useEffect(() => {
     if (!book?.id || !totalPages || loading || error) return undefined;
@@ -410,7 +427,7 @@ export function BookReaderPage() {
           }}
           className="relative flex min-h-0 flex-1 touch-pan-y items-center justify-center overflow-auto bg-[var(--bg-canvas)] p-3 sm:p-6"
         >
-          {loading ? (
+          {loading || resolvingPdf ? (
             <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">Carregando livro...</div>
           ) : error ? (
             <div className="flex h-full items-center justify-center p-6">
