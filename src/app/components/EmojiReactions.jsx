@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { SmilePlus } from "@/lib/icons";
 import { useAuth } from "@/app/data/AuthContext";
-import { isSupabaseReady, supabase } from "@/app/data/supabase";
+import { communityWrite } from "@/lib/community-write-api";
 
 // Mesma lista do CHECK constraint em public.reactions (migration 00011).
 // Mudar aqui sem mudar la faz o insert voltar 23514.
@@ -34,18 +34,15 @@ export function EmojiReactions({ targetType, targetId, reacoesIniciais = null })
 
   useEffect(() => {
     let ativo = true;
-    if (carregado || !isSupabaseReady() || !targetId) return undefined;
+    if (carregado || !targetId) return undefined;
 
-    supabase
-      .from("reactions")
-      .select("user_id, emoji")
-      .eq("target_type", targetType)
-      .eq("target_id", targetId)
-      .then(({ data, error }) => {
-        if (!ativo || error) return;
+    communityWrite("list_reactions", { targetType, targetId })
+      .then((data) => {
+        if (!ativo) return;
         setReacoes(data || []);
         setCarregado(true);
-      });
+      })
+      .catch(() => {});
 
     return () => {
       ativo = false;
@@ -64,28 +61,9 @@ export function EmojiReactions({ targetType, targetId, reacoesIniciais = null })
         : [...atual, { user_id: user.id, emoji }]
     );
 
-    if (!isSupabaseReady()) return;
     setOcupado(true);
     try {
-      if (jaTenho) {
-        const { error } = await supabase
-          .from("reactions")
-          .delete()
-          .eq("user_id", user.id)
-          .eq("target_type", targetType)
-          .eq("target_id", targetId)
-          .eq("emoji", emoji);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("reactions").insert({
-          user_id: user.id,
-          target_type: targetType,
-          target_id: targetId,
-          emoji,
-        });
-        // 23505 = ja existia (clique duplo / outra aba): estado otimista ja esta certo.
-        if (error && error.code !== "23505") throw error;
-      }
+      await communityWrite("toggle_reaction", { targetType, targetId, emoji, enabled: !jaTenho });
     } catch {
       setReacoes(anterior);
     } finally {

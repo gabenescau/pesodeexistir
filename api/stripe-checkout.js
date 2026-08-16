@@ -55,7 +55,7 @@ export default async function handler(req, res) {
   let phase = "request";
   try {
     phase = "auth";
-    const user = await getAuthenticatedUser(req);
+    const user = await getAuthenticatedUser(req, res);
     phase = "input";
     const { plan: planKey, paymentMethod, attemptId } = parseCheckoutInput(req.body);
     const plan = getBillingPlan(planKey);

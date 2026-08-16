@@ -108,7 +108,7 @@ export default async function handler(req, res) {
   if (!allowPost(req, res)) return;
 
   try {
-    const user = await getAuthenticatedUser(req);
+    const user = await getAuthenticatedUser(req, res);
     await requireAdmin(user);
     if (!await enforceRateLimit(req, res, {
       scope: "admin_subscription",

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../data/AuthContext";
 import { useData } from "../data/DataContext";
-import { isSupabaseReady, supabase } from "../data/supabase";
+import { isSupabaseReady } from "../data/supabase";
 import { toast } from "@/lib/toast";
 import { Plus, Trash2, Edit3, Check, Crown, BookOpen, Users, MessageSquare, ShieldAlert, Sparkles, FolderOpen, RefreshCw, ChartLine, Gift, Truck, Flag, Wallet, Package } from "@/lib/icons";
 import { isActiveSubscription, pickCurrentSubscription } from "@/lib/subscription";
@@ -27,6 +27,7 @@ import {
 import { DatePicker } from "@/components/ui/date-picker";
 import { BarChart, DonutChart, LineChart } from "@/components/ui/chart";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
+import { adminWrite } from "@/lib/admin-api";
 
 const tabs = [
   { id: "dashboard", label: "Dashboard", icon: ChartLine },
@@ -1541,20 +1542,11 @@ function ResgatesTab() {
       return;
     }
     try {
-      const [redResult, prodResult, profResult, emailResult] = await Promise.all([
-        supabase.from("shop_redemptions").select("*").order("created_at", { ascending: false }).limit(200),
-        supabase.from("shop_products").select("id, name, category, credits_cost"),
-        supabase.from("profiles").select("id, name, username, avatar"),
-        supabase.from("user_emails").select("user_id, email"),
-      ]);
-      if (redResult.error) throw redResult.error;
-      if (prodResult.error) throw prodResult.error;
-      if (profResult.error) throw profResult.error;
-      if (emailResult.error) throw emailResult.error;
-      const emailPorId = new Map((emailResult.data || []).map((e) => [e.user_id, e.email]));
-      setRedemptions(redResult.data || []);
-      setProductsById(Object.fromEntries((prodResult.data || []).map((p) => [p.id, p])));
-      setProfilesById(Object.fromEntries((profResult.data || []).map((p) => [p.id, { ...p, email: emailPorId.get(p.id) || "" }])));
+      const result = await adminWrite("redemptions-list");
+      const emailPorId = new Map((result.emails || []).map((e) => [e.user_id, e.email]));
+      setRedemptions(result.redemptions || []);
+      setProductsById(Object.fromEntries((result.products || []).map((p) => [p.id, p])));
+      setProfilesById(Object.fromEntries((result.profiles || []).map((p) => [p.id, { ...p, email: emailPorId.get(p.id) || "" }])));
     } catch (err) {
       setError(err?.message || "Nao foi possivel carregar os resgates.");
     } finally {
@@ -1568,8 +1560,7 @@ function ResgatesTab() {
     setWorking(`${id}:${patch.status}`);
     setError("");
     try {
-      const { error } = await supabase.from("shop_redemptions").update(patch).eq("id", id);
-      if (error) throw error;
+      await adminWrite("redemption-update", { id, ...patch });
       await load();
     } catch (err) {
       setError(err?.message || "Nao foi possivel atualizar o resgate.");
@@ -1832,42 +1823,9 @@ function LojaTab() {
       return;
     }
     try {
-      const productsResult = await supabase
-        .from("shop_products")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (productsResult.error) throw productsResult.error;
-      const productRows = productsResult.data || [];
-      let variantRows = [];
-      if (productRows.length > 0) {
-        const variantsResult = await supabase
-          .from("shop_product_variants")
-          .select("id,product_id,sku,size,color,stock,active")
-          .in("product_id", productRows.map((item) => item.id))
-          .order("created_at", { ascending: true });
-        if (!variantsResult.error) variantRows = variantsResult.data || [];
-        else if (!/schema cache|does not exist|relation/i.test(variantsResult.error.message || "")) throw variantsResult.error;
-      }
-      const variantsByProduct = variantRows.reduce((map, variant) => {
-        const list = map.get(variant.product_id) || [];
-        list.push(variant);
-        map.set(variant.product_id, list);
-        return map;
-      }, new Map());
-      setProducts(productRows.map((product) => ({ ...product, variants: variantsByProduct.get(product.id) || [] })));
-
-      // Seasonal curation is optional. A missing/blocked season query must
-      // never hide the independent store catalog.
-      const seasonsResult = await supabase
-        .from("seasons")
-        .select("id,name,status,starts_on,ends_on")
-        .order("created_at", { ascending: false });
-      if (seasonsResult.error) {
-        setSeasons([]);
-        setError("Produtos carregados. A lista de seasons precisa ser sincronizada.");
-      } else {
-        setSeasons(seasonsResult.data || []);
-      }
+      const result = await adminWrite("shop-catalog");
+      setProducts(result.products || []);
+      setSeasons(result.seasons || []);
     } catch (err) {
       setError(err?.message || "Não foi possível carregar a loja.");
     } finally {
@@ -1909,9 +1867,9 @@ function LojaTab() {
           bucket: LIBRARY_BUCKETS.shopMedia,
           kind: "product-image",
         });
-        const { data } = supabase.storage.from(LIBRARY_BUCKETS.shopMedia).getPublicUrl(path);
-        if (!data?.publicUrl) throw new Error("Nao foi possivel gerar a imagem do produto.");
-        uploadedUrls.push(data.publicUrl);
+        const signed = await adminWrite("signed-media", { bucket: LIBRARY_BUCKETS.shopMedia, paths: [path] });
+        if (!signed?.[path]) throw new Error("Nao foi possivel gerar a imagem do produto.");
+        uploadedUrls.push(signed[path]);
       }
       const currentImages = Array.isArray(form.images) ? form.images : [];
       const updated = [...currentImages, ...uploadedUrls].slice(0, 12);
@@ -2004,47 +1962,7 @@ function LojaTab() {
     }
 
     try {
-      let savedProductId = editingId;
-      let { data: savedProduct, error } = editingId
-        ? await supabase.from("shop_products").update(payload).eq("id", editingId).select("id").maybeSingle()
-        : await supabase.from("shop_products").insert(payload).select("id").single();
-
-      if (error && (error.message?.includes("column") || error.message?.includes("schema cache"))) {
-        const fallbackPayload = { ...payload };
-        if (error.message?.includes("'images'")) delete fallbackPayload.images;
-        if (error.message?.includes("'real_price'")) delete fallbackPayload.real_price;
-        if (error.message?.includes("season_id")) delete fallbackPayload.season_id;
-        if (error.message?.includes("early_access_at")) delete fallbackPayload.early_access_at;
-        if (error.message?.includes("public_release_at")) delete fallbackPayload.public_release_at;
-
-        const res = editingId
-          ? await supabase.from("shop_products").update(fallbackPayload).eq("id", editingId).select("id").maybeSingle()
-          : await supabase.from("shop_products").insert(fallbackPayload).select("id").single();
-        savedProduct = res.data;
-        error = res.error;
-      }
-
-      if (error) throw error;
-      savedProductId = savedProduct?.id || savedProductId;
-      if (savedProductId) {
-        const normalizedVariants = variants
-          .map((variant) => ({
-            ...(variant.id ? { id: variant.id } : {}),
-            product_id: savedProductId,
-            size: variant.size || null,
-            color: variant.color?.trim() || null,
-            stock: Math.max(0, Number(variant.stock) || 0),
-            sku: variant.sku?.trim() || null,
-            active: variant.active !== false,
-          }))
-          .filter((variant) => variant.size || variant.color);
-        const { error: removeVariantsError } = await supabase.from("shop_product_variants").delete().eq("product_id", savedProductId);
-        if (removeVariantsError && !/schema cache|does not exist|relation/i.test(removeVariantsError.message || "")) throw removeVariantsError;
-        if (normalizedVariants.length > 0) {
-          const { error: variantsError } = await supabase.from("shop_product_variants").insert(normalizedVariants.map(({ id: _id, ...variant }) => variant));
-          if (variantsError && !/schema cache|does not exist|relation/i.test(variantsError.message || "")) throw variantsError;
-        }
-      }
+      await adminWrite("shop-save", { ...payload, ...(editingId ? { id: editingId } : {}), variants });
       setForm(INITIAL_FORM);
       setEditingId(null);
       setVariants([]);
@@ -2093,8 +2011,7 @@ function LojaTab() {
       return;
     }
     try {
-      const { error } = await supabase.from("shop_products").update({ active: !product.active }).eq("id", product.id);
-      if (error) throw error;
+      await adminWrite("shop-toggle", { id: product.id, active: !product.active });
       await load();
     } catch (err) {
       setError(err?.message || "Não foi possível atualizar o produto.");
@@ -2118,8 +2035,7 @@ function LojaTab() {
       return;
     }
     try {
-      const { error } = await supabase.from("shop_products").delete().eq("id", product.id);
-      if (error) throw error;
+      await adminWrite("shop-delete", { id: product.id });
       await load();
     } catch (err) {
       setError(err?.message || "Não foi possível remover o produto.");
@@ -2425,8 +2341,7 @@ function SpamTab() {
     setWorking(true);
     setMessage("");
     try {
-      const { data, error } = await supabase.rpc("spam_revert", { p_user_id: userId.trim(), p_days });
-      if (error) throw error;
+        const data = await adminWrite("spam-revert", { userId: userId.trim(), days: p_days });
       const xpRev = Number(data?.xpReverted || 0);
       const crRev = Number(data?.creditsReverted || 0);
       setMessage(xpRev > 0 || crRev > 0
@@ -2492,8 +2407,7 @@ function IndicacoesTab() {
       return;
     }
     try {
-      const { data, error: rpcError } = await supabase.rpc("admin_list_referrals");
-      if (rpcError) throw rpcError;
+      const data = await adminWrite("referrals-list");
       setReferrals(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err?.message || "Não foi possível carregar as indicações.");
@@ -2508,11 +2422,10 @@ function IndicacoesTab() {
     setWorking(r.id);
     setError("");
     try {
-      const { error: rpcError } = await supabase.rpc("admin_confirm_referral", {
-        p_referrer_user_id: r.referrer.id,
-        p_referred_user_id: r.referred.id,
+      await adminWrite("referral-confirm", {
+        referrerUserId: r.referrer.id,
+        referredUserId: r.referred.id,
       });
-      if (rpcError) throw rpcError;
       toast.success("Indicação confirmada. Recompensa aplicada.");
       await load();
     } catch (err) {
@@ -2526,11 +2439,10 @@ function IndicacoesTab() {
     setWorking(r.id);
     setError("");
     try {
-      const { error: rpcError } = await supabase.rpc("admin_cancel_referral", {
-        p_referrer_user_id: r.referrer.id,
-        p_referred_user_id: r.referred.id,
+      await adminWrite("referral-cancel", {
+        referrerUserId: r.referrer.id,
+        referredUserId: r.referred.id,
       });
-      if (rpcError) throw rpcError;
       toast.success("Indicação cancelada.");
       await load();
     } catch (err) {
@@ -2658,12 +2570,7 @@ function SeasonsTab() {
       return;
     }
     try {
-      const { data, error } = await supabase
-        .from("seasons")
-        .select("id, name, description, status, starts_on, ends_on, created_at")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      setSeasons(data || []);
+      setSeasons(await adminWrite("season-list"));
     } catch (err) {
       setError(err?.message || "Nao foi possivel carregar as seasons.");
     } finally {
@@ -2678,17 +2585,14 @@ function SeasonsTab() {
     if (!form.name.trim()) return;
     setWorking("create");
     setError("");
-    supabase
-      .from("seasons")
-      .insert({
+    adminWrite("season-create", {
         name: form.name.trim(),
         description: form.description.trim() || null,
         status: form.status,
         starts_on: form.starts_on || null,
         ends_on: form.ends_on || null,
       })
-      .then(async ({ error }) => {
-        if (error) throw error;
+      .then(async () => {
         setForm({ name: "", description: "", starts_on: "", ends_on: "", status: "active" });
         await load();
       })
@@ -2700,12 +2604,8 @@ function SeasonsTab() {
     const next = season.status === "draft" ? "active" : season.status === "active" ? "archived" : "draft";
     setWorking(season.id);
     setError("");
-    supabase
-      .from("seasons")
-      .update({ status: next })
-      .eq("id", season.id)
-      .then(async ({ error }) => {
-        if (error) throw error;
+    adminWrite("season-update", { id: season.id, status: next })
+      .then(async () => {
         await load();
       })
       .catch((err) => setError(err?.message || "Nao foi possivel atualizar a season."))
@@ -2726,17 +2626,14 @@ function SeasonsTab() {
     if (!editForm.name.trim()) return;
     setWorking(season.id);
     setError("");
-    supabase
-      .from("seasons")
-      .update({
-        name: editForm.name.trim(),
-        description: editForm.description.trim() || null,
-        starts_on: editForm.starts_on || null,
-        ends_on: editForm.ends_on || null,
-      })
-      .eq("id", season.id)
-      .then(async ({ error }) => {
-        if (error) throw error;
+    adminWrite("season-update", {
+      id: season.id,
+      name: editForm.name.trim(),
+      description: editForm.description.trim() || null,
+      starts_on: editForm.starts_on || null,
+      ends_on: editForm.ends_on || null,
+    })
+      .then(async () => {
         setEditingId(null);
         await load();
       })
@@ -2755,8 +2652,7 @@ function SeasonsTab() {
     setWorking(season.id);
     setError("");
     try {
-      const { error } = await supabase.from("seasons").delete().eq("id", season.id);
-      if (error) throw error;
+      await adminWrite("season-delete", { id: season.id });
       await load();
     } catch (err) {
       setError(err?.message || "Nao foi possivel excluir a season.");
@@ -2974,13 +2870,11 @@ function CreditsTab() {
     if (!isSupabaseReady()) {
       return;
     }
-    supabase
-      .from("shop_redemptions")
-      .select("user_id, credits_spent")
-      .then(({ data, error }) => {
+    adminWrite("credits-spent")
+      .then((data) => {
         if (!active) return;
         const totals = {};
-        if (!error && Array.isArray(data)) {
+        if (Array.isArray(data)) {
           for (const r of data) {
             totals[r.user_id] = (totals[r.user_id] || 0) + Number(r.credits_spent || 0);
           }
@@ -3220,8 +3114,7 @@ function PedidosTab() {
     setError("");
     try {
       if (isSupabaseReady()) {
-        const { data, error } = await supabase.rpc("admin_list_orders", { p_limit: 200 });
-        if (error) throw error;
+        const data = await adminWrite("orders-list");
         setOrders((data || []).map(toLocal));
       } else {
         try {
@@ -3246,11 +3139,7 @@ function PedidosTab() {
     setOrders(optimistic);
     if (isSupabaseReady()) {
       try {
-        const { error } = await supabase.rpc("admin_update_order_status", {
-          p_order_id: id,
-          p_status: newStatus,
-        });
-        if (error) throw error;
+        await adminWrite("order-status", { id, status: newStatus });
       } catch {
         load();
       }

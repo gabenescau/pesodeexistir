@@ -115,7 +115,7 @@ async function cancelCheckout(req, res, user) {
 export default async function handler(req, res) {
   if (!allowPost(req, res)) return;
   try {
-    const user = await getAuthenticatedUser(req);
+    const user = await getAuthenticatedUser(req, res);
     const action = String(req.body?.action || "create").toLowerCase();
     if (action === "create") return await createCheckout(req, res, user);
     if (action === "status") return await checkoutStatus(req, res, user);

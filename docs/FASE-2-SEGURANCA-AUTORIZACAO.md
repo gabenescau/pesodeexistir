@@ -32,11 +32,21 @@ SQL. No painel do projeto, revisar:
 5. Authentication > Sessions: revisar duracao do access token, inactivity
    timeout e single-session conforme o risco do produto.
 
-O app e uma SPA Vite e atualmente usa `sessionStorage` para a sessao do
-Supabase. Isso impede persistencia entre abas fechadas, mas nao transforma o
-token em HttpOnly. A migracao para cookie HttpOnly exige um BFF/SSR completo;
-nao se deve copiar o token para um cookie via JavaScript e chamar isso de
-HttpOnly.
+O app continua sendo uma SPA Vite, mas a sessão de autenticação agora é
+protegida por um BFF de autenticação em `/api/auth`: refresh e access tokens
+ficam em cookies `HttpOnly`, `Secure` e `SameSite=Lax` em produção. O access
+token curto é mantido apenas em memória para compatibilidade temporária com
+leituras Supabase que ainda usam RLS diretamente no browser; ele não é gravado
+em `localStorage` ou `sessionStorage`.
+
+Esta é uma migração em ponte, não a conclusão de um BFF completo. Um XSS
+durante a vida da página ainda poderia usar o cliente Supabase já inicializado
+ou observar respostas de dados. Para eliminar também essa superfície, a próxima
+fase deve migrar os reads protegidos de `DataContext`, Storage e Functions para
+endpoints same-origin no servidor e então remover `accessToken` das respostas
+de `/api/auth?action=session` e do cliente Supabase.
+
+Não se deve copiar token para cookie via JavaScript e chamar isso de HttpOnly.
 
 ## Rate limit da API
 

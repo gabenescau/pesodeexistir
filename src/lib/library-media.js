@@ -1,9 +1,11 @@
-import { supabase, isSupabaseReady } from "@/app/data/supabase";
+import { isSupabaseReady } from "@/app/data/supabase";
 import { secureUpload } from "./secure-upload";
+import { authenticatedApiPost } from "./authenticated-api";
 
 export const LIBRARY_BUCKETS = {
   covers: "covers",
   pdfs: "pdfs",
+  shopMedia: "shop-media",
 };
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -33,20 +35,25 @@ export async function uploadLibraryFile({ file, bucket, kind }) {
 
 export async function removeLibraryFile(bucket, path) {
   if (!isSupabaseReady() || !path) return;
-  const { error } = await supabase.storage.from(bucket).remove([path]);
-  if (error) throw error;
+  await authenticatedApiPost("/api/auth?action=upload-delete", { bucket, paths: [path] });
+}
+
+export async function removeUploadedFiles(bucket, paths) {
+  if (!isSupabaseReady() || !paths?.length) return;
+  await authenticatedApiPost("/api/auth?action=upload-delete", { bucket, paths });
 }
 
 export async function createSignedUrlMap(bucket, paths, expiresIn = 3600) {
   const uniquePaths = [...new Set((paths || []).filter(Boolean))];
   if (!isSupabaseReady() || uniquePaths.length === 0) return new Map();
 
-  const { data, error } = await supabase.storage.from(bucket).createSignedUrls(uniquePaths, expiresIn);
-  if (error) return new Map();
-
-  return new Map(
-    (data || [])
-      .filter((item) => item?.path && item?.signedUrl)
-      .map((item) => [item.path, item.signedUrl])
-  );
+  try {
+    const data = await authenticatedApiPost("/api/admin-data", {
+      operation: "signed-media",
+      payload: { bucket, paths: uniquePaths, expiresIn },
+    });
+    return new Map(Object.entries(data || {}));
+  } catch {
+    return new Map();
+  }
 }

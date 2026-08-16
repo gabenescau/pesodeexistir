@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useAuth } from "@/app/data/AuthContext";
-import { isSupabaseReady, supabase } from "@/app/data/supabase";
+import { communityWrite } from "@/lib/community-write-api";
 
 export function PostPoll({ poll }) {
   const { user } = useAuth();
@@ -28,11 +28,7 @@ export function PostPoll({ poll }) {
     }));
 
     try {
-      if (!isSupabaseReady()) return;
-      const { error: insertError } = await supabase
-        .from("post_poll_votes")
-        .insert({ poll_id: currentPoll.id, option_id: optionId, user_id: user.id });
-      if (insertError && insertError.code !== "23505") throw insertError;
+      await communityWrite("toggle_poll_vote", { pollId: currentPoll.id, optionId });
     } catch (err) {
       setCurrentPoll(previous);
       setError(err?.message || "Nao foi possivel votar.");

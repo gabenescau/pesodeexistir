@@ -20,7 +20,7 @@ export default async function handler(req, res) {
   if (!allowPost(req, res)) return;
 
   try {
-    const user = await getAuthenticatedUser(req);
+    const user = await getAuthenticatedUser(req, res);
     const { sessionId } = parseStripeSessionInput(req.body);
     if (!await enforceRateLimit(req, res, {
       scope: "stripe_session",

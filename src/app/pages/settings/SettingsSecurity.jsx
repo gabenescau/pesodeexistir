@@ -3,7 +3,8 @@ import { useSearchParams } from "react-router-dom";
 import { Lock, LogOut, Monitor, Shield, Smartphone } from "@/lib/icons";
 import { SettingsLayout, SettingsRow, SettingsSection, SettingsToggle } from "../../components/SettingsLayout";
 import { useAuth } from "../../data/AuthContext";
-import { isSupabaseReady, supabase } from "../../data/supabase";
+import { isSupabaseReady } from "../../data/supabase";
+import { authApi } from "@/lib/auth-api";
 import { validateStrongPassword } from "@/lib/sanitize";
 import { toast } from "@/lib/toast";
 
@@ -48,8 +49,7 @@ export function SettingsSecurity() {
     }
     setSavingPwd(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) throw error;
+      await authApi.updateUser({ password: newPassword });
       setNewPassword("");
       toast.success("Senha atualizada.");
     } catch (err) {
@@ -63,10 +63,7 @@ export function SettingsSecurity() {
     if (signingOutOthers) return;
     setSigningOutOthers(true);
     try {
-      if (isSupabaseReady()) {
-        // Mantem a sessao atual; encerra as outras.
-        await supabase.auth.signOut({ scope: "others" });
-      }
+      if (isSupabaseReady()) await authApi.signOutOthers();
       toast.success("Outras sessoes foram encerradas.");
     } catch (err) {
       toast.error(err?.message || "Nao foi possivel encerrar outras sessoes.");

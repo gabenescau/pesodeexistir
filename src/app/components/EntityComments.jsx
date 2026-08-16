@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { MessageCircle, Send, Trash2 } from "@/lib/icons";
 import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
-import { isSupabaseReady, supabase } from "@/app/data/supabase";
+import { communityWrite } from "@/lib/community-write-api";
 import { handleDoPerfil } from "@/lib/mentions";
 import { sanitizePlainText } from "@/lib/sanitize";
 import { toast } from "@/lib/toast";
@@ -63,7 +63,7 @@ export function EntityComments({ targetType, targetId, emptyMessage = "Seja o pr
   // Busca (ou cria) o post ancora desta entidade. Cacheia em localStorage
   // para nao re-checar o banco em toda navegacao.
   const ensureThread = useCallback(async () => {
-    if (!isSupabaseReady() || !user?.id || !targetId) return null;
+    if (!user?.id || !targetId) return null;
     const tag = `entity-thread:${targetType}:${targetId}`;
     const cacheKey = `ope:thread:${tag}`;
 
@@ -77,37 +77,17 @@ export function EntityComments({ targetType, targetId, emptyMessage = "Seja o pr
       // localStorage bloqueado: segue para a busca no banco.
     }
 
-    const { data: existente, error: errBusca } = await supabase
-      .from("posts")
-      .select("id")
-      .eq("tag", tag)
-      .eq("user_id", user.id)
-      .limit(1)
-      .maybeSingle();
-    if (errBusca) throw errBusca;
-    if (existente?.id) {
-      try { window.localStorage.setItem(cacheKey, existente.id); } catch { /* ignore */ }
-      setThreadPostId(existente.id);
-      return existente.id;
+    const thread = await communityWrite("ensure_entity_thread", { targetType, targetId });
+    if (thread?.id) {
+      try { window.localStorage.setItem(cacheKey, thread.id); } catch { /* ignore */ }
+      setThreadPostId(thread.id);
+      return thread.id;
     }
-
-    const { data: criado, error: errCria } = await supabase
-      .from("posts")
-      .insert({
-        user_id: user.id,
-        text: `[thread] Discussao sobre ${targetType === "book" ? "este livro" : "este autor"}`,
-        tag,
-      })
-      .select("id")
-      .single();
-    if (errCria) throw errCria;
-    try { window.localStorage.setItem(cacheKey, criado.id); } catch { /* ignore */ }
-    setThreadPostId(criado.id);
-    return criado.id;
+    return null;
   }, [user?.id, targetId, targetType]);
 
   const carregar = useCallback(async () => {
-    if (!isSupabaseReady() || !user?.id) {
+    if (!user?.id) {
       setComentarios([]);
       setCarregando(false);
       return;
@@ -119,16 +99,8 @@ export function EntityComments({ targetType, targetId, emptyMessage = "Seja o pr
       setCarregando(false);
       return;
     }
-    const { data, error } = await supabase
-      .from("post_replies")
-      .select("*")
-      .eq("post_id", id)
-      .order("created_at", { ascending: true });
-    if (error) {
-      setComentarios([]);
-    } else {
-      setComentarios(data || []);
-    }
+    const data = await communityWrite("list_replies", { postId: id });
+    setComentarios(data || []);
     setErro("");
     setCarregando(false);
   }, [ensureThread, user?.id]);
@@ -149,12 +121,7 @@ export function EntityComments({ targetType, targetId, emptyMessage = "Seja o pr
     try {
       const id = threadPostId || (await ensureThread());
       if (!id) throw new Error("Nao foi possivel abrir a discussao desta entidade.");
-      const { data, error } = await supabase
-        .from("post_replies")
-        .insert({ post_id: id, user_id: user.id, text: conteudo, parent_id: null })
-        .select()
-        .single();
-      if (error) throw error;
+      const data = await communityWrite("create_reply", { postId: id, text: conteudo, parentId: null });
       setComentarios((atual) => [...atual, data]);
       setTexto("");
       toast.success("Comentario publicado.");
@@ -178,16 +145,15 @@ export function EntityComments({ targetType, targetId, emptyMessage = "Seja o pr
     if (!ok) return;
     const anterior = comentarios;
     setComentarios((atual) => atual.filter((item) => item.id !== id));
-    const { error } = await supabase
-      .from("post_replies")
-      .delete()
-      .eq("id", id);
-    if (error) {
+    let removido = false;
+    try {
+      await communityWrite("delete_reply", { replyId: id });
+      removido = true;
+    } catch {
       setComentarios(anterior);
       toast.error("Nao foi possivel apagar o comentario.");
-    } else {
-      toast.success("Comentario removido.");
     }
+    if (removido) toast.success("Comentario removido.");
   }
 
   return (

@@ -5,7 +5,8 @@ import { SettingsLayout, SettingsRow, SettingsSection } from "../../components/S
 import { useAuth } from "../../data/AuthContext";
 import { useData } from "../../data/DataContext";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
-import { isSupabaseReady, supabase } from "../../data/supabase";
+import { isSupabaseReady } from "../../data/supabase";
+import { authApi } from "@/lib/auth-api";
 import { authenticatedApiPost } from "@/lib/authenticated-api";
 import { toast } from "@/lib/toast";
 import { isActiveSubscription } from "@/lib/subscription";
@@ -31,8 +32,7 @@ export function SettingsAccount() {
     }
     setSavingEmail(true);
     try {
-      const { error } = await supabase.auth.updateUser({ email: newEmail.trim() });
-      if (error) throw error;
+      await authApi.updateUser({ email: newEmail.trim() });
       toast.success("Confira seu email para confirmar a troca.");
     } catch (err) {
       toast.error(err?.message || "Nao foi possivel atualizar o email.");

@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
-import { supabase, isSupabaseReady } from "./supabase";
-import { getSupabaseErrorMessage } from "@/lib/supabase-error";
-import { runSupabaseQuery } from "@/lib/supabase-query";
+import { isSupabaseReady } from "./supabase";
+import { authApi } from "@/lib/auth-api";
 import { normalizeEmail } from "@/lib/sanitize";
 import { hasPermission, normalizeRole, PERMISSIONS, ROLES } from "@/lib/rbac";
 import { rewardApi } from "@/lib/rewards";
@@ -10,7 +9,6 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   // Evita recarregar o perfil a cada evento de auth (TOKEN_REFRESHED, foco da aba,
@@ -18,25 +16,13 @@ export function AuthProvider({ children }) {
   // nunca dispara duas cargas ao mesmo tempo.
   const loadedProfileIdRef = useRef(null);
   const loadingProfileRef = useRef(false);
+  const refreshSessionRef = useRef(async () => {});
 
   useEffect(() => {
     if (!isSupabaseReady()) {
-      // Em modo de desenvolvimento, se o Supabase não estiver configurado,
-      // injetamos um usuário admin mockado para permitir testar o app localmente.
-      if (import.meta.env.DEV) {
-        setUser({
-          id: "mock-admin-id",
-          email: "admin@pesodeexistir.online",
-        });
-        setProfile({
-          id: "mock-admin-id",
-          name: "Admin Local (Dev)",
-          username: "admin",
-          role: "admin",
-          xp: 9999,
-          credits: 9999,
-        });
-      }
+      // Sem o Supabase configurado, nenhum usuario e criado localmente.
+      // Um mock admin poderia mascarar uma configuracao quebrada e virar uma
+      // porta de entrada se o servidor local fosse exposto acidentalmente.
       setLoading(false);
       return;
     }
@@ -56,14 +42,14 @@ export function AuthProvider({ children }) {
       }
 
       loadingProfileRef.current = true;
-      const { data, error } = await runSupabaseQuery(
-        () => supabase
-          .from("profiles")
-          .select("id,name,avatar,avatar_url,username,bio,theme,role,private_profile,reading_activity,show_online_status,xp,credits,referral_code,created_at,updated_at")
-          .eq("id", userId)
-          .maybeSingle(),
-        "carregar perfil"
-      );
+      let data = null;
+      let error = null;
+      try {
+        const result = await authApi.profile();
+        data = result?.profile || null;
+      } catch (profileError) {
+        error = profileError;
+      }
       loadingProfileRef.current = false;
 
       if (!active) return;
@@ -96,68 +82,34 @@ export function AuthProvider({ children }) {
     }
 
     async function restoreSession() {
-      const { data: { session } } = await supabase.auth.getSession();
-
-      // getSession() le o storage de sessao configurado no cliente. Uma conta
-      // apagada ou com token invalidado ainda pode parecer valida localmente e
-      // o app entra "logado" sem conseguir carregar nada. getUser() bate no
-      // servidor de auth e revela isso.
-      if (session) {
-        const { error: userError } = await supabase.auth.getUser();
-
-        // Desloga apenas quando o servidor rejeita o token de fato. Falha de
-        // rede nao pode derrubar a sessao de quem so esta sem conexao.
-        if (userError?.status === 401 || userError?.status === 403) {
-          await supabase.auth.signOut();
-          if (!active) return;
-          loadedProfileIdRef.current = null;
-          setSession(null);
-          setUser(null);
-          setProfile(null);
-          setLoading(false);
-          return;
-        }
-      }
-
+      const session = await authApi.session();
       if (!active) return;
-      setSession(session);
-      setUser(session?.user ?? null);
-      await loadProfile(session?.user?.id, session?.user);
+      const authenticatedUser = session?.user || null;
+      setUser(authenticatedUser);
+      await loadProfile(authenticatedUser?.id, authenticatedUser);
       if (active) setLoading(false);
     }
+
+    refreshSessionRef.current = restoreSession;
 
     restoreSession().catch((error) => {
       if (!active) return;
       console.warn("Nao foi possivel restaurar a sessao:", error.message || error);
-      setSession(null);
       setUser(null);
       setProfile(null);
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!active) return;
-      setSession(session);
-      setUser(session?.user ?? null);
-
-      const nextUserId = session?.user?.id ?? null;
-
-      if (event === "SIGNED_OUT" || !nextUserId) {
-        loadedProfileIdRef.current = null;
-        setProfile(null);
-        return;
-      }
-
-      // So recarrega quando troca de usuario; ignora TOKEN_REFRESHED e as
-      // re-emissoes disparadas ao voltar o foco para a aba.
-      if (nextUserId !== loadedProfileIdRef.current) {
-        loadProfile(nextUserId, session?.user);
-      }
-    });
+    // Refresh the server-owned cookie session before the short-lived access
+    // token expires. No token is written to browser storage.
+    const refreshTimer = window.setInterval(() => {
+      restoreSession().catch(() => {});
+    }, 45 * 60 * 1000);
 
     return () => {
       active = false;
-      subscription?.unsubscribe();
+      window.clearInterval(refreshTimer);
+      refreshSessionRef.current = async () => {};
     };
   }, []);
 
@@ -172,27 +124,15 @@ export function AuthProvider({ children }) {
       throw new Error("Supabase não está configurado. Verifique a integração Supabase no painel da Vercel.");
     }
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: normalizeEmail(email),
-      password,
-    });
-    if (error) {
-      // Keep the provider code/status for the UI mapper and diagnostics, but
-      // never expose the raw provider payload directly to the user.
-      const safeError = new Error(getSupabaseErrorMessage(error));
-      safeError.code = error.code || null;
-      safeError.status = error.status || null;
-      safeError.userSafe = true;
-      throw safeError;
-    }
+    await authApi.login(normalizeEmail(email), password);
+    await refreshSessionRef.current();
   }, []);
 
   const logout = useCallback(async () => {
     if (isSupabaseReady()) {
-      await supabase.auth.signOut();
+      await authApi.logout();
     }
     setUser(null);
-    setSession(null);
     setProfile(null);
   }, []);
 
@@ -205,7 +145,6 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       user,
-      session,
       profile,
       loading,
       isAuthenticated: !!user,

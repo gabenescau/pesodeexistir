@@ -1,5 +1,4 @@
-import { supabase, isSupabaseReady } from "@/app/data/supabase";
-import { getSupabaseErrorMessage } from "@/lib/supabase-error";
+import { authenticatedApiRequest } from "@/lib/authenticated-api";
 
 // Cliente do sistema de creditos OPE. O saldo e sempre decidido pelos RPCs.
 export const DAILY_CAPS = { credits: 20 };
@@ -21,33 +20,38 @@ export function rewardMeta(key) {
 }
 
 async function rpc(name, args = {}) {
-  if (!isSupabaseReady()) throw new Error("Supabase nao configurado.");
-  const { data, error } = await supabase.rpc(name, args);
-  if (error) throw new Error(getSupabaseErrorMessage(error));
-  return data ?? null;
+  return authenticatedApiRequest("/api/auth?action=reward", {
+    method: "POST",
+    body: { operation: name, ...args },
+  });
 }
 
 export const rewardApi = {
   rewardLogin: () => rpc("reward_login"),
-  reportReading: (bookId, seconds, interacted) => rpc("report_reading_session", { p_book_id: bookId, p_seconds: seconds, p_interacted: interacted }),
-  rewardPost: (userId, sourceRef) => rpc("reward_post", { p_user_id: userId, p_source_ref: sourceRef }),
-  rewardComment: (userId, text) => rpc("reward_comment", { p_user_id: userId, p_text: text }),
-  rewardLikesReceived: (ownerId) => rpc("reward_likes_received", { p_owner_id: ownerId }),
+  reportReading: (bookId, seconds, interacted) => rpc("report_reading_session", { bookId, seconds, interacted }),
+  rewardPost: (userId, sourceRef) => rpc("reward_post", { userId, sourceRef }),
+  rewardComment: (userId, text) => rpc("reward_comment", { userId, text }),
+  rewardLikesReceived: (ownerId) => rpc("reward_likes_received", { ownerId }),
   completeDailyMission: () => rpc("complete_daily_mission"),
   completeWeeklyMission: () => rpc("complete_weekly_mission"),
   redeemProduct: (productId, customerName, customerEmail, address, idempotencyKey, variantId = null, quantity = 1) => rpc("redeem_product_with_variant", {
-    p_product_id: productId,
-    p_variant_id: variantId,
-    p_quantity: quantity,
-    p_customer_name: customerName,
-    p_customer_email: customerEmail,
-    p_address: { ...(address && typeof address === "object" ? address : {}), idempotency_key: idempotencyKey || globalThis.crypto?.randomUUID?.() || `redeem-${Date.now()}-${Math.random().toString(36).slice(2)}` },
+    productId,
+    variantId,
+    quantity,
+    customerName,
+    customerEmail,
+    address,
+    idempotencyKey,
   }),
-  referralClaim: (referredUserId) => rpc("referral_claim", { p_referred_user_id: referredUserId }),
+  createShopOrder: (payload) => rpc("create_shop_order_with_variant", payload),
+  referralClaim: (referredUserId) => rpc("referral_claim", { referredUserId }),
   getMyReferralCode: () => rpc("get_my_referral_code"),
-  registerReferral: (code) => rpc("register_referral", { p_referrer_code: code }),
-  walletState: () => rpc("wallet_state"),
-  creditsRanking: (limit = 10) => rpc("credits_ranking", { p_limit: limit }),
+  registerReferral: (code) => rpc("register_referral", { code }),
+  walletState: () => authenticatedApiRequest("/api/auth?action=wallet"),
+  products: () => authenticatedApiRequest("/api/auth?action=store"),
+  redemptions: () => authenticatedApiRequest("/api/auth?action=redemptions"),
+  referrals: () => authenticatedApiRequest("/api/auth?action=referrals"),
+  creditsRanking: (limit = 10) => rpc("credits_ranking", { limit }),
 };
 
 export function normalizeWalletState(raw) {

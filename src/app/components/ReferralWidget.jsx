@@ -1,27 +1,26 @@
 import { useCallback, useEffect, useState } from "react";
 import { Copy, UserPlus } from "@/lib/icons";
 import { useRewards } from "@/app/data/RewardsContext";
-import { supabase, isSupabaseReady } from "@/app/data/supabase";
 import { toast } from "@/lib/toast";
+import { useAuth } from "@/app/data/AuthContext";
 
 export function ReferralWidget() {
-  const { getMyReferralCode, referralClaim, refresh } = useRewards();
+  const { getMyReferralCode, getMyReferrals, referralClaim, refresh } = useRewards();
+  const { user } = useAuth();
   const [code, setCode] = useState("");
   const [referrals, setReferrals] = useState([]);
   const [busy, setBusy] = useState("");
 
   const load = useCallback(async () => {
-    if (!isSupabaseReady()) return;
-    const session = await supabase.auth.getSession();
-    const userId = session.data.session?.user?.id;
+    const userId = user?.id;
     if (!userId) return;
     const [codeResult, referralsResult] = await Promise.allSettled([
       getMyReferralCode(),
-      supabase.from("referrals").select("referred_user_id, rewarded_at, created_at").eq("referrer_user_id", userId).order("created_at", { ascending: false }).limit(50),
+      getMyReferrals(),
     ]);
     if (codeResult.status === "fulfilled") setCode(codeResult.value || "");
-    if (referralsResult.status === "fulfilled") setReferrals(referralsResult.value?.data || []);
-  }, [getMyReferralCode]);
+    if (referralsResult.status === "fulfilled") setReferrals(referralsResult.value || []);
+  }, [getMyReferralCode, getMyReferrals, user?.id]);
 
   useEffect(() => { load(); }, [load]);
 

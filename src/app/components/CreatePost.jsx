@@ -3,7 +3,7 @@ import { BarChart3, Image, Plus, Send, UserRound, X } from "@/lib/icons";
 import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
 import { useRewards } from "@/app/data/RewardsContext";
-import { isSupabaseReady, supabase } from "@/app/data/supabase";
+import { isSupabaseReady } from "@/app/data/supabase";
 import { handleDoPerfil, normalizar, resolverMencao, tokenizarMencoes } from "@/lib/mentions";
 import {
   MAX_POST_IMAGES,
@@ -15,6 +15,7 @@ import {
 import { VerifiedBadge } from "./VerifiedBadge";
 import { sanitizePlainText, sanitizeSingleLine } from "@/lib/sanitize";
 import { secureUpload } from "@/lib/secure-upload";
+import { removeUploadedFiles } from "@/lib/library-media";
 
 const ALLOWED_POST_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const POST_IMAGE_EXTENSION = /\.(?:jpe?g|png|webp|gif)$/i;
@@ -203,7 +204,7 @@ export function CreatePost({ initialBookId = null, tag = null }) {
       if (user?.id && rewardPost) rewardPost(user.id, createdPost?.id || null).catch(() => {});
     } catch (err) {
       if (uploadedPaths.length) {
-        await supabase.storage.from(POST_IMAGE_BUCKET).remove(uploadedPaths).catch(() => {});
+        await removeUploadedFiles(POST_IMAGE_BUCKET, uploadedPaths).catch(() => {});
       }
       setError(err?.message || "Nao foi possivel publicar.");
     } finally {

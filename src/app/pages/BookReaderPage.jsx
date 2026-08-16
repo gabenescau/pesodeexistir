@@ -6,7 +6,7 @@ import {
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { useData } from "../data/DataContext";
-import { supabase, isSupabaseReady } from "../data/supabase";
+import { isSupabaseReady } from "../data/supabase";
 import { useRewards } from "../data/RewardsContext";
 import { contagemRegressiva, formatarData } from "@/lib/releases";
 import { toast } from "@/lib/toast";
@@ -24,13 +24,11 @@ async function resolvePdfUrl(bookId) {
   if (!isSupabaseReady()) {
     throw new Error("A conexao segura com a biblioteca nao esta disponivel. Recarregue a pagina e tente novamente.");
   }
-  const { data: { session } = {} } = await supabase.auth.getSession();
-  if (!session?.access_token) {
-    throw new Error("Sua sessao expirou. Entre novamente para continuar.");
-  }
-
-  const headers = { Authorization: `Bearer ${session.access_token}` };
-  const requestOptions = { headers, cache: "no-store" };
+  const requestOptions = {
+    credentials: "include",
+    headers: { "X-Requested-With": "OPE-App" },
+    cache: "no-store",
+  };
   let response = await fetch(`/api/book-pdf/${encodeURIComponent(bookId)}`, requestOptions);
   let contentType = response.headers.get("content-type") || "";
   let payload = contentType.includes("application/json")

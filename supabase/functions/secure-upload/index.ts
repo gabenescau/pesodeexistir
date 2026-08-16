@@ -1,7 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+// Supabase supplies SUPABASE_SERVICE_ROLE_KEY to Edge Functions by default.
+// SERVICE_ROLE_KEY is supported as a fallback for projects that configured a
+// custom secret after the platform rejected the reserved SUPABASE_ prefix.
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SERVICE_ROLE_KEY") || "";
+const UPLOAD_TICKET_SECRET = Deno.env.get("UPLOAD_TICKET_SECRET") || "";
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 const MAX_PDF_BYTES = 50 * 1024 * 1024;
@@ -11,6 +15,7 @@ const BUCKETS = {
   avatars: { kind: "avatar", maxBytes: MAX_AVATAR_BYTES, roles: ["owner"] },
   covers: { kind: "image", maxBytes: MAX_IMAGE_BYTES, roles: ["admin", "editor"] },
   "post-media": { kind: "image", maxBytes: MAX_IMAGE_BYTES, roles: ["owner"] },
+  "shop-media": { kind: "image", maxBytes: MAX_IMAGE_BYTES, roles: ["admin", "editor"] },
   pdfs: { kind: "pdf", maxBytes: MAX_PDF_BYTES, roles: ["admin", "editor"] },
 } as const;
 
@@ -18,6 +23,7 @@ const ALLOWED_KINDS: Record<string, string[]> = {
   avatars: ["avatar"],
   covers: ["book-cover", "author-photo"],
   "post-media": ["post-image"],
+  "shop-media": ["product-image"],
   pdfs: ["book-pdf"],
 };
 
@@ -142,11 +148,54 @@ function safeBaseName(name: string) {
 }
 
 function corsHeaders(origin: string | null) {
-  const allowed = new Set(["https://pesodeexistir.online", "https://www.pesodeexistir.online"]);
+  const allowed = new Set(["https://pesodeexistir.online", "https://www.pesodeexistir.online", "https://app.pesodeexistir.online"]);
   if (Deno.env.get("ALLOW_LOCAL_ORIGIN") === "true") allowed.add("http://localhost:5173");
-  const headers = new Headers({ "access-control-allow-headers": "authorization, content-type", "access-control-allow-methods": "POST, OPTIONS" });
+  const headers = new Headers({ "access-control-allow-headers": "apikey, content-type, x-client-info, x-upload-ticket", "access-control-allow-methods": "POST, OPTIONS" });
   if (origin && allowed.has(origin)) headers.set("access-control-allow-origin", origin);
   return headers;
+}
+
+function decodeBase64Url(value: string) {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
+  const binary = atob(normalized);
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+async function verifyUploadTicket(ticket: string) {
+  if (UPLOAD_TICKET_SECRET.length < 32) throw new Error("Upload ticket secret ausente");
+  const [body, signature] = String(ticket || "").split(".");
+  if (!body || !signature || body.length > 4096 || signature.length > 256) throw new Error("Upload ticket invalido");
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(UPLOAD_TICKET_SECRET),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["verify"],
+  );
+  const valid = await crypto.subtle.verify(
+    "HMAC",
+    key,
+    decodeBase64Url(signature),
+    new TextEncoder().encode(body),
+  );
+  if (!valid) throw new Error("Upload ticket invalido");
+  let payload: Record<string, unknown>;
+  try {
+    payload = JSON.parse(new TextDecoder().decode(decodeBase64Url(body)));
+  } catch {
+    throw new Error("Upload ticket invalido");
+  }
+  if (
+    typeof payload.sub !== "string" ||
+    typeof payload.bucket !== "string" ||
+    typeof payload.kind !== "string" ||
+    typeof payload.fileName !== "string" ||
+    typeof payload.fileType !== "string" ||
+    !Number.isSafeInteger(payload.fileSize) ||
+    !Number.isSafeInteger(payload.exp) ||
+    payload.exp < Math.floor(Date.now() / 1000)
+  ) throw new Error("Upload ticket expirado");
+  return payload;
 }
 
 Deno.serve(async (request) => {
@@ -155,12 +204,9 @@ Deno.serve(async (request) => {
   if (request.method !== "POST") return new Response(JSON.stringify({ error: "Metodo nao permitido" }), { status: 405, headers });
 
   try {
-    const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-    if (!token) return new Response(JSON.stringify({ error: "Sessao obrigatoria" }), { status: 401, headers });
-
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const { data: authData, error: authError } = await admin.auth.getUser(token);
-    if (authError || !authData.user) return new Response(JSON.stringify({ error: "Sessao invalida" }), { status: 401, headers });
+    const ticket = await verifyUploadTicket(request.headers.get("x-upload-ticket") || "");
+    const userId = String(ticket.sub);
 
     const form = await request.formData();
     const file = form.get("file");
@@ -170,9 +216,12 @@ Deno.serve(async (request) => {
     if (!(file instanceof File) || !policy || policy.kind !== (bucket === "pdfs" ? "pdf" : bucket === "avatars" ? "avatar" : "image") || !ALLOWED_KINDS[bucket]?.includes(kind)) {
       return new Response(JSON.stringify({ error: "Upload invalido" }), { status: 400, headers });
     }
+    if (ticket.bucket !== bucket || ticket.kind !== kind || ticket.fileName !== file.name || ticket.fileType !== file.type || ticket.fileSize !== file.size) {
+      return new Response(JSON.stringify({ error: "O upload nao corresponde a autorizacao" }), { status: 400, headers });
+    }
     if (file.size <= 0 || file.size > policy.maxBytes) return new Response(JSON.stringify({ error: "Tamanho de arquivo nao permitido" }), { status: 400, headers });
 
-    const { data: profile, error: profileError } = await admin.from("profiles").select("role").eq("id", authData.user.id).maybeSingle();
+    const { data: profile, error: profileError } = await admin.from("profiles").select("role").eq("id", userId).maybeSingle();
     if (profileError) throw profileError;
     const role = profile?.role || "user";
     const allowedRoles = policy.roles as readonly string[];
@@ -184,7 +233,9 @@ Deno.serve(async (request) => {
     const claimedType = file.type.toLowerCase();
     const contentType = policy.kind === "pdf" ? validatePdf(bytes, claimedType) : validateImage(bytes, claimedType);
     const extension = contentType === "application/pdf" ? "pdf" : IMAGE_TYPES.get(contentType)!.extension;
-    const folder = allowedRoles.includes("owner") ? authData.user.id : role;
+    // Every uploaded object is owned by the authenticated user. Admins may
+    // manage all objects server-side; editors can only remove their own.
+    const folder = userId;
     const path = `${folder}/${kind.replace(/[^a-z0-9_-]/gi, "-").slice(0, 32)}/${crypto.randomUUID()}-${safeBaseName(file.name)}.${extension}`;
     const { error: uploadError } = await admin.storage.from(bucket).upload(path, bytes, {
       contentType,

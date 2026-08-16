@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { MessageCircle, Send, Trash2 } from "@/lib/icons";
 import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
-import { isSupabaseReady, supabase } from "@/app/data/supabase";
+import { communityWrite } from "@/lib/community-write-api";
 import { handleDoPerfil } from "@/lib/mentions";
 import { EmojiReactions } from "./EmojiReactions";
 import { RichText } from "./RichText";
@@ -55,19 +55,23 @@ export function PageComments({ bookId, pageNumber }) {
   const [erro, setErro] = useState("");
 
   const carregar = useCallback(async () => {
-    if (!isSupabaseReady() || !bookId || !pageNumber) {
+    if (!bookId || !pageNumber) {
       setComentarios([]);
       setCarregando(false);
       return;
     }
 
     setCarregando(true);
-    const { data, error } = await supabase
-      .from("book_page_comments")
-      .select("*")
-      .eq("book_id", bookId)
-      .eq("page_number", pageNumber)
-      .order("created_at", { ascending: true });
+    let data;
+    try {
+      data = await communityWrite("list_page_comments", { bookId, pageNumber });
+    } catch {
+      setErro("Nao foi possivel carregar os comentarios desta pagina.");
+      setComentarios([]);
+      setCarregando(false);
+      return;
+    }
+    const error = null;
 
     if (error) {
       setErro("Não foi possível carregar os comentários desta página.");
@@ -88,16 +92,9 @@ export function PageComments({ bookId, pageNumber }) {
       return;
     }
 
-    const { data: reacoes } = await supabase
-      .from("reactions")
-      .select("target_id, user_id, emoji")
-      .eq("target_type", "book_comment")
-      .in("target_id", ids);
-
     const agrupadas = {};
-    for (const reacao of reacoes || []) {
-      (agrupadas[reacao.target_id] ||= []).push(reacao);
-    }
+    const reactions = await Promise.all(ids.map((targetId) => communityWrite("list_reactions", { targetType: "book_comment", targetId }).catch(() => [])));
+    reactions.forEach((items, index) => { (agrupadas[ids[index]] ||= []).push(...(items || [])); });
     setReacoesPorComentario(agrupadas);
   }, [bookId, pageNumber]);
 
@@ -117,13 +114,7 @@ export function PageComments({ bookId, pageNumber }) {
     setEnviando(true);
     setErro("");
     try {
-      const { data, error } = await supabase
-        .from("book_page_comments")
-        .insert({ book_id: bookId, page_number: pageNumber, user_id: user.id, text: conteudo })
-        .select()
-        .single();
-
-      if (error) throw error;
+      const data = await communityWrite("create_page_comment", { bookId, pageNumber, text: conteudo });
       setComentarios((atual) => [...atual, data]);
       setTexto("");
       if (rewardComment) rewardComment(user.id, conteudo).catch(() => {});
@@ -144,8 +135,9 @@ export function PageComments({ bookId, pageNumber }) {
     if (!ok) return;
     const anterior = comentarios;
     setComentarios((atual) => atual.filter((item) => item.id !== id));
-    const { error } = await supabase.from("book_page_comments").delete().eq("id", id);
-    if (error) {
+    try {
+      await communityWrite("delete_page_comment", { commentId: id });
+    } catch {
       setComentarios(anterior);
       setErro("Não foi possível apagar o comentário.");
     }

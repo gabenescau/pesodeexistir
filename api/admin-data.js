@@ -1,0 +1,21 @@
+import {
+  allowAuthRequest,
+  sendError,
+  sendSuccess,
+} from "../server/supabase.js";
+import { getAdminBootstrap, handleAdminAction } from "../server/admin.js";
+
+export default async function handler(req, res) {
+  if (!allowAuthRequest(req, res, {
+    method: req.method === "GET" ? "GET" : "POST",
+    requireHeader: true,
+  })) return;
+  try {
+    if (req.method === "GET") {
+      return sendSuccess(req, res, await getAdminBootstrap(req, res));
+    }
+    return sendSuccess(req, res, await handleAdminAction(req, res));
+  } catch (error) {
+    return sendError(req, res, error, "Nao foi possivel concluir a operacao administrativa.");
+  }
+}

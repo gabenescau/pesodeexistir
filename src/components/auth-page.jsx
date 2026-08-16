@@ -20,8 +20,10 @@ import {
 } from "@/components/ui/input-group";
 import { AtSignIcon, Eye, EyeSlash, GiftIcon, LockIcon, UserIcon } from "@/lib/icons";
 import { useAuth } from "@/app/data/AuthContext";
-import { supabase, isSupabaseReady } from "@/app/data/supabase";
+import { isSupabaseReady } from "@/app/data/supabase";
 import { getSupabaseErrorMessage } from "@/lib/supabase-error";
+import { authApi } from "@/lib/auth-api";
+import { rewardApi } from "@/lib/rewards";
 import { toast } from "@/lib/toast";
 import {
   normalizeEmail,
@@ -110,41 +112,27 @@ export function AuthPage() {
           referralCode.trim() || new URLSearchParams(location.search).get("ref") || "",
           40
         );
-        const { data, error: signUpError } = await supabase.auth.signUp({
+        const data = await authApi.signup({
           email: cleanEmail,
           password,
-          options: {
-            data: {
-              name: cleanName,
-              lgpd_consent: true,
-              lgpd_consent_at: new Date().toISOString(),
-              marketing_opt_in: marketingOptIn,
-              ...(refParam ? { referral_code: refParam } : {}),
-            },
-          },
+          name: cleanName,
+          marketingOptIn,
+          referralCode: refParam,
         });
-        if (signUpError) throw signUpError;
 
         // O perfil ja e criado pelo trigger handle_new_user, que le o nome de
         // raw_user_meta_data. Escrever em profiles aqui so funciona se o signUp
         // ja tiver devolvido sessao (confirmacao de email desligada): sem
         // sessao, auth.uid() e NULL e o RLS recusa o insert.
-        if (data?.session && data?.user) {
-          const { error: profileError } = await supabase
-            .from("profiles")
-            .update({
-              name: cleanName,
-              avatar: cleanName.charAt(0).toUpperCase(),
-            })
-            .eq("id", data.user.id);
-
-          if (profileError) {
-            console.warn("Perfil nao foi atualizado:", profileError.message);
-          }
+        if (data?.user) {
+          await authApi.updateProfile({
+            name: cleanName,
+            avatar: cleanName.charAt(0).toUpperCase(),
+          });
 
           // Se veio da URL /assinar?ref=CODIGO, registra quem indicou.
           if (refParam) {
-            await supabase.rpc("register_referral", { p_referrer_code: refParam }).catch(() => {});
+            await rewardApi.registerReferral(refParam).catch(() => {});
           }
 
           navigate(location.state?.from?.pathname || "/app/inicio", { replace: true });
@@ -170,7 +158,6 @@ export function AuthPage() {
           code: err?.code || null,
           status: err?.status || null,
           name: err?.name || null,
-          message: err?.message || String(err || "erro desconhecido"),
         });
         const message = getSupabaseErrorMessage(
           err,
@@ -195,11 +182,7 @@ export function AuthPage() {
     if (!cleanEmail || resendingConfirmation || !isSupabaseReady()) return;
     setResendingConfirmation(true);
     try {
-      const { error: resendError } = await supabase.auth.resend({
-        type: "signup",
-        email: cleanEmail,
-      });
-      if (resendError) throw resendError;
+       await authApi.resendConfirmation(cleanEmail);
       setNotice("Enviamos outra mensagem de confirmacao para seu email.");
       setError("");
     } catch (err) {

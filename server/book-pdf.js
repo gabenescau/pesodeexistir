@@ -91,7 +91,7 @@ export async function handleBookPdf(req, res) {
   if (req.method !== "GET") return sendClientError(req, res, 405, "Metodo nao permitido");
 
   try {
-    const user = await getAuthenticatedUser(req);
+    const user = await getAuthenticatedUser(req, res);
     if (!await enforceRateLimit(req, res, {
       scope: "book_pdf",
       limit: 30,

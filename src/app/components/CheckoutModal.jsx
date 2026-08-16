@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, Check, ChevronRight, X, MapPin, User, Phone, Mail, Package } from "@/lib/icons";
-import { isSupabaseReady, supabase } from "../data/supabase";
 import { useAuth } from "../data/AuthContext";
+import { rewardApi } from "@/lib/rewards";
 
 const STEPS = ["Dados", "Endereço", "Confirmação"];
 
@@ -150,15 +150,15 @@ export function CheckoutModal({ isOpen, onClose, product, paymentMethod = "credi
         };
         // Persiste o pedido: banco primeiro (fonte da aba "Pedidos" do admin),
         // fallback localStorage se o Supabase nao estiver configurado.
-        if (isSupabaseReady()) {
+        if (import.meta.env.PROD || user?.id) {
           if (!user?.id) throw new Error("Sessao obrigatoria para criar o pedido");
-          const { data, error } = await supabase.rpc("create_shop_order_with_variant", {
-            p_product_id: product.id || null,
-            p_variant_id: selectedVariantId || null,
-            p_quantity: quantity,
-            p_payment_method: paymentMethod,
-            p_customer: { name: form.name, email: form.email, phone: form.phone },
-            p_address: {
+          const data = await rewardApi.createShopOrder({
+            productId: product.id,
+            variantId: selectedVariantId,
+            quantity,
+            paymentMethod,
+            customer: { name: form.name, email: form.email, phone: form.phone },
+            address: {
               cep: form.cep,
               street: form.street,
               number: form.number,
@@ -167,9 +167,8 @@ export function CheckoutModal({ isOpen, onClose, product, paymentMethod = "credi
               city: form.city,
               state: form.state,
             },
-            p_idempotency_key: order.idempotencyKey,
+            idempotencyKey: order.idempotencyKey,
           });
-          if (error) throw error;
           if (data?.id) order.id = data.id;
         } else {
           if (import.meta.env.PROD) {

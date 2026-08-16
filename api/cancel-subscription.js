@@ -22,7 +22,7 @@ export default async function handler(req, res) {
   if (!allowPost(req, res)) return;
 
   try {
-    const user = await getAuthenticatedUser(req);
+    const user = await getAuthenticatedUser(req, res);
     const { subscriptionId, immediate, resume } = parseSubscriptionIdInput(req.body);
     if (!await enforceRateLimit(req, res, {
       scope: "cancel_subscription",

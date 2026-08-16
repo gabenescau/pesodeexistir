@@ -1,27 +1,29 @@
 import { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef } from "react";
-import { supabase, isSupabaseReady } from "./supabase";
+import { isSupabaseReady } from "./supabase";
 import { loadContent } from "./contentLoader";
 import { pickCurrentSubscription } from "@/lib/subscription";
 import {
   invalidateSupabaseQueryCache,
-  runSupabaseCachedQuery,
-  runSupabaseQuery,
-  runSupabaseQueryAll,
 } from "@/lib/supabase-query";
 import { releaseStatus } from "@/lib/releases";
-import { createSignedUrlMap, LIBRARY_BUCKETS, removeLibraryFile } from "@/lib/library-media";
+import { LIBRARY_BUCKETS, removeLibraryFile } from "@/lib/library-media";
 import { useAuth } from "./AuthContext";
 import { POST_IMAGE_BUCKET } from "@/lib/social";
 import { sanitizePlainText, sanitizeSingleLine } from "@/lib/sanitize";
 import { authenticatedApiPost } from "@/lib/authenticated-api";
+import { loadPublicCatalog } from "@/lib/catalog-api";
+import { loadCommunityFeed } from "@/lib/community-api";
+import { loadReadingProgress, saveReadingProgress } from "@/lib/reading-api";
+import { communityWrite } from "@/lib/community-write-api";
+import { loadMySubscriptions } from "@/lib/subscription-api";
+import { loadAccountState } from "@/lib/account-api";
+import { accountWrite } from "@/lib/account-write-api";
+import { loadAdminBootstrap, adminWrite } from "@/lib/admin-api";
 import {
-  AUTHOR_SELECT,
-  BOOK_SELECT,
-  WEEKLY_RELEASE_SELECT,
   normalizeAuthors,
   normalizeBooks,
 } from "./domains/catalog";
-import { POST_SELECT, buildPostViewModels } from "./domains/community";
+import { buildPostViewModels } from "./domains/community";
 
 const CATALOG_PAGE_SIZE = 48;
 const AUTHOR_PAGE_SIZE = 48;
@@ -34,19 +36,6 @@ function takePage(result, pageSize, loadAll = false) {
     rows: rows.slice(0, pageSize),
     hasMore: rows.length > pageSize,
   };
-}
-
-function normalizeCategoryError(error) {
-  const isDuplicate = error?.code === "23505"
-    || error?.constraint === "categories_name_key"
-    || /categories_name_key|duplicate key value/i.test(error?.message || "");
-
-  if (!isDuplicate) return error;
-
-  const safeError = new Error("Essa categoria ja existe.");
-  safeError.code = "category_exists";
-  safeError.userSafe = true;
-  return safeError;
 }
 
 const DataContext = createContext(null);
@@ -141,18 +130,31 @@ export function DataProvider({ children }) {
       setLoading(true);
       try {
         const currentUserId = user?.id;
-        const currentProfileRes = currentUserId && !authProfile
-          ? await runSupabaseQuery(
-              () => supabase.from("profiles").select("id,name,avatar,avatar_url,username,bio,theme,role,private_profile,reading_activity,show_online_status,xp,credits,referral_code,created_at,updated_at").eq("id", currentUserId).maybeSingle(),
-              "carregar perfil atual"
-            )
-          : { data: authProfile || null, error: null };
-        const currentProfile = currentProfileRes.error ? null : currentProfileRes.data;
+        const currentProfile = authProfile || null;
         const isCurrentAdmin = isAdmin || currentProfile?.role === "admin";
         const isCurrentContentManager =
           isCurrentAdmin || currentProfile?.role === "editor";
-        const catalogBookSelect = BOOK_SELECT;
         const emptyResult = { data: [], error: null };
+        const publicCatalogPromise = !isCurrentContentManager
+          ? loadPublicCatalog()
+            .then((data) => ({ data, error: null }))
+            .catch((error) => ({ data: null, error }))
+          : null;
+        const publicCommunityPromise = !isCurrentAdmin
+          ? loadCommunityFeed()
+            .then((data) => ({ data, error: null }))
+            .catch((error) => ({ data: null, error }))
+          : null;
+        const accountStatePromise = currentUserId
+          ? loadAccountState().then((data) => ({ data, error: null })).catch((error) => ({ data: null, error }))
+          : Promise.resolve({ data: null, error: null });
+        const adminBootstrapPromise = isCurrentContentManager
+          ? loadAdminBootstrap().then((data) => ({ data, error: null })).catch((error) => ({ data: null, error }))
+          : Promise.resolve({ data: null, error: null });
+        const adminData = (key) => adminBootstrapPromise.then((result) => ({
+          data: result.data?.[key] || [],
+          error: result.error,
+        }));
 
       // Admin le a tabela inteira (role, gestao de assinaturas). O email agora
       // mora em user_emails (fora de profiles), so visivel para admin — e
@@ -178,142 +180,92 @@ export function DataProvider({ children }) {
         myRatingsRes,
       ] = await Promise.all([
         isCurrentContentManager
-          ? runSupabaseQueryAll(
-              () => supabase.from("books").select(catalogBookSelect).order("created_at", { ascending: false }),
-              "carregar livros",
-              { maxRows: 2000, maxPages: 8 }
-            )
-          : runSupabaseCachedQuery(
-              () => supabase.from("books").select(catalogBookSelect).order("created_at", { ascending: false }).range(0, CATALOG_PAGE_SIZE),
-              "carregar livros",
-              "catalog:books:page:0",
-              { ttlMs: 45_000 }
-            ),
+          ? adminData("books")
+          : publicCatalogPromise.then((result) => ({
+              data: result.data?.books || [],
+              error: result.error,
+            })),
         isCurrentContentManager
-          ? runSupabaseQuery(
-              () => supabase.rpc("admin_book_pdf_assets"),
-              "carregar arquivos PDF do painel"
-            )
+          ? adminData("adminBookAssets")
           : Promise.resolve(emptyResult),
         isCurrentContentManager
-          ? runSupabaseQueryAll(
-              () => supabase.from("authors").select(AUTHOR_SELECT).order("name"),
-              "carregar autores",
-              { maxRows: 1000, maxPages: 4 }
-            )
-          : runSupabaseCachedQuery(
-              () => supabase.from("authors").select(AUTHOR_SELECT).order("name").range(0, AUTHOR_PAGE_SIZE),
-              "carregar autores",
-              "catalog:authors:page:0",
-              { ttlMs: 45_000 }
-            ),
+          ? adminData("authors")
+          : publicCatalogPromise.then((result) => ({
+              data: result.data?.authors || [],
+              error: result.error,
+            })),
         currentUserId
-          ? runSupabaseQuery(
-              () => supabase.from("reading_progress").select("book_id,progress,current_page,total_pages,updated_at").eq("user_id", currentUserId).limit(5000),
-              "carregar progresso"
-            )
+          ? loadReadingProgress()
+              .then((data) => ({ data, error: null }))
+              .catch((error) => ({ data: [], error }))
           : Promise.resolve(emptyResult),
         isCurrentAdmin
-          ? runSupabaseQuery(
-              () => supabase.from("subscriptions").select("id,user_id,plan,status,provider,provider_product_id,provider_subscription_id,provider_customer_id,provider_order_id,customer_email,current_period_start,current_period_end,cancel_at_period_end,canceled_at,last_payment_at,metadata,created_at,updated_at").order("created_at", { ascending: false }).limit(1000),
-              "carregar assinaturas"
-            )
+          ? adminData("subscriptions")
           : currentUserId
-            ? runSupabaseQuery(
-                () => supabase.from("subscriptions").select("id,user_id,plan,status,provider,provider_product_id,provider_subscription_id,provider_customer_id,provider_order_id,customer_email,current_period_start,current_period_end,cancel_at_period_end,canceled_at,last_payment_at,metadata,created_at,updated_at").eq("user_id", currentUserId).order("created_at", { ascending: false }).limit(20),
-                "carregar assinatura atual"
-              )
+            ? loadMySubscriptions()
+              .then((data) => ({ data, error: null }))
+              .catch((error) => ({ data: [], error }))
             : Promise.resolve(emptyResult),
         isCurrentAdmin
-          ? runSupabaseQuery(
-              () => supabase.from("profiles").select("id,name,avatar,avatar_url,username,bio,theme,role,private_profile,reading_activity,show_online_status,xp,credits,referral_code,created_at,updated_at").order("created_at", { ascending: false }).limit(1000),
-              "carregar perfis"
-            )
+          ? adminData("profiles")
           : currentUserId
-            ? runSupabaseQuery(
-                () => supabase.rpc("list_public_profiles", { p_ids: null }),
-                "carregar perfis publicos"
-              )
+            ? publicCommunityPromise.then((result) => ({
+                data: result.data?.profiles || [],
+                error: result.error,
+              }))
             : Promise.resolve({ data: currentProfile ? [currentProfile] : [], error: null }),
         isCurrentAdmin
-          ? runSupabaseQuery(
-              () => supabase.from("user_emails").select("user_id, email"),
-              "carregar emails"
-            )
+          ? adminData("emails")
           : Promise.resolve(emptyResult),
         currentUserId
           ? isCurrentAdmin
-            ? runSupabaseQueryAll(
-              () => supabase
-                .from("posts")
-                .select(POST_SELECT)
-                .order("created_at", { ascending: false }),
-              "carregar posts",
-              { maxRows: 200, maxPages: 4, pageSize: 100 }
-            )
-            : runSupabaseQuery(
-              () => supabase
-                .from("posts")
-                .select(POST_SELECT)
-                .order("created_at", { ascending: false })
-                .range(0, POST_PAGE_SIZE),
-              "carregar posts"
-            )
+            ? adminData("posts")
+            : publicCommunityPromise.then((result) => ({
+                data: result.data?.posts || [],
+                error: result.error,
+              }))
           : Promise.resolve(emptyResult),
         currentUserId
-          ? runSupabaseCachedQuery(
-              () => supabase.from("weekly_releases").select(WEEKLY_RELEASE_SELECT).order("release_date", { ascending: true }).limit(100),
-              "carregar lancamentos",
-              "catalog:weekly-releases",
-              { ttlMs: 30_000 }
-            )
+          ? isCurrentContentManager
+            ? adminData("releases")
+            : publicCatalogPromise.then((result) => ({
+                data: result.data?.weeklyReleases || [],
+                error: result.error,
+              }))
           : Promise.resolve(emptyResult),
         currentUserId
-          ? runSupabaseQuery(
-              () => supabase.from("follows").select("follower_id, following_id").limit(5000),
-              "carregar seguidores"
-            )
+          ? publicCommunityPromise.then((result) => ({ data: result.data?.follows || [], error: result.error }))
           : Promise.resolve(emptyResult),
         currentUserId
-          ? runSupabaseQuery(
-              () => supabase.from("saved_posts").select("post_id").limit(5000),
-              "carregar posts salvos"
-            )
+          ? publicCommunityPromise.then((result) => ({ data: result.data?.savedPosts || [], error: result.error }))
           : Promise.resolve(emptyResult),
         currentUserId
-          ? runSupabaseCachedQuery(
-              () => supabase.from("categories").select("id,name,sort_order,created_at,updated_at").order("sort_order").order("name").limit(200),
-              "carregar categorias",
-              "catalog:categories",
-              { ttlMs: 30_000 }
-            )
+          ? isCurrentContentManager
+            ? adminData("categories")
+            : publicCatalogPromise.then((result) => ({
+                data: result.data?.categories || [],
+                error: result.error,
+              }))
           : Promise.resolve(emptyResult),
-        currentUserId
-          ? runSupabaseQuery(
-              () => supabase.from("book_favorites").select("book_id").limit(5000),
-              "carregar livros favoritos"
-            )
-          : Promise.resolve(emptyResult),
-        currentUserId
-          ? runSupabaseQuery(
-              () => supabase.from("author_favorites").select("author_id").limit(5000),
-              "carregar autores favoritos"
-            )
-          : Promise.resolve(emptyResult),
-        runSupabaseCachedQuery(
-          () => supabase.from("book_ratings_public").select("book_id, rating_sum, rating_count").limit(2000),
-          "carregar notas dos livros",
-          "catalog:book-ratings",
-          { ttlMs: 30_000 }
-        ),
-        currentUserId
-          ? runSupabaseQuery(
-              () => supabase.from("book_ratings").select("book_id, rating").eq("user_id", currentUserId).limit(5000),
-              "carregar minha nota dos livros"
-            )
-          : Promise.resolve(emptyResult),
+        isCurrentContentManager
+          ? adminData("bookFavorites")
+          : accountStatePromise.then((result) => ({ data: result.data?.bookFavorites || [], error: result.error })),
+        isCurrentContentManager
+          ? adminData("authorFavorites")
+          : accountStatePromise.then((result) => ({ data: result.data?.authorFavorites || [], error: result.error })),
+        isCurrentContentManager
+          ? adminData("ratings")
+          : publicCatalogPromise.then((result) => ({
+              data: result.data?.ratings || [],
+              error: result.error,
+            })),
+        isCurrentContentManager
+          ? adminData("myRatings")
+          : accountStatePromise.then((result) => ({ data: result.data?.myRatings || [], error: result.error })),
       ]);
 
+      const publicCatalog = publicCatalogPromise ? await publicCatalogPromise : null;
+      const publicCommunity = publicCommunityPromise ? await publicCommunityPromise : null;
       if (cancelled) return;
 
       const adminAssetsByBookId = new Map(
@@ -348,53 +300,43 @@ export function DataProvider({ children }) {
       setPostsHasMore(!postsRes.error && postsPage.hasMore);
 
       const postIds = postsPage.rows.map((post) => post.id);
-      const [postLikesRes, pollRes] = postIds.length > 0
-        ? await Promise.all([
-            runSupabaseQuery(
-              () => supabase.from("post_likes").select("post_id,user_id").in("post_id", postIds).limit(5000),
-              "carregar curtidas dos posts"
-            ),
-            runSupabaseQuery(
-              () => supabase.from("post_polls").select("id,post_id,question,created_at,post_poll_options(id,poll_id,label,sort_order)").in("post_id", postIds).limit(200),
-              "carregar enquetes"
-            ),
-          ])
-        : [emptyResult, emptyResult];
+      const [postLikesRes, pollRes] = !isCurrentAdmin
+        ? [
+            { data: publicCommunity?.data?.likes || [], error: publicCommunity?.error || null },
+            { data: publicCommunity?.data?.polls || [], error: publicCommunity?.error || null },
+          ]
+        : postIds.length > 0
+          ? [await adminData("postLikes"), await adminData("polls")]
+          : [emptyResult, emptyResult];
       const pollIds = pollRes.error ? [] : (pollRes.data || []).map((poll) => poll.id);
-      const pollVotesRes = pollIds.length > 0
-        ? await runSupabaseQuery(
-            () => supabase.from("post_poll_votes").select("poll_id,option_id,user_id").in("poll_id", pollIds).limit(10000),
-            "carregar votos das enquetes"
-          )
-        : emptyResult;
+      const pollVotesRes = !isCurrentAdmin
+        ? { data: publicCommunity?.data?.votes || [], error: publicCommunity?.error || null }
+        : pollIds.length > 0
+          ? await adminData("votes")
+          : emptyResult;
+
+      const accountState = await accountStatePromise;
 
       // Colecoes + itens. RLS ja filtra (publicas + proprias). Fetched so
       // quando o usuario esta logado; sem usuario, cache fica vazio.
-      const collectionsRes = currentUserId
-        ? await runSupabaseQuery(
-            () => supabase.from("collections").select("id,user_id,name,description,cover_path,is_public,created_at,updated_at").order("created_at", { ascending: false }).limit(200),
-            "carregar colecoes"
-          )
-        : emptyResult;
-      const collectionItemIds = collectionsRes.error
-        ? []
-        : (collectionsRes.data || []).map((c) => c.id);
-      const collectionItemsRes = collectionItemIds.length > 0
-        ? await runSupabaseQuery(
-            () => supabase.from("collection_items").select("id,collection_id,item_type,item_id,position,created_at").in("collection_id", collectionItemIds).limit(2000),
-            "carregar itens das colecoes"
-          )
-        : emptyResult;
+      const collectionsRes = accountState.error
+        ? emptyResult
+        : { data: accountState.data?.collections || [], error: null };
+      const collectionItemsRes = accountState.error
+        ? emptyResult
+        : { data: accountState.data?.collectionItems || [], error: null };
       if (!collectionsRes.error) setCollections(collectionsRes.data || []);
       if (!collectionItemsRes.error) setCollectionItems(collectionItemsRes.data || []);
 
-      const coverUrlMap = await createSignedUrlMap(
-        LIBRARY_BUCKETS.covers,
-        [
-          ...booksPage.rows.map((book) => book.image_path),
-          ...authorsPage.rows.map((author) => author.image_path),
-        ]
-      );
+      const coverUrlMap = isCurrentContentManager
+        ? new Map(Object.entries(await adminWrite("signed-media", {
+            bucket: LIBRARY_BUCKETS.covers,
+            paths: [
+              ...booksPage.rows.map((book) => book.image_path),
+              ...authorsPage.rows.map((author) => author.image_path),
+            ],
+          })))
+        : new Map(Object.entries(publicCatalog?.data?.coverUrls || {}));
       if (cancelled) return;
       const ratingsByBook = (ratingsRes.error ? [] : ratingsRes.data || []).reduce((acc, r) => {
         acc[r.book_id] = { sum: r.rating_sum || 0, count: r.rating_count || 0 };
@@ -422,10 +364,12 @@ export function DataProvider({ children }) {
       else setAuthors([]);
 
       if (!postsRes.error) {
-        const postImageUrlMap = await createSignedUrlMap(
-          POST_IMAGE_BUCKET,
-          postsPage.rows.flatMap((post) => post.image_paths || [])
-        );
+        const postImageUrlMap = isCurrentAdmin
+          ? new Map(Object.entries(await adminWrite("signed-media", {
+              bucket: POST_IMAGE_BUCKET,
+              paths: postsPage.rows.flatMap((post) => post.image_paths || []),
+            })))
+          : new Map(Object.entries(publicCommunity?.data?.imageUrls || {}));
         setPosts(buildPostViewModels(postsPage.rows, {
           profiles: profilesRes.error ? [] : profilesRes.data || [],
           books: normalizedBooks,
@@ -481,17 +425,9 @@ export function DataProvider({ children }) {
       setMyBookRatings(myRatingsRes.error ? [] : (myRatingsRes.data || []));
 
       if (currentUserId) {
-        // head:true => so o total, sem trazer as linhas. Barato o suficiente
-        // para rodar junto do carregamento inicial.
-        const [reacoesCount, replyCount, pageCommentCount] = await Promise.all([
-          runSupabaseQuery(() => supabase.from("reactions").select("id", { count: "exact", head: true }).eq("user_id", currentUserId), "contar reacoes"),
-          runSupabaseQuery(() => supabase.from("post_replies").select("id", { count: "exact", head: true }).eq("user_id", currentUserId), "contar respostas"),
-          runSupabaseQuery(() => supabase.from("book_page_comments").select("id", { count: "exact", head: true }).eq("user_id", currentUserId), "contar comentarios"),
-        ]);
-        setMyCounts({
-          reactions: reacoesCount.count || 0,
-          comments: (replyCount.count || 0) + (pageCommentCount.count || 0),
-        });
+        setMyCounts(accountState.error
+          ? { comments: 0, reactions: 0 }
+          : (accountState.data?.myCounts || { comments: 0, reactions: 0 }));
       } else {
         setMyCounts({ comments: 0, reactions: 0 });
       }
@@ -524,14 +460,14 @@ export function DataProvider({ children }) {
     setBooksLoadingMore(true);
     try {
       const offset = booksOffsetRef.current;
-      const result = await runSupabaseQuery(
-        () => supabase
-          .from("books")
-          .select(BOOK_SELECT)
-          .order("created_at", { ascending: false })
-          .range(offset, offset + CATALOG_PAGE_SIZE),
-        "carregar mais livros"
-      );
+      const catalogResult = await loadPublicCatalog({
+        only: "books",
+        booksOffset: offset,
+      }).then((data) => ({ data, error: null })).catch((error) => ({ data: null, error }));
+      const result = {
+        data: catalogResult.data?.books || [],
+        error: catalogResult.error,
+      };
       if (result?.error) return false;
 
       const page = takePage(result, CATALOG_PAGE_SIZE);
@@ -540,31 +476,16 @@ export function DataProvider({ children }) {
       if (page.rows.length === 0) return false;
 
       const bookIds = page.rows.map((book) => book.id).filter(Boolean);
-      const [progressRes, ratingsRes] = await Promise.all([
-        runSupabaseQuery(
-          () => supabase.from("reading_progress")
-            .select("book_id,progress,current_page,total_pages,updated_at")
-            .eq("user_id", user.id)
-            .in("book_id", bookIds),
-          "carregar progresso dos livros"
-        ),
-        runSupabaseQuery(
-          () => supabase.from("book_ratings_public")
-            .select("book_id, rating_sum, rating_count")
-            .in("book_id", bookIds),
-          "carregar notas dos livros"
-        ),
+      const [progressRows] = await Promise.all([
+        loadReadingProgress(null, bookIds).catch(() => []),
       ]);
-      const coverUrlMap = await createSignedUrlMap(
-        LIBRARY_BUCKETS.covers,
-        page.rows.map((book) => book.image_path)
-      );
-      const ratingsByBook = (ratingsRes.error ? [] : ratingsRes.data || []).reduce((acc, rating) => {
+      const coverUrlMap = new Map(Object.entries(catalogResult.data?.coverUrls || {}));
+      const ratingsByBook = (catalogResult.data?.ratings || []).filter((rating) => bookIds.includes(rating.book_id)).reduce((acc, rating) => {
         acc[rating.book_id] = { sum: rating.rating_sum || 0, count: rating.rating_count || 0 };
         return acc;
       }, {});
       const normalized = normalizeBooks(page.rows, {
-        progress: progressRes.error ? [] : progressRes.data || [],
+        progress: (progressRows || []).filter((row) => bookIds.includes(row.book_id)),
         ratingsByBook,
         coverUrlMap,
         localBooks: content.books || [],
@@ -584,14 +505,14 @@ export function DataProvider({ children }) {
     setAuthorsLoadingMore(true);
     try {
       const offset = authorsOffsetRef.current;
-      const result = await runSupabaseQuery(
-        () => supabase
-          .from("authors")
-          .select(AUTHOR_SELECT)
-          .order("name")
-          .range(offset, offset + AUTHOR_PAGE_SIZE),
-        "carregar mais autores"
-      );
+      const catalogResult = await loadPublicCatalog({
+        only: "authors",
+        authorsOffset: offset,
+      }).then((data) => ({ data, error: null })).catch((error) => ({ data: null, error }));
+      const result = {
+        data: catalogResult.data?.authors || [],
+        error: catalogResult.error,
+      };
       if (result?.error) return false;
 
       const page = takePage(result, AUTHOR_PAGE_SIZE);
@@ -599,10 +520,7 @@ export function DataProvider({ children }) {
       setAuthorsHasMore(page.hasMore);
       if (page.rows.length === 0) return false;
 
-      const coverUrlMap = await createSignedUrlMap(
-        LIBRARY_BUCKETS.covers,
-        page.rows.map((author) => author.image_path)
-      );
+      const coverUrlMap = new Map(Object.entries(catalogResult.data?.coverUrls || {}));
       const normalized = normalizeAuthors(page.rows, {
         coverUrlMap,
         localAuthors: content.authors || [],
@@ -622,14 +540,17 @@ export function DataProvider({ children }) {
     setPostsLoadingMore(true);
     try {
       const offset = postsOffsetRef.current;
-      const result = await runSupabaseQuery(
-        () => supabase
-          .from("posts")
-          .select(POST_SELECT)
-          .order("created_at", { ascending: false })
-          .range(offset, offset + POST_PAGE_SIZE),
-        "carregar mais posts"
-      );
+      const communityResult = !isAdmin
+        ? await loadCommunityFeed({ offset })
+            .then((data) => ({ data, error: null }))
+            .catch((error) => ({ data: null, error }))
+        : null;
+      const adminPage = isAdmin
+        ? await adminWrite("posts-page", { offset, limit: POST_PAGE_SIZE })
+        : null;
+      const result = !isAdmin
+        ? { data: communityResult?.data?.posts || [], error: communityResult?.error }
+        : { data: adminPage?.posts || [], error: null };
       if (result?.error) return false;
 
       const page = takePage(result, POST_PAGE_SIZE);
@@ -637,31 +558,21 @@ export function DataProvider({ children }) {
       setPostsHasMore(page.hasMore);
       if (page.rows.length === 0) return false;
 
-      const postIds = page.rows.map((post) => post.id).filter(Boolean);
-      const [likesRes, pollsRes] = await Promise.all([
-        runSupabaseQuery(
-          () => supabase.from("post_likes").select("post_id,user_id").in("post_id", postIds).limit(5000),
-          "carregar curtidas dos posts"
-        ),
-        runSupabaseQuery(
-          () => supabase.from("post_polls")
-            .select("id,post_id,question,created_at,post_poll_options(id,poll_id,label,sort_order)")
-            .in("post_id", postIds)
-            .limit(200),
-          "carregar enquetes dos posts"
-        ),
-      ]);
-      const pollIds = pollsRes.error ? [] : (pollsRes.data || []).map((poll) => poll.id).filter(Boolean);
-      const votesRes = pollIds.length > 0
-        ? await runSupabaseQuery(
-            () => supabase.from("post_poll_votes").select("poll_id,option_id,user_id").in("poll_id", pollIds).limit(10000),
-            "carregar votos das enquetes"
-          )
-        : { data: [], error: null };
-      const imageUrlMap = await createSignedUrlMap(
-        POST_IMAGE_BUCKET,
-        page.rows.flatMap((post) => post.image_paths || [])
-      );
+      const [likesRes, pollsRes] = !isAdmin
+        ? [
+            { data: communityResult?.data?.likes || [], error: communityResult?.error || null },
+            { data: communityResult?.data?.polls || [], error: communityResult?.error || null },
+          ]
+        : [
+            { data: adminPage?.likes || [], error: null },
+            { data: adminPage?.polls || [], error: null },
+          ];
+      const votesRes = !isAdmin
+        ? { data: communityResult?.data?.votes || [], error: communityResult?.error || null }
+        : { data: adminPage?.votes || [], error: null };
+      const imageUrlMap = !isAdmin
+        ? new Map(Object.entries(communityResult?.data?.imageUrls || {}))
+        : new Map(Object.entries(adminPage?.imageUrls || {}));
       const newPosts = buildPostViewModels(page.rows, {
         profiles,
         books,
@@ -679,7 +590,7 @@ export function DataProvider({ children }) {
     } finally {
       setPostsLoadingMore(false);
     }
-  }, [isSupabase, user?.id, postsHasMore, postsLoadingMore, profiles, books]);
+  }, [isSupabase, user?.id, isAdmin, postsHasMore, postsLoadingMore, profiles, books]);
 
   // AUTHORS CRUD
   const addAuthor = useCallback(async (data) => {
@@ -692,8 +603,7 @@ export function DataProvider({ children }) {
         image: data.image || null,
         image_path: data.imagePath || null,
       };
-      const { data: inserted, error } = await supabase.from("authors").insert(payload).select().single();
-      if (error) throw error;
+      const inserted = await adminWrite("author-create", payload);
       if (inserted) {
         invalidateSupabaseQueryCache("catalog:authors");
         setAuthors(prev => [...prev, { ...inserted, image: data.previewImage || data.image || "" }]);
@@ -711,15 +621,14 @@ export function DataProvider({ children }) {
   const updateAuthor = useCallback(async (id, data) => {
     const previous = authors.find((author) => author.id === id);
     if (isSupabase) {
-      const { error } = await supabase.from("authors").update({
+      await adminWrite("author-update", { id, ...{
         name: sanitizeSingleLine(data.name, 120),
         theme: sanitizeSingleLine(data.theme, 120),
         era: sanitizeSingleLine(data.era, 80),
         bio: sanitizePlainText(data.bio, 3000),
         image: data.image || null,
-        image_path: data.imagePath || null,
-      }).eq("id", id);
-      if (error) throw error;
+        imagePath: data.imagePath || null,
+      }});
 
       invalidateSupabaseQueryCache("catalog:authors");
 
@@ -740,8 +649,7 @@ export function DataProvider({ children }) {
   const deleteAuthor = useCallback(async (id) => {
     const author = authors.find((item) => item.id === id);
     if (isSupabase) {
-      const { error } = await supabase.from("authors").delete().eq("id", id);
-      if (error) throw error;
+      await adminWrite("author-delete", { id });
       invalidateSupabaseQueryCache("catalog:authors");
       if (author?.image_path) {
         await removeLibraryFile(LIBRARY_BUCKETS.covers, author.image_path).catch((cleanupError) => {
@@ -766,9 +674,8 @@ export function DataProvider({ children }) {
       bio: sanitizePlainText(data.bio, 20000) || null,
     };
     if (isSupabase) {
-      const { data: inserted, error } = await supabase.from("books").insert(payload).select("id,title,image,image_path,author_id,category,bio,progress,created_at,updated_at,has_pdf,authors(name)").single();
-      if (error) throw error;
-      if (!error && inserted) {
+      const inserted = await adminWrite("book-create", { ...payload, authorId: payload.author_id, imagePath: payload.image_path, pdfPath: payload.pdf_path, pdfFile: payload.pdf_url });
+      if (inserted) {
         invalidateSupabaseQueryCache("catalog:books");
         setBooks(prev => [{
           ...inserted,
@@ -794,7 +701,7 @@ export function DataProvider({ children }) {
   const updateBook = useCallback(async (id, data) => {
     const previous = books.find((book) => book.id === id);
     if (isSupabase) {
-      const { error } = await supabase.from("books").update({
+      await adminWrite("book-update", { id, ...{
         title: sanitizeSingleLine(data.title, 180),
         image: data.image || null,
         image_path: data.imagePath || null,
@@ -803,8 +710,11 @@ export function DataProvider({ children }) {
         author_id: data.authorId || null,
         category: sanitizeSingleLine(data.category, 80) || null,
         bio: sanitizePlainText(data.bio, 20000) || null,
-      }).eq("id", id);
-      if (error) throw error;
+        authorId: data.authorId || null,
+        imagePath: data.imagePath || null,
+        pdfPath: data.pdfPath || null,
+        pdfFile: data.pdfFile || null,
+      }});
 
       invalidateSupabaseQueryCache("catalog:books");
 
@@ -832,8 +742,7 @@ export function DataProvider({ children }) {
   const deleteBook = useCallback(async (id) => {
     const book = books.find((item) => item.id === id);
     if (isSupabase) {
-      const { error } = await supabase.from("books").delete().eq("id", id);
-      if (error) throw error;
+      await adminWrite("book-delete", { id });
       invalidateSupabaseQueryCache("catalog:books");
       await Promise.allSettled([
         book?.image_path ? removeLibraryFile(LIBRARY_BUCKETS.covers, book.image_path) : Promise.resolve(),
@@ -847,27 +756,22 @@ export function DataProvider({ children }) {
     if (!bookId) return;
 
     if (isSupabase) {
-      const { data: authData } = await supabase.auth.getUser();
-      const userId = authData?.user?.id;
+      const userId = user?.id;
 
       if (userId) {
-        const { error } = await supabase
-          .from("reading_progress")
-          .upsert({
-            user_id: userId,
-            book_id: bookId,
-            progress: 100,
-            current_page: books.find(book => book.id === bookId)?.totalPages || books.find(book => book.id === bookId)?.currentPage || 1,
-            total_pages: books.find(book => book.id === bookId)?.totalPages || null,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: "user_id,book_id" });
-
-        if (error) throw error;
+        await saveReadingProgress({
+          bookId,
+          currentPage: books.find((book) => book.id === bookId)?.totalPages
+            || books.find((book) => book.id === bookId)?.currentPage
+            || 1,
+          totalPages: books.find((book) => book.id === bookId)?.totalPages || null,
+          completed: true,
+        });
       }
     }
 
     setBooks(prev => prev.map(book => book.id === bookId ? { ...book, progress: 100 } : book));
-  }, [isSupabase, books]);
+  }, [isSupabase, books, user?.id]);
 
   const updateReadingProgress = useCallback(async (bookId, { currentPage = 1, totalPages = null }) => {
     if (!bookId) return;
@@ -877,22 +781,14 @@ export function DataProvider({ children }) {
     const progress = safeTotal > 0 ? Math.min(100, Math.max(0, Math.round((safePage / safeTotal) * 100))) : 0;
 
     if (isSupabase) {
-      const { data: authData } = await supabase.auth.getUser();
-      const userId = authData?.user?.id;
+      const userId = user?.id;
 
       if (userId) {
-        const { error } = await supabase
-          .from("reading_progress")
-          .upsert({
-            user_id: userId,
-            book_id: bookId,
-            current_page: safePage,
-            total_pages: safeTotal || null,
-            progress,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: "user_id,book_id" });
-
-        if (error) throw error;
+        await saveReadingProgress({
+          bookId,
+          currentPage: safePage,
+          totalPages: safeTotal || null,
+        });
       }
     }
 
@@ -902,7 +798,7 @@ export function DataProvider({ children }) {
       totalPages: safeTotal || book.totalPages || null,
       progress,
     } : book));
-  }, [isSupabase]);
+  }, [isSupabase, user?.id]);
 
   // POSTS CRUD
   const addPost = useCallback(async (post) => {
@@ -911,53 +807,28 @@ export function DataProvider({ children }) {
     }
 
     if (isSupabase) {
-      const { data: inserted, error } = await supabase.from("posts").insert({
-        user_id: post.userId,
+      const inserted = await communityWrite("create_post", {
         text: sanitizePlainText(post.text, 5000),
         tag: sanitizeSingleLine(post.tag, 80) || null,
-        book_id: post.bookId,
-        images: post.images || [],
-        image_paths: post.imagePaths || [],
-      }).select("*").single();
-      if (error) throw error;
+        bookId: post.bookId,
+        imagePaths: post.imagePaths || [],
+        poll: post.poll || null,
+      });
       let poll = null;
       if (inserted && post.poll?.question && post.poll?.options?.length >= 2) {
-        const { data: insertedPoll, error: pollError } = await supabase
-          .from("post_polls")
-          .insert({ post_id: inserted.id, question: sanitizeSingleLine(post.poll.question, 240) })
-          .select("*")
-          .single();
-        if (pollError) {
-          await supabase.from("posts").delete().eq("id", inserted.id);
-          throw pollError;
-        }
-
-        const { data: insertedOptions, error: optionsError } = await supabase
-          .from("post_poll_options")
-          .insert(post.poll.options.map((label, index) => ({
-            poll_id: insertedPoll.id,
-            label: sanitizeSingleLine(label, 120),
-            sort_order: index,
-          })))
-          .select("*");
-        if (optionsError) {
-          await supabase.from("posts").delete().eq("id", inserted.id);
-          throw optionsError;
-        }
-
         poll = {
-          ...insertedPoll,
-          options: (insertedOptions || []).map((option) => ({ ...option, votes: 0 })),
+          question: sanitizeSingleLine(post.poll.question, 180),
+          options: post.poll.options.map((label, index) => ({ id: `local-${index}`, label: sanitizeSingleLine(label, 120), votes: 0 })),
           totalVotes: 0,
           myVote: null,
         };
       }
       if (inserted) {
-        const imageUrlMap = await createSignedUrlMap(POST_IMAGE_BUCKET, inserted.image_paths || []);
+        const imageUrlMap = await communityWrite("sign_post_media", { paths: inserted.image_paths || [] });
         setPosts(prev => [{
           ...inserted,
           images: [
-            ...(inserted.image_paths || []).map((path) => imageUrlMap.get(path)).filter(Boolean),
+            ...(inserted.image_paths || []).map((path) => imageUrlMap?.[path]).filter(Boolean),
             ...(inserted.images || []),
           ],
           author: post.author || "Você",
@@ -977,8 +848,7 @@ export function DataProvider({ children }) {
 
   const deletePost = useCallback(async (id) => {
     if (isSupabase) {
-      const { error } = await supabase.from("posts").delete().eq("id", id);
-      if (error) throw error;
+      await communityWrite("delete_post", { postId: id });
     }
     setPosts(prev => prev.filter(p => p.id !== id));
   }, [isSupabase]);
@@ -1037,18 +907,12 @@ export function DataProvider({ children }) {
 
   const addWeeklyRelease = useCallback(async ({ bookId, releaseDate, note, visible = true }) => {
     if (!isSupabase) return null;
-    const { data, error } = await supabase
-      .from("weekly_releases")
-      .insert({
-        book_id: bookId,
-        release_date: releaseDate,
-        note: sanitizePlainText(note, 1000),
-        visible,
-      })
-      .select("*, books(*, authors(name))")
-      .single();
-
-    if (error) throw error;
+    const data = await adminWrite("weekly-create", {
+      bookId,
+      releaseDate,
+      note: sanitizePlainText(note, 1000),
+      visible,
+    });
     invalidateSupabaseQueryCache("catalog:weekly-releases");
     setWeeklyReleases((prev) => [...prev, data].sort((a, b) => new Date(a.release_date) - new Date(b.release_date)));
     return data;
@@ -1057,8 +921,9 @@ export function DataProvider({ children }) {
   const toggleWeeklyReleaseVisibility = useCallback(async (id, visible) => {
     if (!isSupabase || !id) return;
     setWeeklyReleases((prev) => prev.map((item) => item.id === id ? { ...item, visible } : item));
-    const { error } = await supabase.from("weekly_releases").update({ visible }).eq("id", id);
-    if (error) {
+    try {
+      await adminWrite("weekly-update", { id, visible });
+    } catch (error) {
       setWeeklyReleases((prev) => prev.map((item) => item.id === id ? { ...item, visible: !visible } : item));
       throw error;
     }
@@ -1070,8 +935,7 @@ export function DataProvider({ children }) {
     const cleanName = sanitizeSingleLine(name, 80);
     if (!cleanName) return null;
     if (isSupabase) {
-      const { data, error } = await supabase.from("categories").insert({ name: cleanName }).select().single();
-      if (error) throw normalizeCategoryError(error);
+      const data = await adminWrite("category-create", { name: cleanName });
       if (data) {
         invalidateSupabaseQueryCache("catalog:categories");
         setCategories(prev => [...prev, data].sort((a, b) => (a.sort_order - b.sort_order) || a.name.localeCompare(b.name)));
@@ -1091,8 +955,7 @@ export function DataProvider({ children }) {
     };
     if (!payload.name) throw new Error("Digite o nome da categoria.");
     if (isSupabase) {
-      const { data: updated, error } = await supabase.from("categories").update(payload).eq("id", id).select().single();
-      if (error) throw normalizeCategoryError(error);
+      const updated = await adminWrite("category-update", { id, ...payload });
       invalidateSupabaseQueryCache("catalog:categories");
       setCategories(prev => prev.map(c => c.id === id ? updated : c));
     } else {
@@ -1102,8 +965,7 @@ export function DataProvider({ children }) {
 
   const deleteCategory = useCallback(async (id) => {
     if (isSupabase) {
-      const { error } = await supabase.from("categories").delete().eq("id", id);
-      if (error) throw error;
+      await adminWrite("category-delete", { id });
       invalidateSupabaseQueryCache("catalog:categories");
     }
     setCategories(prev => prev.filter(c => c.id !== id));
@@ -1115,8 +977,9 @@ export function DataProvider({ children }) {
     if (!isSupabase || !currentUserId || !bookId) return;
     const jaFav = bookFavorites.includes(bookId);
     setBookFavorites((prev) => jaFav ? prev : [...prev, bookId]);
-    const { error } = await supabase.from("book_favorites").insert({ user_id: currentUserId, book_id: bookId });
-    if (error && error.code !== "23505") {
+    try {
+      await accountWrite("toggle_book_favorite", { bookId, enabled: true });
+    } catch (error) {
       setBookFavorites((prev) => prev.filter((b) => b !== bookId));
       throw error;
     }
@@ -1126,8 +989,9 @@ export function DataProvider({ children }) {
     const currentUserId = user?.id;
     if (!isSupabase || !currentUserId || !bookId) return;
     setBookFavorites((prev) => prev.filter((b) => b !== bookId));
-    const { error } = await supabase.from("book_favorites").delete().eq("user_id", currentUserId).eq("book_id", bookId);
-    if (error) {
+    try {
+      await accountWrite("toggle_book_favorite", { bookId, enabled: false });
+    } catch (error) {
       setBookFavorites((prev) => prev.includes(bookId) ? prev : [...prev, bookId]);
       throw error;
     }
@@ -1145,8 +1009,9 @@ export function DataProvider({ children }) {
     if (!isSupabase || !currentUserId || !authorId) return;
     const jaFav = authorFavorites.includes(authorId);
     setAuthorFavorites((prev) => jaFav ? prev : [...prev, authorId]);
-    const { error } = await supabase.from("author_favorites").insert({ user_id: currentUserId, author_id: authorId });
-    if (error && error.code !== "23505") {
+    try {
+      await accountWrite("toggle_author_favorite", { authorId, enabled: true });
+    } catch (error) {
       setAuthorFavorites((prev) => prev.filter((a) => a !== authorId));
       throw error;
     }
@@ -1156,8 +1021,9 @@ export function DataProvider({ children }) {
     const currentUserId = user?.id;
     if (!isSupabase || !currentUserId || !authorId) return;
     setAuthorFavorites((prev) => prev.filter((a) => a !== authorId));
-    const { error } = await supabase.from("author_favorites").delete().eq("user_id", currentUserId).eq("author_id", authorId);
-    if (error) {
+    try {
+      await accountWrite("toggle_author_favorite", { authorId, enabled: false });
+    } catch (error) {
       setAuthorFavorites((prev) => prev.includes(authorId) ? prev : [...prev, authorId]);
       throw error;
     }
@@ -1194,10 +1060,9 @@ export function DataProvider({ children }) {
       ...prev.filter((r) => r.book_id !== bookId),
       { book_id: bookId, rating: nota },
     ]);
-    const { error } = await supabase
-      .from("book_ratings")
-      .upsert({ user_id: currentUserId, book_id: bookId, rating: nota }, { onConflict: "user_id, book_id" });
-    if (error) {
+    try {
+      await accountWrite("rate_book", { bookId, rating: nota });
+    } catch (error) {
       setBookRatingStats((prev) => {
         const atual = prev[bookId] || { sum: 0, count: 0 };
         return {
@@ -1216,8 +1081,7 @@ export function DataProvider({ children }) {
 
   const deleteWeeklyRelease = useCallback(async (id) => {
     if (!isSupabase || !id) return;
-    const { error } = await supabase.from("weekly_releases").delete().eq("id", id);
-    if (error) throw error;
+    await adminWrite("weekly-delete", { id });
     invalidateSupabaseQueryCache("catalog:weekly-releases");
     setWeeklyReleases((prev) => prev.filter((item) => item.id !== id));
   }, [isSupabase]);
@@ -1233,14 +1097,8 @@ export function DataProvider({ children }) {
       throw new Error("Troca de email deve passar por updateUser (auth) — o email vive em user_emails, nao em profiles.");
     }
 
-    const { data, error } = await supabase
-      .from("profiles")
-      .update(payload)
-      .eq("id", userId)
-      .select()
-      .single();
-
-    if (error) throw error;
+    const result = await authenticatedApiPost("/api/auth?action=update-profile", payload);
+    const data = result?.profile || result;
 
     setProfile(data);
     setProfiles((prev) => prev.map((item) => item.id === userId ? { ...item, ...data } : item));
@@ -1282,7 +1140,10 @@ export function DataProvider({ children }) {
         : [...prev, novo]
     );
 
-    const { error } = await supabase.from("follows").insert(novo);
+    let error = null;
+    try {
+      await communityWrite("toggle_follow", { targetId, enabled: true });
+    } catch (cause) { error = cause; }
 
     // 23505 = ja seguia (clique duplo / outra aba): o estado otimista ja bate.
     if (error && error.code !== "23505") {
@@ -1298,11 +1159,10 @@ export function DataProvider({ children }) {
     const anterior = follows;
     setFollows((prev) => prev.filter((item) => !(item.follower_id === currentUserId && item.following_id === targetId)));
 
-    const { error } = await supabase
-      .from("follows")
-      .delete()
-      .eq("follower_id", currentUserId)
-      .eq("following_id", targetId);
+    let error = null;
+    try {
+      await communityWrite("toggle_follow", { targetId, enabled: false });
+    } catch (cause) { error = cause; }
 
     if (error) {
       setFollows(anterior);
@@ -1319,9 +1179,10 @@ export function DataProvider({ children }) {
     const jaSalvo = savedPostIds.includes(postId);
     setSavedPostIds((prev) => jaSalvo ? prev.filter((id) => id !== postId) : [...prev, postId]);
 
-    const { error } = jaSalvo
-      ? await supabase.from("saved_posts").delete().eq("user_id", currentUserId).eq("post_id", postId)
-      : await supabase.from("saved_posts").insert({ user_id: currentUserId, post_id: postId });
+    let error = null;
+    try {
+      await communityWrite("toggle_save", { postId, enabled: !jaSalvo });
+    } catch (cause) { error = cause; }
 
     if (error && error.code !== "23505") {
       setSavedPostIds((prev) => jaSalvo ? [...prev, postId] : prev.filter((id) => id !== postId));
@@ -1339,19 +1200,11 @@ export function DataProvider({ children }) {
     const trimmedName = String(name || "").trim();
     if (!trimmedName) throw new Error("Dê um nome para a colecao.");
 
-    const insertPayload = {
-      user_id: currentUserId,
+    const data = await accountWrite("create_collection", {
       name: trimmedName,
       description: String(description || "").trim() || null,
-      is_public: Boolean(isPublic),
-    };
-
-    const { data, error } = await supabase
-      .from("collections")
-      .insert(insertPayload)
-      .select("*")
-      .single();
-    if (error) throw error;
+      isPublic: Boolean(isPublic),
+    });
     if (data) setCollections((prev) => [data, ...prev]);
     return data;
   }, [isSupabase, user?.id]);
@@ -1368,8 +1221,9 @@ export function DataProvider({ children }) {
     const anterior = collections.find((c) => c.id === id);
     setCollections((prev) => prev.map((c) => c.id === id ? { ...c, ...allowed, is_public: allowed.is_public ?? c.is_public } : c));
 
-    const { error } = await supabase.from("collections").update(allowed).eq("id", id);
-    if (error) {
+    try {
+      await accountWrite("update_collection", { collectionId: id, ...allowed, isPublic: allowed.is_public });
+    } catch (error) {
       if (anterior) setCollections((prev) => prev.map((c) => c.id === id ? anterior : c));
       throw error;
     }
@@ -1382,8 +1236,9 @@ export function DataProvider({ children }) {
     setCollections((prev) => prev.filter((c) => c.id !== id));
     setCollectionItems((prev) => prev.filter((item) => item.collection_id !== id));
 
-    const { error } = await supabase.from("collections").delete().eq("id", id);
-    if (error) {
+    try {
+      await accountWrite("delete_collection", { collectionId: id });
+    } catch (error) {
       setCollections(anterior);
       throw error;
     }
@@ -1402,13 +1257,7 @@ export function DataProvider({ children }) {
 
     const position = collectionItems.filter((i) => i.collection_id === collectionId).length;
 
-    const insertPayload = { collection_id: collectionId, item_type: itemType, item_id: itemId, position };
-    const { data, error } = await supabase
-      .from("collection_items")
-      .insert(insertPayload)
-      .select("*")
-      .single();
-    if (error) throw error;
+    const data = await accountWrite("add_collection_item", { collectionId, itemType, itemId, position });
     if (data) setCollectionItems((prev) => [...prev, data]);
     return data;
   }, [isSupabase, user?.id, collectionItems]);
@@ -1419,8 +1268,9 @@ export function DataProvider({ children }) {
     const anterior = collectionItems;
     setCollectionItems((prev) => prev.filter((i) => i.id !== itemId));
 
-    const { error } = await supabase.from("collection_items").delete().eq("id", itemId);
-    if (error) {
+    try {
+      await accountWrite("remove_collection_item", { itemId });
+    } catch (error) {
       setCollectionItems(anterior);
       throw error;
     }

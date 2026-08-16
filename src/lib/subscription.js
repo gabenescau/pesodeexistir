@@ -1,4 +1,5 @@
-import { supabase, isSupabaseReady } from "@/app/data/supabase";
+import { isSupabaseReady } from "@/app/data/supabase";
+import { loadMySubscriptions } from "./subscription-api";
 
 export const ACTIVE_SUBSCRIPTION_STATUSES = [
   "active",
@@ -75,17 +76,11 @@ export function pickCurrentSubscription(list = [], userId) {
 export async function getCurrentSubscription(userId) {
   if (!isSupabaseReady() || !userId) return null;
 
-  const { data, error } = await supabase
-    .from("subscriptions")
-    .select("*")
-    .eq("user_id", userId)
-    .order("current_period_end", { ascending: false, nullsFirst: false })
-    .order("updated_at", { ascending: false, nullsFirst: false });
-
-  if (error) {
-    console.error("Erro ao buscar assinatura:", error.message);
+  try {
+    const data = await loadMySubscriptions();
+    return pickCurrentSubscription(data, userId);
+  } catch (error) {
+    console.error("Erro ao buscar assinatura:", error?.message || error);
     return null;
   }
-
-  return pickCurrentSubscription(data || [], userId);
 }

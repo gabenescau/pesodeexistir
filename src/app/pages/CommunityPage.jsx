@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { isSupabaseReady, supabase } from "../data/supabase";
+import { communityWrite } from "@/lib/community-write-api";
 import { CreatePost } from "../components/CreatePost";
 import { PostCard } from "../components/PostCard";
 import { RightSidebar } from "../components/RightSidebar";
@@ -37,19 +37,14 @@ export function CommunityPage() {
 
   useEffect(() => {
     let ativo = true;
-    if (!isSupabaseReady() || visiblePostIds.length === 0) {
+    if (visiblePostIds.length === 0) {
       setReacoes([]);
       return undefined;
     }
 
-    supabase
-      .from("reactions")
-      .select("target_id, user_id, emoji")
-      .eq("target_type", "post")
-      .in("target_id", visiblePostIds)
-      .limit(5000)
-      .then(({ data, error }) => {
-        if (!ativo || error) return;
+    communityWrite("list_reactions_batch", { targetIds: visiblePostIds })
+      .then((data) => {
+        if (!ativo) return;
         setReacoes(data || []);
       })
       .catch(() => {});

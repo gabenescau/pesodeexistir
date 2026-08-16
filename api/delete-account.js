@@ -66,7 +66,7 @@ export default async function handler(req, res) {
   if (!allowPost(req, res)) return;
 
   try {
-    const user = await getAuthenticatedUser(req);
+    const user = await getAuthenticatedUser(req, res);
     if (!await enforceRateLimit(req, res, {
       scope: "delete_account",
       limit: 2,

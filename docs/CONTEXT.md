@@ -33,7 +33,7 @@ meaning of the product.
 
 | Concern | Authoritative boundary |
 | --- | --- |
-| Authentication/session | Supabase Auth and server session validation |
+| Authentication/session | Supabase Auth plus `/api/auth` BFF cookies and server session validation |
 | Roles/admin | `profiles.role` protected by RLS/server authorization |
 | Plan price/cycle | `server/plans.js` and payment provider configuration |
 | Payment status | Stripe webhook plus server reconciliation |
@@ -54,3 +54,13 @@ Direct Supabase reads remain allowed only where RLS is the intended authority.
 Payment, admin, account deletion and other privileged writes go through API
 handlers. Further extraction of the legacy aggregate `DataContext` should be
 incremental and keep one writer per domain state to avoid split-brain caches.
+
+## Authentication bridge boundary
+
+The SPA no longer persists Supabase tokens in browser storage. The BFF stores
+the refresh and short-lived access tokens in protected cookies, while a
+short-lived access token is temporarily held in JavaScript memory solely for
+legacy direct RLS reads. API requests use same-origin cookies and do not receive
+an `Authorization` header from the browser. The final hardening step is to move
+all protected reads and uploads behind same-origin server endpoints, then stop
+returning an access token to the browser entirely.

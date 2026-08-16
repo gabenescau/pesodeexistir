@@ -6,7 +6,7 @@ import {
 import { HeartIcon } from "@/components/heart-icon";
 import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
-import { supabase, isSupabaseReady } from "@/app/data/supabase";
+import { isSupabaseReady } from "@/app/data/supabase";
 import { handleDoPerfil } from "@/lib/mentions";
 import {
   PROFILE_LIMITS,
@@ -18,6 +18,8 @@ import { AchievementsPanel } from "../components/AchievementsPanel";
 import { UserTitlePill } from "../components/UserTitlePill";
 import { VerifiedBadge } from "../components/VerifiedBadge";
 import { secureUpload } from "@/lib/secure-upload";
+import { removeLibraryFile } from "@/lib/library-media";
+import { authApi } from "@/lib/auth-api";
 
 function Card({ className, children, ...props }) {
   return (
@@ -117,8 +119,7 @@ export function ProfilePage() {
           kind: "avatar",
         });
 
-        const { data } = supabase.storage.from("avatars").getPublicUrl(uploadedPath);
-        avatarUrl = data.publicUrl;
+        avatarUrl = `${import.meta.env.NEXT_PUBLIC_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/avatars/${uploadedPath}`;
       }
 
       const nextProfile = { ...profile, ...validated, avatar: avatarUrl };
@@ -127,40 +128,26 @@ export function ProfilePage() {
       // de cadastro. profiles ficou sem coluna sensivel. Usamos update (e nao
       // upsert) porque a policy de INSERT exige service role: o trigger
       // handle_new_user garante que a linha ja existe para todo auth.uid().
-      const { error: profileError } = await supabase.from("profiles").update({
+      await authApi.updateProfile({
         name: nextProfile.name,
         username: nextProfile.handle,
         bio: nextProfile.bio,
         avatar: nextProfile.avatar,
         avatar_url: nextProfile.avatar,
         updated_at: new Date().toISOString(),
-      }).eq("id", user.id);
-
-      // 23505 = o @ escolhido ja pertence a outra pessoa.
-      if (profileError?.code === "23505") {
-        throw new Error("Esse @ já está em uso. Escolha outro.");
-      }
-      if (profileError) throw profileError;
-
+      });
       // Apenas o nome vai para o user_metadata: ele é embutido em todo JWT.
       // Guardar imagem aqui estoura o limite de header do HTTP/2 e derruba
       // todas as requisições autenticadas.
-      const { error: authError } = await supabase.auth.updateUser({
-        data: { name: nextProfile.name },
-      });
-
-      if (authError) {
+      await authApi.updateUser({ data: { name: nextProfile.name } }).catch((authError) => {
         console.warn("Perfil salvo; nao foi possivel sincronizar o nome no Auth:", authError.message);
-      }
+      });
 
       const previousAvatarPath = storagePathFromPublicUrl(profile.avatar, "avatars");
       if (uploadedPath && previousAvatarPath && previousAvatarPath !== uploadedPath) {
-        const { error: removeError } = await supabase.storage
-          .from("avatars")
-          .remove([previousAvatarPath]);
-        if (removeError) {
+        await removeLibraryFile("avatars", previousAvatarPath).catch((removeError) => {
           console.warn("Avatar antigo nao removido:", removeError.message);
-        }
+        });
       }
 
       setProfile(nextProfile);
@@ -169,7 +156,7 @@ export function ProfilePage() {
       setEditing(false);
     } catch (err) {
       if (uploadedPath) {
-        await supabase.storage.from("avatars").remove([uploadedPath]).catch(() => {});
+        await removeLibraryFile("avatars", uploadedPath).catch(() => {});
       }
       setSaveError(err?.message || "Não foi possível salvar o perfil.");
     } finally {

@@ -56,12 +56,9 @@ export function RewardsProvider({ children }) {
     }
 
     const request = (async () => {
-    const { supabase, isSupabaseReady } = await import("./supabase");
-    if (!isSupabaseReady()) {
-      if (import.meta.env.PROD) {
-        setProducts([]);
-        throw new Error("Catalogo da loja indisponivel");
-      }
+    if (!import.meta.env.PROD) {
+      const { isSupabaseReady } = await import("./supabase");
+      if (!isSupabaseReady()) {
       let localProducts = [];
       try {
         const stored = localStorage.getItem("ope_shop_products_dev");
@@ -153,57 +150,9 @@ export function RewardsProvider({ children }) {
         try { localStorage.setItem("ope_shop_products_dev", JSON.stringify(localProducts)); } catch {}
       }
       return localProducts.filter((p) => p.active !== false);
-    }
-    const { data, error } = await supabase
-      .from("shop_products")
-      // The store catalog is independent from seasonal curation. A product
-      // remains purchasable even when it has no season assignment.
-      // Use the table shape returned by PostgREST instead of naming optional
-      // columns such as images that may not exist in older deployments.
-      .select("id,name,description,category,credits_cost,min_months_active,image_url,images,active,external_sku,created_at,updated_at,real_price,stock,season_id,early_access_at,public_release_at")
-      .eq("active", true)
-      .order("credits_cost", { ascending: true });
-    if (error) {
-      setError("Nao foi possivel carregar os produtos da loja. Tente novamente.");
-      throw error;
-    }
-    let variants = [];
-    const productIds = (data || []).map((product) => product.id).filter(Boolean);
-    if (productIds.length > 0) {
-      const variantsResult = await supabase
-        .from("shop_product_variants")
-        .select("id,product_id,sku,size,color,stock,active")
-        .in("product_id", productIds)
-        .eq("active", true)
-        .order("size", { ascending: true })
-        .order("color", { ascending: true });
-      // Keep old deployments readable until the migration is applied.
-      if (!variantsResult.error) variants = variantsResult.data || [];
-      else if (!/schema cache|does not exist|relation/i.test(variantsResult.error.message || "")) throw variantsResult.error;
-    }
-    const variantsByProduct = variants.reduce((map, variant) => {
-      const list = map.get(variant.product_id) || [];
-      list.push(variant);
-      map.set(variant.product_id, list);
-      return map;
-    }, new Map());
-    const catalog = (data || []).map((product) => {
-      let images = Array.isArray(product.images) ? product.images : [];
-      if (images.length === 0 && typeof product.images === "string" && product.images.startsWith("[")) {
-        try {
-          const parsed = JSON.parse(product.images);
-          images = Array.isArray(parsed) ? parsed : [];
-        } catch {
-          images = [];
-        }
       }
-      return {
-        ...product,
-        images: images.length > 0 ? images : product.image_url ? [product.image_url] : [],
-        variants: variantsByProduct.get(product.id) || [],
-      };
-    });
-    return catalog;
+    }
+    return rewardApi.products();
     })();
 
     catalogRequests.set(cacheKey, request);
@@ -234,18 +183,14 @@ export function RewardsProvider({ children }) {
     }
 
     const request = (async () => {
-    const { supabase, isSupabaseReady } = await import("./supabase");
-    if (!isSupabaseReady()) {
-      setMyRedemptions([]);
-      return [];
+    if (!import.meta.env.PROD) {
+      const { isSupabaseReady } = await import("./supabase");
+      if (!isSupabaseReady()) {
+        setMyRedemptions([]);
+        return [];
+      }
     }
-    const { data, error } = await supabase
-      .from("shop_redemptions")
-      .select("id,user_id,product_id,variant_id,quantity,variant_snapshot,credits_spent,status,customer_name,customer_email,address_json,tracking_code,notes,created_at,updated_at")
-      .order("created_at", { ascending: false })
-      .limit(100);
-    if (error) throw error;
-    return data || [];
+    return rewardApi.redemptions();
     })();
 
     redemptionRequests.set(cacheKey, request);
@@ -338,6 +283,10 @@ export function RewardsProvider({ children }) {
     return rewardApi.getMyReferralCode();
   }, []);
 
+  const getMyReferrals = useCallback(async () => {
+    return rewardApi.referrals();
+  }, []);
+
   const registerReferral = useCallback(async (code) => {
     return rewardApi.registerReferral(code);
   }, []);
@@ -366,13 +315,14 @@ export function RewardsProvider({ children }) {
     completeWeeklyMission,
     redeemProduct,
     getMyReferralCode,
+    getMyReferrals,
     registerReferral,
     referralClaim,
   }), [
     wallet, loading, error, products, myRedemptions, refresh, loadProducts, loadMyRedemptions,
     rewardLogin, reportReading, rewardPost, rewardComment, rewardLikesReceived,
     completeDailyMission, completeWeeklyMission, redeemProduct,
-    getMyReferralCode, registerReferral, referralClaim,
+    getMyReferralCode, getMyReferrals, registerReferral, referralClaim,
   ]);
 
   return <RewardsContext.Provider value={value}>{children}</RewardsContext.Provider>;

@@ -24,7 +24,7 @@ export default async function handler(req, res) {
   if (!allowPost(req, res)) return;
 
   try {
-    const user = await getAuthenticatedUser(req);
+    const user = await getAuthenticatedUser(req, res);
     const syncOnly = req.body?.mode === "sync";
     const { subscriptionId } = syncOnly
       ? { subscriptionId: typeof req.body?.subscriptionId === "string" ? req.body.subscriptionId : null }

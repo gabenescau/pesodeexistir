@@ -11,7 +11,7 @@ import {
   Sparkles,
   Storefront,
 } from "@/lib/icons";
-import { supabase, isSupabaseReady } from "@/app/data/supabase";
+import { loadActiveSeasonCatalog } from "@/lib/catalog-api";
 import { useRewards } from "@/app/data/RewardsContext";
 
 function daysUntil(iso) {
@@ -77,36 +77,12 @@ export function SeasonPage() {
   const [error, setError] = useState("");
 
   const loadSeason = useCallback(async () => {
-    if (!isSupabaseReady()) {
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     setError("");
     try {
-      const { data: activeSeason, error: seasonError } = await supabase
-        .from("seasons")
-        .select("id,name,description,status,starts_on,ends_on,created_at")
-        .eq("status", "active")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (seasonError) throw seasonError;
-      setSeason(activeSeason || null);
-
-      if (!activeSeason) {
-        setProducts([]);
-        return;
-      }
-
-      const { data: seasonProducts, error: productError } = await supabase
-        .from("shop_products")
-        .select("id,name,description,credits_cost,real_price,image_url,stock,category")
-        .eq("season_id", activeSeason.id)
-        .eq("active", true)
-        .order("created_at", { ascending: false });
-      if (productError) throw productError;
-      setProducts(seasonProducts || []);
+      const data = await loadActiveSeasonCatalog();
+      setSeason(data.season || null);
+      setProducts(data.products || []);
     } catch (loadError) {
       setError(loadError?.message || "Nao foi possivel carregar a season.");
       setSeason(null);

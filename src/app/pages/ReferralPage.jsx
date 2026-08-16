@@ -3,12 +3,13 @@ import { Link } from "react-router-dom";
 import { ArrowLeft, Check, Copy, Gift, Loader2, Users, WhatsappLogo } from "@/lib/icons";
 import { toast } from "@/lib/toast";
 import { useRewards } from "@/app/data/RewardsContext";
-import { supabase, isSupabaseReady } from "@/app/data/supabase";
+import { useAuth } from "@/app/data/AuthContext";
 
 const REFERRAL_REWARD = 100;
 
 export function ReferralPage() {
-  const { getMyReferralCode, referralClaim, refresh } = useRewards();
+  const { getMyReferralCode, getMyReferrals, referralClaim, refresh } = useRewards();
+  const { user } = useAuth();
   const [code, setCode] = useState("");
   const [referrals, setReferrals] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,23 +18,20 @@ export function ReferralPage() {
   const [copied, setCopied] = useState(false);
 
   const load = useCallback(async () => {
-    if (!isSupabaseReady()) { setLoading(false); return; }
     setError("");
     try {
-      const session = await supabase.auth.getSession();
-      const userId = session.data.session?.user?.id;
+      const userId = user?.id;
       if (!userId) return;
       const [codeResult, rowsResult] = await Promise.all([
         getMyReferralCode(),
-        supabase.from("referrals").select("referred_user_id,rewarded_at,created_at").eq("referrer_user_id", userId).order("created_at", { ascending: false }).limit(50),
+        getMyReferrals(),
       ]);
-      if (rowsResult.error) throw rowsResult.error;
       setCode(codeResult || "");
-      setReferrals(rowsResult.data || []);
+      setReferrals(rowsResult || []);
     } catch (loadError) {
       setError(loadError?.message || "Nao foi possivel carregar suas indicacoes.");
     } finally { setLoading(false); }
-  }, [getMyReferralCode]);
+  }, [getMyReferralCode, getMyReferrals, user?.id]);
 
   useEffect(() => { load(); }, [load]);
 

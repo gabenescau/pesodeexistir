@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Lightbulb, MessageSquare, Plus, Send, Trash2, X } from "@/lib/icons";
 import { HeartIcon } from "@/components/heart-icon";
 import { useAuth } from "@/app/data/AuthContext";
-import { supabase, isSupabaseReady } from "../data/supabase";
 import { authenticatedApiPost, authenticatedApiRequest } from "@/lib/authenticated-api";
 import { sanitizePlainText, sanitizeSingleLine } from "@/lib/sanitize";
 import { toast } from "@/lib/toast";
@@ -115,24 +114,16 @@ function SuggestionForm({ open, onClose, onCreated }) {
     setError("");
 
     try {
-      if (!isSupabaseReady()) throw new Error("Supabase nao configurado.");
       const cleanTitle = sanitizeSingleLine(title, 90);
       const cleanDescription = sanitizePlainText(description, 500);
       if (!cleanTitle) throw new Error("Digite um titulo para a sugestao.");
       const payload = {
-        user_id: user.id,
         title: cleanTitle,
         description: cleanDescription,
         category: categoryOptions.includes(category) ? category : categoryOptions[0],
-        status: "ideas",
-        author_name: profile?.name || user?.user_metadata?.name || "Leitor",
+        authorName: profile?.name || user?.user_metadata?.name || "Leitor",
       };
-      const { data, error: insertError } = await supabase
-        .from("suggestions")
-        .insert(payload)
-        .select("id,user_id,title,description,category,status,author_name,comment_count,created_at,updated_at")
-        .single();
-      if (insertError) throw insertError;
+      const data = await authenticatedApiPost("/api/auth?action=suggestions&suggestionAction=board", payload);
       onCreated(data);
       setTitle("");
       setDescription("");
@@ -220,7 +211,7 @@ export function SuggestionsPage() {
     if (!suggestion?.id || likingId) return;
     setLikingId(suggestion.id);
     try {
-      const result = await authenticatedApiPost("/api/suggestion-likes", {
+      const result = await authenticatedApiPost("/api/auth?action=suggestions&suggestionAction=likes", {
         suggestionId: suggestion.id,
       });
       setLikes((current) => ({ ...current, [suggestion.id]: result.liked }));
@@ -238,15 +229,10 @@ export function SuggestionsPage() {
       setLoading(true);
       setError("");
       try {
-        if (!isSupabaseReady()) throw new Error("Supabase nao configurado.");
-        const [{ data, error: queryError }, likeData] = await Promise.all([
-          supabase
-            .from("suggestions")
-            .select("id,user_id,title,description,category,status,author_name,comment_count,created_at,updated_at")
-            .order("created_at", { ascending: false }),
-          authenticatedApiRequest("/api/suggestion-likes"),
+        const [data, likeData] = await Promise.all([
+          authenticatedApiRequest("/api/auth?action=suggestions&suggestionAction=board"),
+          authenticatedApiRequest("/api/auth?action=suggestions&suggestionAction=likes"),
         ]);
-        if (queryError) throw queryError;
         if (alive) {
           setSuggestions(data || []);
           setLikes(Object.fromEntries((likeData?.likedIds || []).map((id) => [id, true])));
@@ -278,7 +264,7 @@ export function SuggestionsPage() {
     setMovingId(suggestion.id);
     setError("");
     try {
-      const updated = await authenticatedApiPost("/api/admin-suggestion", {
+      const updated = await authenticatedApiPost("/api/auth?action=suggestions&suggestionAction=admin", {
         action: "move",
         suggestionId: suggestion.id,
         status,
@@ -306,7 +292,7 @@ export function SuggestionsPage() {
     setMovingId(suggestion.id);
     setError("");
     try {
-      await authenticatedApiPost("/api/admin-suggestion", {
+      await authenticatedApiPost("/api/auth?action=suggestions&suggestionAction=admin", {
         action: "delete",
         suggestionId: suggestion.id,
       });

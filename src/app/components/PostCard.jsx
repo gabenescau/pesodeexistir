@@ -4,7 +4,7 @@ import { Bookmark, MessageCircle, MoreHorizontal, Send, Share2, Trash2 } from "@
 import { HeartIcon } from "@/components/heart-icon";
 import { useAuth } from "@/app/data/AuthContext";
 import { useData } from "@/app/data/DataContext";
-import { isSupabaseReady, supabase } from "@/app/data/supabase";
+import { communityWrite } from "@/lib/community-write-api";
 import { handleDoPerfil } from "@/lib/mentions";
 import { isVerifiedProfile, relativeTime } from "@/lib/social";
 import { EmojiReactions } from "./EmojiReactions";
@@ -121,17 +121,13 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
 
   useEffect(() => {
     let active = true;
-    if (!showComment || commentsLoaded || !isSupabaseReady()) return undefined;
-    supabase
-      .from("post_replies")
-      .select("*")
-      .eq("post_id", post.id)
-      .order("created_at", { ascending: true })
-      .then(({ data, error }) => {
-        if (!active || error) return;
+    if (!showComment || commentsLoaded) return undefined;
+    communityWrite("list_replies", { postId: post.id })
+      .then((data) => {
+        if (!active) return;
         setComments(data || []);
         setCommentsLoaded(true);
-      });
+      }).catch(() => {});
     return () => {
       active = false;
     };
@@ -143,16 +139,9 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
     setLiked(nextLiked);
     setLikes((count) => Math.max(0, count + (nextLiked ? 1 : -1)));
 
-    if (!isSupabaseReady()) return;
     setBusy(true);
     try {
-      if (nextLiked) {
-        const { error } = await supabase.from("post_likes").insert({ user_id: user.id, post_id: post.id });
-        if (error && error.code !== "23505") throw error;
-      } else {
-        const { error } = await supabase.from("post_likes").delete().eq("user_id", user.id).eq("post_id", post.id);
-        if (error) throw error;
-      }
+      await communityWrite("toggle_like", { postId: post.id, enabled: nextLiked });
     } catch (err) {
       setLiked(!nextLiked);
       setLikes((count) => Math.max(0, count + (nextLiked ? -1 : 1)));
@@ -171,20 +160,9 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
     if (!text || busy) return;
     setComment("");
 
-    if (!isSupabaseReady()) return;
     setBusy(true);
     try {
-      const { data, error } = await supabase.from("post_replies").insert({
-        post_id: post.id,
-        user_id: user.id,
-        text,
-        parent_id: replyingTo?.id || null,
-      }).select().single();
-      if (error) {
-        setComment(text);
-        toast.error(error.message || "Nao foi possivel enviar o comentario.");
-        return;
-      }
+      const data = await communityWrite("create_reply", { postId: post.id, text, parentId: replyingTo?.id || null });
       setComments((current) => [...current, data]);
       setCommentsLoaded(true);
       setShowComment(true);
@@ -211,8 +189,8 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
     if (!ok) return;
     const previous = comments;
     setComments((current) => current.filter((item) => item.id !== id));
-    const { error } = await supabase.from("post_replies").delete().eq("id", id);
-    if (error) setComments(previous);
+    try { await communityWrite("delete_reply", { replyId: id }); }
+    catch { setComments(previous); }
   }
 
   async function handleDelete() {

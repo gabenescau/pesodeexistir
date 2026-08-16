@@ -1,5 +1,3 @@
-import { supabase } from "@/app/data/supabase";
-
 export class ApiError extends Error {
   constructor(message, status = 0, payload = null) {
     super(message);
@@ -10,22 +8,16 @@ export class ApiError extends Error {
   }
 }
 
-async function getAccessToken() {
-  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-  const accessToken = sessionData?.session?.access_token;
-  if (sessionError || !accessToken) {
-    throw new ApiError("Sua sessao expirou. Entre novamente.", 401);
-  }
-  return accessToken;
-}
-
 export async function authenticatedApiRequest(path, {
   method = "GET",
   body,
   signal,
 } = {}) {
-  const accessToken = await getAccessToken();
-  const headers = { Authorization: `Bearer ${accessToken}` };
+  const headers = {
+    "X-Requested-With": String(path).startsWith("/api/auth") || String(path).startsWith("/api/admin-data")
+      ? "OPE-Auth"
+      : "OPE-App",
+  };
   if (body !== undefined) headers["Content-Type"] = "application/json";
 
   const request = {
@@ -37,6 +29,7 @@ export async function authenticatedApiRequest(path, {
     request.body = JSON.stringify(body);
   }
 
+  request.credentials = "include";
   const response = await fetch(path, request);
 
   const payload = response.status === 204

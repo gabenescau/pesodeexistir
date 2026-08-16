@@ -3,6 +3,10 @@
 .env.*
 !.env.example
 
+# Documentation and database migrations are intentionally versioned
+!*.md
+!*.sql
+
 # Dependencies and build output
 node_modules/
 dist/
@@ -11,6 +15,13 @@ coverage/
 
 # Local Supabase state
 supabase/.temp/
+
+# Local AI/agent state and generated coordination files
+.agents/
+.claude/
+.claude-flow/
+.codex/
+skills-lock.json
 
 # Local logs and reports
 *.log
