@@ -1,12 +1,12 @@
 import {
   enforceRateLimit,
-  getRequiredCookieSession,
   requireAdmin,
   requirePermission,
   requireUuid,
   supabaseRequest,
   createSignedStorageUrlMap,
 } from "./supabase.js";
+import { getRequiredCookieSession } from "./auth.js";
 import { PERMISSIONS } from "../src/lib/rbac.js";
 
 const UUID_FIELDS = new Set([
