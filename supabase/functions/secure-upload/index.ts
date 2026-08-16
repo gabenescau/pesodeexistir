@@ -147,10 +147,26 @@ function safeBaseName(name: string) {
     .replace(/[^a-z0-9._-]+/g, "-").replace(/(^-+|-+$)/g, "").slice(0, 80) || "arquivo";
 }
 
-function corsHeaders(origin: string | null) {
+function normalizeOrigin(value: string | null) {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return `${url.protocol}//${url.host}`;
+  } catch {
+    return null;
+  }
+}
+
+function corsHeaders(rawOrigin: string | null) {
   const allowed = new Set(["https://pesodeexistir.online", "https://www.pesodeexistir.online", "https://app.pesodeexistir.online"]);
   if (Deno.env.get("ALLOW_LOCAL_ORIGIN") === "true") allowed.add("http://localhost:5173");
-  const headers = new Headers({ "access-control-allow-headers": "apikey, content-type, x-client-info, x-upload-ticket", "access-control-allow-methods": "POST, OPTIONS" });
+  const origin = normalizeOrigin(rawOrigin);
+  const headers = new Headers({
+    "access-control-allow-headers": "apikey, authorization, content-type, x-client-info, x-upload-ticket",
+    "access-control-allow-methods": "POST, OPTIONS",
+    "access-control-max-age": "600",
+    "vary": "Origin",
+  });
   if (origin && allowed.has(origin)) headers.set("access-control-allow-origin", origin);
   return headers;
 }

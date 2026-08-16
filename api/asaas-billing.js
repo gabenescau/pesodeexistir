@@ -21,8 +21,13 @@ import { getSiteUrl } from "../server/site.js";
 
 function safeCreateError(error) {
   if (error?.userSafe) return error;
-  const safe = new Error("Nao foi possivel iniciar o checkout Asaas. Tente novamente em alguns instantes.");
-  safe.status = 503;
+  const providerStatus = Number(error?.status);
+  const safe = new Error(
+    error?.provider && [400, 422].includes(providerStatus)
+      ? "Os dados do checkout foram recusados pela Asaas. Confira as informacoes no checkout e tente novamente."
+      : "Nao foi possivel iniciar o checkout Asaas. Tente novamente em alguns instantes."
+  );
+  safe.status = error?.provider && [400, 422].includes(providerStatus) ? 400 : 503;
   safe.userSafe = true;
   safe.cause = error;
   return safe;

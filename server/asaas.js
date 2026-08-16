@@ -95,10 +95,9 @@ export async function createAsaasCheckout({ plan, email, name, attemptId, siteUr
       quantity: 1,
       value: Number((plan.price / 100).toFixed(2)),
     }],
-    customerData: {
-      name: String(name || "").slice(0, 80) || undefined,
-      email: String(email || "").slice(0, 254) || undefined,
-    },
+    // Do not send a partial customerData object. Asaas requires cpfCnpj when
+    // customerData is present; omitting it lets the hosted checkout collect
+    // and validate the payer's CPF/CNPJ without storing it in our database.
   };
   const checkout = await asaasRequest("/checkouts", {
     method: "POST",
