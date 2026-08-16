@@ -139,12 +139,12 @@ export function DataProvider({ children }) {
           ? loadPublicCatalog()
             .then((data) => ({ data, error: null }))
             .catch((error) => ({ data: null, error }))
-          : null;
+          : Promise.resolve({ data: null, error: null });
         const publicCommunityPromise = !isCurrentAdmin
           ? loadCommunityFeed()
             .then((data) => ({ data, error: null }))
             .catch((error) => ({ data: null, error }))
-          : null;
+          : Promise.resolve({ data: null, error: null });
         const accountStatePromise = currentUserId
           ? loadAccountState().then((data) => ({ data, error: null })).catch((error) => ({ data: null, error }))
           : Promise.resolve({ data: null, error: null });
@@ -264,8 +264,8 @@ export function DataProvider({ children }) {
           : accountStatePromise.then((result) => ({ data: result.data?.myRatings || [], error: result.error })),
       ]);
 
-      const publicCatalog = publicCatalogPromise ? await publicCatalogPromise : null;
-      const publicCommunity = publicCommunityPromise ? await publicCommunityPromise : null;
+      const publicCatalog = await publicCatalogPromise;
+      const publicCommunity = await publicCommunityPromise;
       if (cancelled) return;
 
       const adminAssetsByBookId = new Map(
