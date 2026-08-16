@@ -1,15 +1,19 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-// Supabase supplies SUPABASE_SERVICE_ROLE_KEY to Edge Functions by default.
-// SERVICE_ROLE_KEY is supported as a fallback for projects that configured a
-// custom secret after the platform rejected the reserved SUPABASE_ prefix.
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SERVICE_ROLE_KEY") || "";
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
+// Supabase reserves custom names beginning with SUPABASE_. SERVICE_ROLE_KEY is
+// the supported project secret name; the reserved name remains a fallback for
+// projects that still expose it automatically.
+const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY")
+  || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
+  || "";
 const UPLOAD_TICKET_SECRET = Deno.env.get("UPLOAD_TICKET_SECRET") || "";
+
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 const MAX_PDF_BYTES = 50 * 1024 * 1024;
 const MAX_IMAGE_PIXELS = 40_000_000;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const BUCKETS = {
   avatars: { kind: "avatar", maxBytes: MAX_AVATAR_BYTES, roles: ["owner"] },
@@ -35,7 +39,8 @@ const IMAGE_TYPES = new Map([
 ]);
 
 function hasBytes(bytes: Uint8Array, offset: number, values: number[]) {
-  return values.every((value, index) => bytes[offset + index] === value);
+  return offset >= 0 && offset + values.length <= bytes.length
+    && values.every((value, index) => bytes[offset + index] === value);
 }
 
 function ascii(bytes: Uint8Array, start = 0, end = bytes.length) {
@@ -47,10 +52,8 @@ function readUint16(bytes: Uint8Array, offset: number) {
 }
 
 function readUint32(bytes: Uint8Array, offset: number) {
-  return (
-    (bytes[offset] * 0x1000000) +
-    ((bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3])
-  );
+  return (bytes[offset] * 0x1000000)
+    + ((bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3]);
 }
 
 function jpegDimensions(bytes: Uint8Array) {
@@ -67,7 +70,10 @@ function jpegDimensions(bytes: Uint8Array) {
     if (offset + 2 > bytes.length) return null;
     const length = readUint16(bytes, offset);
     if (length < 2 || offset + length > bytes.length) return null;
-    const isSof = marker >= 0xc0 && marker <= 0xc3 || marker >= 0xc5 && marker <= 0xc7 || marker >= 0xc9 && marker <= 0xcb || marker >= 0xcd && marker <= 0xcf;
+    const isSof = (marker >= 0xc0 && marker <= 0xc3)
+      || (marker >= 0xc5 && marker <= 0xc7)
+      || (marker >= 0xc9 && marker <= 0xcb)
+      || (marker >= 0xcd && marker <= 0xcf);
     if (isSof && length >= 7) {
       return { width: readUint16(bytes, offset + 5), height: readUint16(bytes, offset + 3) };
     }
@@ -87,7 +93,8 @@ function imageTypeAndDimensions(bytes: Uint8Array) {
       dimensions: { width: readUint32(bytes, 16), height: readUint32(bytes, 20) },
     };
   }
-  if (hasBytes(bytes, 0, [0x47, 0x49, 0x46, 0x38]) && (bytes[4] === 0x37 || bytes[4] === 0x39) && bytes[5] === 0x61) {
+  if (hasBytes(bytes, 0, [0x47, 0x49, 0x46, 0x38])
+    && (bytes[4] === 0x37 || bytes[4] === 0x39) && bytes[5] === 0x61) {
     if (bytes.length < 10) return null;
     return {
       type: "image/gif",
@@ -110,34 +117,42 @@ function imageTypeAndDimensions(bytes: Uint8Array) {
   return null;
 }
 
+function validationError(message: string) {
+  const error = new Error(message);
+  error.name = "UploadValidationError";
+  return error;
+}
+
 function validateImage(bytes: Uint8Array, claimedType: string) {
   const detected = imageTypeAndDimensions(bytes);
   if (!detected || detected.type !== claimedType || !IMAGE_TYPES.has(detected.type)) {
-    throw new Error("O arquivo nao corresponde a uma imagem permitida.");
+    throw validationError("O arquivo nao corresponde a uma imagem permitida.");
   }
   const dimensions = detected.dimensions;
-  if (dimensions && (!dimensions.width || !dimensions.height || dimensions.width * dimensions.height > MAX_IMAGE_PIXELS || dimensions.width > 8000 || dimensions.height > 8000)) {
-    throw new Error("As dimensoes da imagem nao sao permitidas.");
+  if (dimensions && (!dimensions.width || !dimensions.height
+    || dimensions.width * dimensions.height > MAX_IMAGE_PIXELS
+    || dimensions.width > 8000 || dimensions.height > 8000)) {
+    throw validationError("As dimensoes da imagem nao sao permitidas.");
   }
   return detected.type;
 }
 
 function validatePdf(bytes: Uint8Array, claimedType: string) {
   if (claimedType !== "application/pdf" || !hasBytes(bytes, 0, [0x25, 0x50, 0x44, 0x46, 0x2d])) {
-    throw new Error("O arquivo nao e um PDF valido.");
+    throw validationError("O arquivo nao e um PDF valido.");
   }
   const tail = ascii(bytes, Math.max(0, bytes.length - 4096)).trimEnd();
-  if (!tail.endsWith("%%EOF")) throw new Error("O PDF parece incompleto.");
+  if (!tail.endsWith("%%EOF")) throw validationError("O PDF parece incompleto.");
 
-  // PDF ativo nao entra no Storage. Links e metadados interativos tambem sao
-  // bloqueados porque o arquivo sera aberto em leitores no navegador.
+  // The reader does not need active PDF features. Rejecting them prevents
+  // JavaScript, external actions, embedded files and navigation surprises.
   const dangerousTokens = [
     "/JavaScript", "/JS", "/OpenAction", "/AA", "/Launch", "/EmbeddedFile",
     "/RichMedia", "/SubmitForm", "/GoToR", "/ImportData", "/XFA", "/URI",
   ];
   const source = ascii(bytes);
   if (dangerousTokens.some((token) => source.includes(token))) {
-    throw new Error("O PDF contem recursos ativos ou links nao permitidos.");
+    throw validationError("O PDF contem recursos ativos ou links nao permitidos.");
   }
   return "application/pdf";
 }
@@ -147,32 +162,39 @@ function safeBaseName(name: string) {
     .replace(/[^a-z0-9._-]+/g, "-").replace(/(^-+|-+$)/g, "").slice(0, 80) || "arquivo";
 }
 
-function normalizeOrigin(value: string | null) {
-  if (!value) return null;
-  try {
-    const url = new URL(value);
-    return `${url.protocol}//${url.host}`;
-  } catch {
-    return null;
+function corsHeaders(origin: string | null) {
+  const normalizedOrigin = String(origin || "").trim().replace(/\/+$/, "");
+  const allowed = new Set([
+    "https://pesodeexistir.online",
+    "https://www.pesodeexistir.online",
+    "https://app.pesodeexistir.online",
+  ]);
+  if (Deno.env.get("ALLOW_LOCAL_ORIGIN") === "true") {
+    allowed.add("http://localhost:5173");
+    allowed.add("http://127.0.0.1:5173");
   }
-}
-
-function corsHeaders(rawOrigin: string | null) {
-  const allowed = new Set(["https://pesodeexistir.online", "https://www.pesodeexistir.online", "https://app.pesodeexistir.online"]);
-  if (Deno.env.get("ALLOW_LOCAL_ORIGIN") === "true") allowed.add("http://localhost:5173");
-  const origin = normalizeOrigin(rawOrigin);
   const headers = new Headers({
-    "access-control-allow-headers": "apikey, authorization, content-type, x-client-info, x-upload-ticket",
+    "access-control-allow-headers": "apikey, authorization, content-type, x-client-info, x-upload-ticket, x-requested-with",
     "access-control-allow-methods": "POST, OPTIONS",
     "access-control-max-age": "600",
-    "vary": "Origin",
+    "cache-control": "no-store",
+    vary: "Origin",
   });
-  if (origin && allowed.has(origin)) headers.set("access-control-allow-origin", origin);
+  if (normalizedOrigin && allowed.has(normalizedOrigin)) {
+    headers.set("access-control-allow-origin", normalizedOrigin);
+  }
   return headers;
 }
 
+function jsonResponse(body: Record<string, unknown>, status: number, headers: Headers) {
+  const responseHeaders = new Headers(headers);
+  responseHeaders.set("content-type", "application/json; charset=utf-8");
+  return new Response(JSON.stringify(body), { status, headers: responseHeaders });
+}
+
 function decodeBase64Url(value: string) {
-  const normalized = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/")
+    .padEnd(Math.ceil(value.length / 4) * 4, "=");
   const binary = atob(normalized);
   return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 }
@@ -180,7 +202,9 @@ function decodeBase64Url(value: string) {
 async function verifyUploadTicket(ticket: string) {
   if (UPLOAD_TICKET_SECRET.length < 32) throw new Error("Upload ticket secret ausente");
   const [body, signature] = String(ticket || "").split(".");
-  if (!body || !signature || body.length > 4096 || signature.length > 256) throw new Error("Upload ticket invalido");
+  if (!body || !signature || body.length > 4096 || signature.length > 256) {
+    throw validationError("Upload ticket invalido");
+  }
   const key = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(UPLOAD_TICKET_SECRET),
@@ -194,75 +218,97 @@ async function verifyUploadTicket(ticket: string) {
     decodeBase64Url(signature),
     new TextEncoder().encode(body),
   );
-  if (!valid) throw new Error("Upload ticket invalido");
+  if (!valid) throw validationError("Upload ticket invalido");
+
   let payload: Record<string, unknown>;
   try {
     payload = JSON.parse(new TextDecoder().decode(decodeBase64Url(body)));
   } catch {
-    throw new Error("Upload ticket invalido");
+    throw validationError("Upload ticket invalido");
   }
   if (
-    typeof payload.sub !== "string" ||
-    typeof payload.bucket !== "string" ||
-    typeof payload.kind !== "string" ||
-    typeof payload.fileName !== "string" ||
-    typeof payload.fileType !== "string" ||
-    !Number.isSafeInteger(payload.fileSize) ||
-    !Number.isSafeInteger(payload.exp) ||
-    payload.exp < Math.floor(Date.now() / 1000)
-  ) throw new Error("Upload ticket expirado");
+    typeof payload.sub !== "string" || !UUID_PATTERN.test(payload.sub)
+    || typeof payload.bucket !== "string" || typeof payload.kind !== "string"
+    || typeof payload.fileName !== "string" || payload.fileName.length > 180
+    || typeof payload.fileType !== "string"
+    || !Number.isSafeInteger(payload.fileSize) || !Number.isSafeInteger(payload.exp)
+    || payload.exp < Math.floor(Date.now() / 1000)
+  ) throw validationError("Upload ticket expirado");
   return payload;
+}
+
+function runtimeReady() {
+  return SUPABASE_URL.startsWith("https://") && SERVICE_ROLE_KEY.length >= 20
+    && UPLOAD_TICKET_SECRET.length >= 32;
 }
 
 Deno.serve(async (request) => {
   const headers = corsHeaders(request.headers.get("origin"));
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
-  if (request.method !== "POST") return new Response(JSON.stringify({ error: "Metodo nao permitido" }), { status: 405, headers });
+  if (request.method !== "POST") return jsonResponse({ error: "Metodo nao permitido" }, 405, headers);
+  if (!runtimeReady()) {
+    console.error("secure-upload misconfigured: required server secrets are missing");
+    return jsonResponse({ error: "Upload temporariamente indisponivel" }, 503, headers);
+  }
 
   try {
-    const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    });
     const ticket = await verifyUploadTicket(request.headers.get("x-upload-ticket") || "");
-    const userId = String(ticket.sub);
-
     const form = await request.formData();
     const file = form.get("file");
     const bucket = String(form.get("bucket") || "");
     const kind = String(form.get("kind") || "");
     const policy = BUCKETS[bucket as keyof typeof BUCKETS];
-    if (!(file instanceof File) || !policy || policy.kind !== (bucket === "pdfs" ? "pdf" : bucket === "avatars" ? "avatar" : "image") || !ALLOWED_KINDS[bucket]?.includes(kind)) {
-      return new Response(JSON.stringify({ error: "Upload invalido" }), { status: 400, headers });
-    }
-    if (ticket.bucket !== bucket || ticket.kind !== kind || ticket.fileName !== file.name || ticket.fileType !== file.type || ticket.fileSize !== file.size) {
-      return new Response(JSON.stringify({ error: "O upload nao corresponde a autorizacao" }), { status: 400, headers });
-    }
-    if (file.size <= 0 || file.size > policy.maxBytes) return new Response(JSON.stringify({ error: "Tamanho de arquivo nao permitido" }), { status: 400, headers });
+    const claimedType = file instanceof File ? file.type.toLowerCase() : "";
 
-    const { data: profile, error: profileError } = await admin.from("profiles").select("role").eq("id", userId).maybeSingle();
-    if (profileError) throw profileError;
+    if (!(file instanceof File) || !policy || !ALLOWED_KINDS[bucket]?.includes(kind)) {
+      return jsonResponse({ error: "Upload invalido" }, 400, headers);
+    }
+    if (ticket.bucket !== bucket || ticket.kind !== kind
+      || ticket.fileName !== file.name || String(ticket.fileType).toLowerCase() !== claimedType
+      || ticket.fileSize !== file.size) {
+      return jsonResponse({ error: "O upload nao corresponde a autorizacao" }, 400, headers);
+    }
+    if (file.size <= 0 || file.size > policy.maxBytes) {
+      return jsonResponse({ error: "Tamanho de arquivo nao permitido" }, 400, headers);
+    }
+
+    const { data: profile, error: profileError } = await admin
+      .from("profiles").select("role").eq("id", ticket.sub).maybeSingle();
+    if (profileError) throw new Error("profile lookup failed");
     const role = profile?.role || "user";
     const allowedRoles = policy.roles as readonly string[];
     if (!allowedRoles.includes("owner") && !allowedRoles.includes(role)) {
-      return new Response(JSON.stringify({ error: "Sem permissao para este tipo de arquivo" }), { status: 403, headers });
+      return jsonResponse({ error: "Sem permissao para este tipo de arquivo" }, 403, headers);
     }
 
     const bytes = new Uint8Array(await file.arrayBuffer());
-    const claimedType = file.type.toLowerCase();
-    const contentType = policy.kind === "pdf" ? validatePdf(bytes, claimedType) : validateImage(bytes, claimedType);
-    const extension = contentType === "application/pdf" ? "pdf" : IMAGE_TYPES.get(contentType)!.extension;
-    // Every uploaded object is owned by the authenticated user. Admins may
-    // manage all objects server-side; editors can only remove their own.
-    const folder = userId;
-    const path = `${folder}/${kind.replace(/[^a-z0-9_-]/gi, "-").slice(0, 32)}/${crypto.randomUUID()}-${safeBaseName(file.name)}.${extension}`;
+    const contentType = policy.kind === "pdf"
+      ? validatePdf(bytes, claimedType)
+      : validateImage(bytes, claimedType);
+    const extension = contentType === "application/pdf"
+      ? "pdf"
+      : IMAGE_TYPES.get(contentType)?.extension;
+    if (!extension) throw validationError("Extensao de arquivo nao permitida");
+
+    const path = `${ticket.sub}/${kind.replace(/[^a-z0-9_-]/gi, "-").slice(0, 32)}/${crypto.randomUUID()}-${safeBaseName(file.name)}.${extension}`;
     const { error: uploadError } = await admin.storage.from(bucket).upload(path, bytes, {
       contentType,
       cacheControl: "3600",
       upsert: false,
     });
-    if (uploadError) throw uploadError;
+    if (uploadError) throw new Error("storage upload failed");
 
-    return new Response(JSON.stringify({ path, contentType }), { status: 200, headers });
+    return jsonResponse({ path, contentType }, 200, headers);
   } catch (error) {
-    console.error("secure-upload failed", error instanceof Error ? error.message : error);
-    return new Response(JSON.stringify({ error: "Arquivo rejeitado pela validacao de seguranca" }), { status: 400, headers });
+    const isValidation = error instanceof Error && error.name === "UploadValidationError";
+    console.error("secure-upload failed", isValidation ? error.message : "provider or runtime failure");
+    return jsonResponse(
+      { error: isValidation ? error.message : "Servico de armazenamento temporariamente indisponivel" },
+      isValidation ? 400 : 503,
+      headers,
+    );
   }
 });

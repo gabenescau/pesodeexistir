@@ -28,16 +28,33 @@ export async function secureUpload({ file, bucket, kind }) {
   form.append("bucket", bucket);
   form.append("kind", kind);
 
-  const response = await fetch(`${supabaseUrl}/functions/v1/${FUNCTION_NAME}`, {
-    method: "POST",
-    headers: {
-      apikey: publicKey,
-      "x-upload-ticket": ticketData.ticket,
-    },
-    body: form,
-  });
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 120000);
+  let response;
+  try {
+    response = await fetch(`${supabaseUrl}/functions/v1/${FUNCTION_NAME}`, {
+      method: "POST",
+      headers: {
+        apikey: publicKey,
+        "x-upload-ticket": ticketData.ticket,
+      },
+      body: form,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error("O upload demorou mais que o permitido. Tente um arquivo menor.");
+    }
+    throw new Error("Nao foi possivel conectar ao servico de upload.");
+  } finally {
+    window.clearTimeout(timeout);
+  }
   const data = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(data?.error || "Nao foi possivel validar o arquivo.");
+  if (!response.ok) {
+    throw new Error(data?.error || (response.status >= 500
+      ? "O servico de upload esta temporariamente indisponivel."
+      : "O arquivo nao foi aceito pelo servidor."));
+  }
 
   if (!data?.path) throw new Error("O arquivo nao foi aceito pelo servidor.");
   return data.path;
