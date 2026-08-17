@@ -141,7 +141,6 @@ async function createArtwork(snapshot, kind, shareUrl) {
   const topAuthor = clean(topAuthors[0]?.name, "Autores que acompanharam voce");
   const minutes = formatMinutes(snapshot?.minutes);
   const books = Number(snapshot?.booksStarted) || 0;
-  const isDemo = snapshot?.isDemo === true;
   const coverImage = await loadArtworkImage(topBooks[0]?.image || snapshot?.topBook?.image);
 
   ctx.fillStyle = "#080808";
@@ -156,12 +155,6 @@ async function createArtwork(snapshot, kind, shareUrl) {
   ctx.fillStyle = "#a4a4a4";
   ctx.font = "400 23px Arial, sans-serif";
   ctx.fillText(kind === "year" ? "retrospectiva anual" : "retrospectiva mensal", 184, 345);
-  if (isDemo) {
-    ctx.fillStyle = "#a4a4a4";
-    ctx.font = "700 18px Arial, sans-serif";
-    ctx.fillText("PREVIA COM DADOS FICTICIOS", 184, 380);
-  }
-
   ctx.fillStyle = "#f5f5f5";
   ctx.font = "700 67px Arial, sans-serif";
   ctx.fillText("Sua leitura", 184, 490);
@@ -222,13 +215,12 @@ export function RetrospectiveModal({ data, initialKind = "month", open, onClose 
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
   const snapshot = available[kind] || available.month || available.year;
-  const isDemo = data?.isDemo === true;
   const shareUrl = useMemo(() => {
     if (typeof window === "undefined") return "";
-    return `${window.location.origin}/app/retrospectiva?period=${kind}${isDemo ? "&demo=1" : ""}`;
-  }, [kind, isDemo]);
+    return `${window.location.origin}/app/retrospectiva?period=${kind}`;
+  }, [kind]);
   const fileName = `retrospectiva-${kind}-ope-club.png`;
-  const message = `${isDemo ? "Exemplo de retrospectiva" : "Minha retrospectiva"} ${clean(snapshot?.label, "no OPE Club")}: ${shareUrl}`;
+  const message = `Minha retrospectiva ${clean(snapshot?.label, "no OPE Club")}: ${shareUrl}`;
 
   useEffect(() => {
     if (!open) return undefined;
@@ -241,7 +233,7 @@ export function RetrospectiveModal({ data, initialKind = "month", open, onClose 
     let cancelled = false;
     setGenerating(true);
     setError("");
-    createArtwork({ ...snapshot, isDemo }, kind, shareUrl)
+    createArtwork(snapshot, kind, shareUrl)
       .then((blob) => {
         if (cancelled) return;
         setArtworkBlob(blob);
@@ -250,7 +242,7 @@ export function RetrospectiveModal({ data, initialKind = "month", open, onClose 
       .catch((cause) => { if (!cancelled) setError(cause?.message || "Nao foi possivel preparar a arte."); })
       .finally(() => { if (!cancelled) setGenerating(false); });
     return () => { cancelled = true; };
-  }, [open, snapshot, kind, shareUrl, isDemo]);
+  }, [open, snapshot, kind, shareUrl]);
 
   useEffect(() => () => { if (artworkUrl) URL.revokeObjectURL(artworkUrl); }, [artworkUrl]);
 
@@ -298,7 +290,7 @@ export function RetrospectiveModal({ data, initialKind = "month", open, onClose 
       <button type="button" className="absolute inset-0 cursor-default" aria-label="Fechar" onClick={onClose} />
       <div className="relative flex max-h-[94dvh] w-full flex-col overflow-hidden rounded-t-[24px] border border-[var(--border)] bg-[var(--bg-card)] shadow-2xl sm:max-w-[720px] sm:rounded-[24px]">
         <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
-          <div><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--accent-mint)]">OPE Club</p><h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{isDemo ? "Exemplo de retrospectiva" : "Sua retrospectiva"}</h2></div>
+          <div><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--accent-mint)]">OPE Club</p><h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">Sua retrospectiva</h2></div>
           <button type="button" onClick={onClose} className="flex size-10 items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]" aria-label="Fechar retrospectiva"><X className="size-5" /></button>
         </div>
         <div className="flex flex-wrap gap-2 border-b border-[var(--border)] px-5 py-3">
@@ -309,7 +301,7 @@ export function RetrospectiveModal({ data, initialKind = "month", open, onClose 
             {generating ? <div className="flex aspect-[9/16] items-center justify-center p-5 text-center text-xs text-white/60">Preparando sua arte...</div> : artworkUrl ? <img src={artworkUrl} alt={`Retrospectiva ${snapshot.label} do OPE Club`} className="aspect-[9/16] w-full object-cover" /> : <div className="flex aspect-[9/16] items-center justify-center p-4 text-center text-xs text-red-300">{error || "Arte indisponivel"}</div>}
           </div>
           <div className="space-y-4">
-            <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{isDemo ? "Esta e uma pre-visualizacao com dados ficticios para voce testar o formato e o compartilhamento." : "Um resumo da sua jornada de leitura e participacao. A arte foi feita para compartilhar em Stories, WhatsApp ou onde voce quiser."}</p>
+            <p className="text-sm leading-relaxed text-[var(--text-secondary)]">Um resumo da sua jornada de leitura. A arte foi feita para compartilhar em Stories, WhatsApp ou onde voce quiser.</p>
             <div className="grid grid-cols-2 gap-2 text-xs text-[var(--text-secondary)]">
               <div className="rounded-2xl border border-[var(--border)] p-3"><Clock className="mb-2 size-4 text-[var(--accent-mint)]" /><strong className="block text-[var(--text-primary)]">{formatMinutes(snapshot.minutes)}</strong>de leitura</div>
               <div className="rounded-2xl border border-[var(--border)] p-3"><BookOpen className="mb-2 size-4 text-[var(--accent-mint)]" /><strong className="block text-[var(--text-primary)]">{snapshot.booksStarted || 0}</strong>livros iniciados</div>

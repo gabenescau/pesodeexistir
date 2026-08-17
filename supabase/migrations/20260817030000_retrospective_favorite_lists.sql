@@ -27,6 +27,29 @@ begin
       continue;
     end if;
 
+    -- The annual view is year-to-date, so it remains shareable throughout
+    -- the year instead of waiting for a previous full year to exist.
+    if v_kind = 'year' then
+      v_period := private.retrospective_period(
+        p_user_id,
+        date_trunc('year', current_date)::date,
+        (current_date + interval '1 day')::date,
+        'year',
+        to_char(current_date, 'YYYY')
+      );
+      v_payload := jsonb_set(v_payload, array[v_kind], v_period, true);
+    end if;
+
+    -- Posts and comments are not part of the retrospective anymore.
+    -- Remove them server-side too, keeping the response intentionally small.
+    v_period := v_period - 'posts' - 'comments';
+    if coalesce((v_period ->> 'minutes')::integer, 0) = 0
+       and coalesce((v_period ->> 'booksStarted')::integer, 0) = 0
+       and coalesce((v_period ->> 'booksCompleted')::integer, 0) = 0 then
+      v_period := jsonb_set(v_period, array['hasData'], 'false'::jsonb, true);
+    end if;
+    v_payload := jsonb_set(v_payload, array[v_kind], v_period, true);
+
     select coalesce(
       jsonb_agg(
         jsonb_build_object(

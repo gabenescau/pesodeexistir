@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { loadRetrospective } from "@/lib/retrospective-api";
-import { DEMO_RETROSPECTIVE } from "@/lib/retrospective-demo";
 import { RetrospectiveModal } from "../components/RetrospectiveModal";
 
 export function RetrospectivePage() {
@@ -10,14 +9,8 @@ export function RetrospectivePage() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const kind = searchParams.get("period") === "year" ? "year" : "month";
-  const demo = searchParams.get("demo") === "1";
 
   useEffect(() => {
-    if (demo) {
-      setData(DEMO_RETROSPECTIVE);
-      setError("");
-      return undefined;
-    }
     let active = true;
     loadRetrospective().then((snapshot) => {
       if (active) setData(snapshot);
@@ -25,11 +18,11 @@ export function RetrospectivePage() {
       if (active) setError(cause?.message || "Nao foi possivel carregar sua retrospectiva.");
     });
     return () => { active = false; };
-  }, [demo]);
+  }, []);
 
   if (error) return <div className="mx-auto mt-24 max-w-md px-5 text-center text-sm text-[var(--text-secondary)]">{error}</div>;
   if (!data) return <div className="mx-auto mt-24 max-w-md px-5 text-center text-sm text-[var(--text-secondary)]">Carregando sua retrospectiva...</div>;
-  if (data.allowed === false) {
+  if (data.allowed !== true) {
     return (
       <div className="mx-auto mt-24 max-w-md px-5 text-center">
         <p className="text-lg font-semibold text-[var(--text-primary)]">Retrospectiva exclusiva para assinantes</p>
