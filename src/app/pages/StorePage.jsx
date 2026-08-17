@@ -4,6 +4,7 @@ import { Storefront, Truck, ChevronRight, ArrowRight } from "@/lib/icons";
 import { useRewards } from "@/app/data/RewardsContext";
 import { toast } from "@/lib/toast";
 import { CheckoutModal } from "@/app/components/CheckoutModal";
+import { ProductImage, getProductImageSources } from "@/app/components/ProductImage";
 
 const CATEGORY_LABELS = {
   book: "Livro Físico",
@@ -25,28 +26,6 @@ const CATEGORY_TABS = [
   { id: "oversized", label: "Oversized" },
   { id: "boxes", label: "Boxes" },
 ];
-
-function getProductImages(product) {
-  if (!product) return [];
-  let rawImages = [];
-
-  if (Array.isArray(product.images)) {
-    rawImages = product.images;
-  } else if (typeof product.images === "string" && product.images.startsWith("[")) {
-    try {
-      const parsed = JSON.parse(product.images);
-      rawImages = Array.isArray(parsed) ? parsed : [];
-    } catch {
-      rawImages = [];
-    }
-  }
-
-  return rawImages.length > 0
-    ? rawImages
-    : product.image_url
-      ? [product.image_url]
-      : [];
-}
 
 function isEarlyDrop(product) {
   if (!product?.early_access_at) return false;
@@ -78,7 +57,7 @@ function DropBannerSection({ products, onVerTudo }) {
 
   const featured = dropProducts[0];
   const rest = dropProducts.slice(1);
-  const featuredImages = getProductImages(featured);
+  const featuredImages = getProductImageSources(featured);
   const featuredRealPrice = Number(featured.real_price || 0);
 
   return (
@@ -104,11 +83,14 @@ function DropBannerSection({ products, onVerTudo }) {
           className="group relative shrink-0 snap-start w-[68%] sm:w-[280px] aspect-[3/4] cursor-pointer overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)] hover:border-[var(--border-strong)] transition-all"
         >
           <div className="h-full w-full overflow-hidden bg-[var(--bg-canvas)]">
-            {featuredImages.length > 0 ? (
-              <img src={featuredImages[0]} alt={featured.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
-            ) : (
-              <div className="flex h-full items-center justify-center"><Storefront className="size-10 text-[var(--text-muted)]" /></div>
-            )}
+            <ProductImage
+              product={featured}
+              sources={featuredImages}
+              alt={featured.name}
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            >
+              <Storefront className="size-10 text-[var(--text-muted)]" />
+            </ProductImage>
           </div>
           <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent p-4 flex flex-col justify-end">
             <p className="text-[9px] font-semibold uppercase tracking-wider text-white/60">{CATEGORY_LABELS[featured.category] || featured.category}</p>
@@ -125,7 +107,7 @@ function DropBannerSection({ products, onVerTudo }) {
 
         {/* Itens menores — tamanho compacto correto sem borda preta */}
         {rest.map((p) => {
-          const imgs = getProductImages(p);
+          const imgs = getProductImageSources(p);
           const rp = Number(p.real_price || 0);
           return (
             <div
@@ -134,10 +116,14 @@ function DropBannerSection({ products, onVerTudo }) {
               className="group relative shrink-0 snap-start w-[145px] sm:w-[180px] h-[220px] sm:h-[260px] cursor-pointer overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)] hover:border-[var(--border-strong)] transition-all"
             >
               <div className="h-full w-full overflow-hidden bg-[var(--bg-canvas)]">
-                {imgs.length > 0
-                  ? <img src={imgs[0]} alt={p.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
-                  : <div className="flex h-full items-center justify-center"><Storefront className="size-7 text-[var(--text-muted)]" /></div>
-                }
+                <ProductImage
+                  product={p}
+                  sources={imgs}
+                  alt={p.name}
+                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                >
+                  <Storefront className="size-7 text-[var(--text-muted)]" />
+                </ProductImage>
               </div>
               <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent p-3 flex flex-col justify-end">
                 <p className="text-[8px] font-semibold uppercase tracking-wider text-white/60 mb-0.5">{CATEGORY_LABELS[p.category] || p.category}</p>
@@ -161,7 +147,7 @@ function ProductCard({ product, onRedeem }) {
   const credits = wallet?.credits ?? 0;
   const affordable = credits >= product.credits_cost;
   const outOfStock = product.stock !== null && product.stock !== undefined && Number(product.stock) <= 0;
-  const images = getProductImages(product);
+  const images = getProductImageSources(product);
   const realPrice = Number(product.real_price || 0);
   const hasRealPrice = realPrice > 0;
 
@@ -171,11 +157,15 @@ function ProductCard({ product, onRedeem }) {
       className="group flex cursor-pointer flex-col rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] overflow-hidden hover:border-[var(--border-strong)] transition-colors"
     >
       <div className="relative aspect-[3/4] w-full overflow-hidden bg-[var(--bg-canvas)]">
-        {images.length > 0 ? (
-          <img src={images[0]} alt={product.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]" />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-[var(--text-muted)]"><Storefront className="size-8" /></div>
-        )}
+        <ProductImage
+          product={product}
+          sources={images}
+          alt={product.name}
+          loading="lazy"
+          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+        >
+          <Storefront className="size-8" />
+        </ProductImage>
         <span className="absolute top-2 left-2 rounded-[6px] border border-[var(--border)] bg-[var(--bg-card)]/90 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
           {CATEGORY_LABELS[product.category] || product.category}
         </span>

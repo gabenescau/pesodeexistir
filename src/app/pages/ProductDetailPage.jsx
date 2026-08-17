@@ -4,6 +4,7 @@ import { Storefront, ArrowLeft, Check, ShieldCheck, CreditCard, Coins, ChevronLe
 import { useRewards } from "@/app/data/RewardsContext";
 import { toast } from "@/lib/toast";
 import { CheckoutModal } from "@/app/components/CheckoutModal";
+import { ProductImage, getProductImageSources } from "@/app/components/ProductImage";
 
 const CATEGORY_LABELS = {
   book: "Livro Físico",
@@ -16,19 +17,6 @@ const CATEGORY_LABELS = {
   moletom: "Moletom",
   collectibles: "Colecionáveis",
 };
-
-function getProductImages(product) {
-  if (!product) return [];
-  const rawImages =
-    Array.isArray(product.images) && product.images.length > 0
-      ? product.images
-      : typeof product.images === "string" && product.images.startsWith("[")
-        ? JSON.parse(product.images || "[]")
-        : product.image_url
-          ? [product.image_url]
-          : [];
-  return rawImages.length > 0 ? rawImages : product.image_url ? [product.image_url] : [];
-}
 
 export function ProductDetailPage() {
   const { id } = useParams();
@@ -56,7 +44,7 @@ export function ProductDetailPage() {
   const credits = wallet?.credits ?? 0;
   const affordable = product ? credits >= product.credits_cost : false;
   const outOfStock = product && product.stock !== null && product.stock !== undefined && Number(product.stock) <= 0;
-  const images = useMemo(() => getProductImages(product), [product]);
+  const images = useMemo(() => getProductImageSources(product), [product]);
   const progressPercent = product ? Math.min(100, Math.round((credits / product.credits_cost) * 100)) : 0;
   const missingCredits = product ? Math.max(0, product.credits_cost - credits) : 0;
   const realPrice = Number(product?.real_price || 0);
@@ -145,17 +133,14 @@ export function ProductDetailPage() {
         {/* Coluna Esquerda — Imagem principal com setas de navegação */}
         <div className="space-y-4 lg:col-span-7">
           <div className="group relative overflow-hidden rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)] aspect-[3/4] max-h-[520px] w-full mx-auto">
-            {images.length > 0 ? (
-              <img
-                src={images[activeImgIdx] || images[0]}
-                alt={product.name}
-                className="h-full w-full object-cover select-none"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-[var(--text-muted)]">
-                <Storefront className="size-12" />
-              </div>
-            )}
+            <ProductImage
+              product={product}
+              sources={images.slice(activeImgIdx).concat(images.slice(0, activeImgIdx))}
+              alt={product.name}
+              className="h-full w-full object-cover select-none"
+            >
+              <Storefront className="size-12" />
+            </ProductImage>
 
             {/* Setas laterais de navegação */}
             {images.length > 1 && (
@@ -217,7 +202,12 @@ export function ProductDetailPage() {
                       : "border-[var(--border)] opacity-60 hover:opacity-100"
                   }`}
                 >
-                  <img src={img} alt="" className="h-full w-full object-cover" />
+                  <ProductImage
+                    product={product}
+                    sources={[img]}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
                 </button>
               ))}
             </div>
@@ -483,7 +473,12 @@ export function ProductDetailPage() {
                     : "border-[var(--border)] hover:border-[var(--border-strong)]"
                 }`}
               >
-                <img src={imgUrl} alt={`${product.name} ${idx + 1}`} className="h-full w-full object-cover" />
+                <ProductImage
+                  product={product}
+                  sources={[imgUrl]}
+                  alt={`${product.name} ${idx + 1}`}
+                  className="h-full w-full object-cover"
+                />
               </div>
             ))}
           </div>
@@ -503,7 +498,7 @@ export function ProductDetailPage() {
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
             {similarProducts.map((simProd) => {
-              const simImages = getProductImages(simProd);
+              const simImages = getProductImageSources(simProd);
               const simRealPrice = Number(simProd.real_price || 0);
               const simIsDual = simRealPrice > 0;
               return (
@@ -514,18 +509,15 @@ export function ProductDetailPage() {
                 >
                   {/* Imagem */}
                   <div className="aspect-[3/4] overflow-hidden bg-[var(--bg-canvas)]">
-                    {simImages.length > 0 ? (
-                      <img
-                        src={simImages[0]}
-                        alt={simProd.name}
-                        loading="lazy"
-                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center">
-                        <Storefront className="size-6 text-[var(--text-muted)]" />
-                      </div>
-                    )}
+                    <ProductImage
+                      product={simProd}
+                      sources={simImages}
+                      alt={simProd.name}
+                      loading="lazy"
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                    >
+                      <Storefront className="size-6 text-[var(--text-muted)]" />
+                    </ProductImage>
                   </div>
 
                   {/* Info */}
