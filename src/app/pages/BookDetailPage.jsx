@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { BookOpen, Bookmark as BookmarkIcon, ChevronLeft, Lock, Share2, StarIcon, Globe as GlobeIcon } from "@/lib/icons";
 import { useData } from "../data/DataContext";
@@ -8,6 +8,7 @@ import { contagemRegressiva, formatarData } from "@/lib/releases";
 import { relatedBooks as recomendarLivros } from "@/lib/recommendations";
 import { CreatePost } from "../components/CreatePost";
 import { PostCard } from "../components/PostCard";
+import { BookShareModal } from "../components/BookShareModal";
 
 const DEFAULT_LANGUAGE = "Portugues";
 
@@ -40,6 +41,7 @@ export function BookDetailPage() {
   } = useData();
   const book = getBookById(id);
   const release = getReleaseStatus(id);
+  const [shareOpen, setShareOpen] = useState(false);
 
   if (!book) {
     return (
@@ -103,21 +105,6 @@ export function BookDetailPage() {
     rateBook(book.id, valor).catch(() => {});
   }
 
-  async function handleShare() {
-    const shareData = {
-      title: book.title,
-      text: author ? `${book.title} — ${author.name}` : book.title,
-      url: window.location.href,
-    };
-    try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-      } else if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(shareData.url);
-      }
-    } catch {}
-  }
-
   const ctaLabel = !hasPdf || !release.liberado
     ? "Indisponivel"
     : !hasReadingAccess
@@ -138,7 +125,7 @@ export function BookDetailPage() {
           <ChevronLeft className="size-5 text-[var(--text-primary)]" />
         </button>
         <button
-          onClick={handleShare}
+          onClick={() => setShareOpen(true)}
           className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-[var(--hover-overlay)]"
           aria-label="Compartilhar"
         >
@@ -377,6 +364,7 @@ export function BookDetailPage() {
           )}
         </div>
       </div>
+      <BookShareModal book={book} authorName={author?.name} open={shareOpen} onClose={() => setShareOpen(false)} />
     </div>
   );
 }

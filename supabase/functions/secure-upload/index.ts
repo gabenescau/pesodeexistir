@@ -144,15 +144,20 @@ function validatePdf(bytes: Uint8Array, claimedType: string) {
   const tail = ascii(bytes, Math.max(0, bytes.length - 4096)).trimEnd();
   if (!tail.endsWith("%%EOF")) throw validationError("O PDF parece incompleto.");
 
-  // The reader does not need active PDF features. Rejecting them prevents
-  // JavaScript, external actions, embedded files and navigation surprises.
+  // The reader does not need executable or interactive PDF features. Normal
+  // hyperlinks are allowed because books commonly contain references and
+  // footnotes; PDF.js still controls how those links are opened.
+  // Allow ordinary navigation actions and hyperlinks used by books. Keep
+  // only executable or embedded features on the deny list.
   const dangerousTokens = [
-    "/JavaScript", "/JS", "/OpenAction", "/AA", "/Launch", "/EmbeddedFile",
-    "/RichMedia", "/SubmitForm", "/GoToR", "/ImportData", "/XFA", "/URI",
+    "/JavaScript", "/JS", "/Launch", "/EmbeddedFile", "/RichMedia", "/XFA",
   ];
   const source = ascii(bytes);
-  if (dangerousTokens.some((token) => source.includes(token))) {
-    throw validationError("O PDF contem recursos ativos ou links nao permitidos.");
+  const detectedTokens = dangerousTokens.filter((token) => source.includes(token));
+  if (detectedTokens.length > 0) {
+    // Log only the blocked feature names, never PDF contents or user data.
+    console.warn("secure-upload rejected active PDF features", detectedTokens.join(","));
+    throw validationError("O PDF contem recursos ativos proibidos.");
   }
   return "application/pdf";
 }

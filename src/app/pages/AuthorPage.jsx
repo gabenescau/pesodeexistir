@@ -1,9 +1,10 @@
 import { memo, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, BookOpen, MoreHorizontal, StarIcon, Users } from "@/lib/icons";
+import { ArrowLeft, ArrowRight, BookOpen, MoreHorizontal, Share2, StarIcon, Users } from "@/lib/icons";
 import { useData } from "../data/DataContext";
 import { CreatePost } from "../components/CreatePost";
 import { PostCard } from "../components/PostCard";
+import { AuthorShareModal } from "../components/AuthorShareModal";
 
 function formatStat(n) {
   if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k+`;
@@ -77,6 +78,7 @@ export function AuthorPage() {
   const authorBooks = getBooksByAuthor(id);
   const isFav = author ? isFavoriteAuthor(author.id) : false;
   const [abaAtiva, setAbaAtiva] = useState("bookshelf");
+  const [shareOpen, setShareOpen] = useState(false);
 
   const authorPosts = useMemo(
     () => posts.filter((p) => p.tag === `entity-thread:author:${id}`),
@@ -134,12 +136,23 @@ export function AuthorPage() {
           <ArrowLeft className="size-5" />
         </button>
         <h1 className="text-base font-semibold text-[var(--text-primary)]">Detalhes do autor</h1>
+        <div className="flex items-center gap-1">
         <button
+          type="button"
+          onClick={() => setShareOpen(true)}
+          aria-label="Compartilhar autor"
+          className="flex size-9 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]"
+        >
+          <Share2 className="size-5" />
+        </button>
+        <button
+          type="button"
           aria-label="Mais opcoes"
           className="flex size-9 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]"
         >
           <MoreHorizontal className="size-5" />
         </button>
+        </div>
       </div>
 
       <section className="flex items-center gap-4">
@@ -302,6 +315,7 @@ export function AuthorPage() {
           ) : null}
         </section>
       )}
+      <AuthorShareModal author={author} books={authorBooks} open={shareOpen} onClose={() => setShareOpen(false)} />
     </div>
   );
 }
