@@ -29,11 +29,13 @@ export async function shareArtwork({ blob, fileName, title, text, url, onFallbac
     return "downloaded";
   }
 
-  const shareData = { title, text, url };
+  let shareData = { title, text, url };
   if (blob && typeof navigator.canShare === "function") {
     const file = new File([blob], fileName, { type: blob.type || "image/png" });
     try {
-      if (navigator.canShare({ files: [file] })) shareData.files = [file];
+      // Android chooses share targets from the MIME payload. Sending only the
+      // image avoids classifying the action as a text/message share.
+      if (navigator.canShare({ files: [file] })) shareData = { files: [file] };
     } catch {
       // Some browsers expose canShare but reject file capability checks.
     }
@@ -44,7 +46,17 @@ export async function shareArtwork({ blob, fileName, title, text, url, onFallbac
     return "downloaded";
   }
 
-  await navigator.share(shareData);
+  try {
+    await navigator.share(shareData);
+  } catch (cause) {
+    // A few Android WebViews reject a file-only payload. Preserve the native
+    // chooser as a fallback for those clients before falling back to download.
+    if (cause?.name !== "AbortError") {
+      await navigator.share({ title, text, url });
+      return "shared";
+    }
+    throw cause;
+  }
   return "shared";
 }
 
@@ -77,4 +89,3 @@ export function openWhatsAppShare(message) {
   const opened = window.open(url, "_blank", "noopener,noreferrer");
   if (!opened) window.location.assign(url);
 }
-
