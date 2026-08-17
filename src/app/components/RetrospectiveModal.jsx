@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { BookOpen, ChatCircle, Clock, Copy, Download, Share2, WhatsappLogo, X } from "@/lib/icons";
+import { BookOpen, Clock, Copy, Download, Share2, WhatsappLogo, X } from "@/lib/icons";
 import { toast } from "@/lib/toast";
 
 const STORY_WIDTH = 1080;
@@ -69,13 +69,23 @@ function loadArtworkImage(value) {
   });
 }
 
-function drawMetric(ctx, x, y, value, label) {
+function drawFavoriteList(ctx, x, y, width, title, items, getLabel) {
   ctx.fillStyle = "#f5f5f5";
-  ctx.font = "700 40px Arial, sans-serif";
-  ctx.fillText(value, x, y);
-  ctx.fillStyle = "#a4a4a4";
-  ctx.font = "400 22px Arial, sans-serif";
-  ctx.fillText(label, x, y + 40);
+  ctx.font = "700 27px Arial, sans-serif";
+  ctx.fillText(title, x, y);
+
+  const list = Array.isArray(items) && items.length ? items.slice(0, 5) : [{}];
+  list.forEach((item, index) => {
+    const label = clean(getLabel(item), "Sem registro");
+    const line = wrapLines(ctx, label, width - 48, 1)[0] || "Sem registro";
+    const rowY = y + 62 + index * 48;
+    ctx.fillStyle = "#8d8d8d";
+    ctx.font = "700 22px Arial, sans-serif";
+    ctx.fillText(String(index + 1), x, rowY);
+    ctx.fillStyle = "#f5f5f5";
+    ctx.font = "400 22px Arial, sans-serif";
+    ctx.fillText(line, x + 38, rowY);
+  });
 }
 
 function drawButton(ctx, x, y, width, label) {
@@ -121,14 +131,18 @@ async function createArtwork(snapshot, kind, shareUrl) {
   if (!ctx) throw new Error("Seu navegador nao conseguiu criar a arte.");
 
   const period = clean(snapshot?.label, kind === "year" ? "seu ano" : "seu mes");
-  const topBook = clean(snapshot?.topBook?.title, "Uma leitura marcante");
-  const topAuthor = clean(snapshot?.topAuthor?.name, "Autores que acompanharam voce");
+  const topBooks = Array.isArray(snapshot?.topBooks) && snapshot.topBooks.length
+    ? snapshot.topBooks
+    : [snapshot?.topBook].filter(Boolean);
+  const topAuthors = Array.isArray(snapshot?.topAuthors) && snapshot.topAuthors.length
+    ? snapshot.topAuthors
+    : [snapshot?.topAuthor].filter(Boolean);
+  const topBook = clean(topBooks[0]?.title, "Uma leitura marcante");
+  const topAuthor = clean(topAuthors[0]?.name, "Autores que acompanharam voce");
   const minutes = formatMinutes(snapshot?.minutes);
   const books = Number(snapshot?.booksStarted) || 0;
-  const posts = Number(snapshot?.posts) || 0;
-  const comments = Number(snapshot?.comments) || 0;
   const isDemo = snapshot?.isDemo === true;
-  const coverImage = await loadArtworkImage(snapshot?.topBook?.image);
+  const coverImage = await loadArtworkImage(topBooks[0]?.image || snapshot?.topBook?.image);
 
   ctx.fillStyle = "#080808";
   ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
@@ -174,18 +188,26 @@ async function createArtwork(snapshot, kind, shareUrl) {
   ctx.font = "400 25px Arial, sans-serif";
   ctx.fillText(topAuthor, 520, 1080);
 
-  drawMetric(ctx, 184, 1205, minutes, "tempo de leitura");
-  drawMetric(ctx, 560, 1205, String(books), books === 1 ? "livro iniciado" : "livros iniciados");
-  drawMetric(ctx, 184, 1365, String(posts), posts === 1 ? "post publicado" : "posts publicados");
-  drawMetric(ctx, 560, 1365, String(comments), comments === 1 ? "comentario" : "comentarios");
+  drawFavoriteList(ctx, 184, 1190, 330, "Livros favoritos", topBooks, (item) => item?.title);
+  drawFavoriteList(ctx, 560, 1190, 330, "Autores favoritos", topAuthors, (item) => item?.name);
 
-  drawButton(ctx, 184, 1515, 712, "Abrir no OPE Club");
+  ctx.fillStyle = "#a4a4a4";
+  ctx.font = "700 24px Arial, sans-serif";
+  ctx.fillText("Tempo de leitura", 184, 1475);
+  ctx.fillStyle = "#f5f5f5";
+  ctx.font = "700 52px Arial, sans-serif";
+  ctx.fillText(minutes, 184, 1545);
+  ctx.fillStyle = "#8d8d8d";
+  ctx.font = "400 20px Arial, sans-serif";
+  ctx.fillText(`${books} ${books === 1 ? "livro iniciado" : "livros iniciados"}`, 184, 1585);
+
+  drawButton(ctx, 184, 1610, 712, "Abrir no OPE Club");
   ctx.fillStyle = "#8d8d8d";
   ctx.font = "400 19px Arial, sans-serif";
-  ctx.fillText(shareUrl.replace(/^https?:\/\//, ""), 184, 1645);
+  ctx.fillText(shareUrl.replace(/^https?:\/\//, ""), 184, 1705);
   ctx.fillStyle = "#686868";
   ctx.font = "600 19px Arial, sans-serif";
-  ctx.fillText("OPE CLUB  |  Leia, pense, compartilhe", 184, 1690);
+  ctx.fillText("OPE CLUB  |  Leia, pense, compartilhe", 184, 1750);
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Nao foi possivel gerar a arte."))), "image/png");
@@ -291,8 +313,6 @@ export function RetrospectiveModal({ data, initialKind = "month", open, onClose 
             <div className="grid grid-cols-2 gap-2 text-xs text-[var(--text-secondary)]">
               <div className="rounded-2xl border border-[var(--border)] p-3"><Clock className="mb-2 size-4 text-[var(--accent-mint)]" /><strong className="block text-[var(--text-primary)]">{formatMinutes(snapshot.minutes)}</strong>de leitura</div>
               <div className="rounded-2xl border border-[var(--border)] p-3"><BookOpen className="mb-2 size-4 text-[var(--accent-mint)]" /><strong className="block text-[var(--text-primary)]">{snapshot.booksStarted || 0}</strong>livros iniciados</div>
-              <div className="rounded-2xl border border-[var(--border)] p-3"><ChatCircle className="mb-2 size-4 text-[var(--accent-mint)]" /><strong className="block text-[var(--text-primary)]">{snapshot.comments || 0}</strong>comentarios</div>
-              <div className="rounded-2xl border border-[var(--border)] p-3"><Share2 className="mb-2 size-4 text-[var(--accent-mint)]" /><strong className="block text-[var(--text-primary)]">{snapshot.posts || 0}</strong>posts</div>
             </div>
             <button type="button" onClick={shareNative} disabled={!artworkUrl || generating} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--text-primary)] px-4 text-sm font-semibold text-[var(--bg-card)] transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-50"><Share2 className="size-5" /> Compartilhar no celular</button>
             <div className="grid grid-cols-2 gap-2"><button type="button" onClick={downloadArtwork} disabled={!artworkUrl || generating} className="flex min-h-11 items-center justify-center gap-2 rounded-full border border-[var(--border)] px-3 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] disabled:opacity-50"><Download className="size-4" /> Baixar para Story</button><button type="button" onClick={shareWhatsApp} className="flex min-h-11 items-center justify-center gap-2 rounded-full border border-[var(--border)] px-3 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--hover-overlay)]"><WhatsappLogo className="size-4" /> WhatsApp</button></div>
