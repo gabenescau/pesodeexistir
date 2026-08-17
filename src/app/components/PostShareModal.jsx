@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Copy, Download, InstagramLogo, Share2, WhatsappLogo, X } from "@/lib/icons";
 import { toast } from "@/lib/toast";
 import { copyShareText, downloadShareFile, openWhatsAppShare, shareArtwork } from "@/app/components/share-utils";
+import { relativeTime } from "@/lib/social";
 
 const STORY_WIDTH = 1080;
 const STORY_HEIGHT = 1920;
@@ -52,7 +53,7 @@ function loadImage(url) {
   });
 }
 
-async function createPostArtwork(post, postUrl) {
+async function createPostArtwork(post) {
   const canvas = document.createElement("canvas");
   canvas.width = STORY_WIDTH;
   canvas.height = STORY_HEIGHT;
@@ -60,71 +61,82 @@ async function createPostArtwork(post, postUrl) {
   if (!ctx) throw new Error("Seu navegador nao conseguiu criar a arte.");
 
   const author = clean(post?.author, "Leitor").slice(0, 80);
-  const content = clean(post?.text, "Uma conversa no OPE Club.").slice(0, 420);
+  const handle = clean(post?.handle, "leitor").slice(0, 32);
+  const content = clean(post?.text, "").slice(0, 800);
+  const avatar = await loadImage(post?.avatar || post?.authorProfile?.avatar || post?.authorProfile?.avatar_url);
   const image = await loadImage(post?.images?.[0]);
 
-  ctx.fillStyle = "#080808";
+  ctx.fillStyle = "#000000";
   ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
-  ctx.fillStyle = "#171717";
-  roundedRect(ctx, 150, 150, 780, 1620, 52);
+  ctx.fillStyle = "#0b0b0b";
+  roundedRect(ctx, 80, 100, 920, 1720, 44);
   ctx.fill();
+  ctx.strokeStyle = "#292929";
+  ctx.lineWidth = 2;
+  ctx.stroke();
 
-  ctx.fillStyle = "#f5f5f5";
-  ctx.font = "700 46px Arial, sans-serif";
-  ctx.fillText("OPE", 220, 270);
-  ctx.fillText("CLUB", 220, 320);
-  ctx.fillStyle = "#8d8d8d";
-  ctx.font = "400 25px Arial, sans-serif";
-  ctx.fillText("uma comunidade para quem pensa junto", 220, 374);
-
-  const imageX = 220;
-  const imageY = 430;
-  const imageWidth = 640;
-  const imageHeight = image ? 690 : 300;
+  const avatarX = 140;
+  const avatarY = 170;
+  const avatarSize = 96;
   ctx.save();
-  roundedRect(ctx, imageX, imageY, imageWidth, imageHeight, 28);
+  ctx.beginPath();
+  ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
   ctx.clip();
-  if (image) {
-    const scale = Math.max(imageWidth / image.width, imageHeight / image.height);
-    const width = image.width * scale;
-    const height = image.height * scale;
-    ctx.drawImage(image, imageX + (imageWidth - width) / 2, imageY + (imageHeight - height) / 2, width, height);
+  if (avatar) {
+    const scale = Math.max(avatarSize / avatar.width, avatarSize / avatar.height);
+    const width = avatar.width * scale;
+    const height = avatar.height * scale;
+    ctx.drawImage(avatar, avatarX + (avatarSize - width) / 2, avatarY + (avatarSize - height) / 2, width, height);
   } else {
     ctx.fillStyle = "#303030";
-    ctx.fillRect(imageX, imageY, imageWidth, imageHeight);
+    ctx.fillRect(avatarX, avatarY, avatarSize, avatarSize);
     ctx.fillStyle = "#f5f5f5";
-    ctx.font = "700 180px Arial, sans-serif";
+    ctx.font = "700 42px Arial, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText("O", imageX + imageWidth / 2, imageY + imageHeight / 2);
+    ctx.fillText(author.charAt(0).toUpperCase(), avatarX + avatarSize / 2, avatarY + avatarSize / 2);
     ctx.textAlign = "start";
     ctx.textBaseline = "alphabetic";
   }
   ctx.restore();
 
-  const textY = image ? 1210 : 820;
   ctx.fillStyle = "#f5f5f5";
-  ctx.font = "700 38px Arial, sans-serif";
-  ctx.fillText(author, 220, textY);
-  ctx.fillStyle = "#d6d6d6";
-  ctx.font = "400 31px Arial, sans-serif";
-  wrapLines(ctx, content, 640, 7).forEach((line, index) => ctx.fillText(line, 220, textY + 78 + index * 48));
+  ctx.font = "700 34px Arial, sans-serif";
+  ctx.fillText(author, 270, 210);
+  if (post?.verified) {
+    ctx.fillStyle = "#2997ff";
+    ctx.beginPath();
+    ctx.arc(270 + ctx.measureText(author).width + 26, 199, 14, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "700 18px Arial, sans-serif";
+    ctx.fillText("✓", 270 + ctx.measureText(author).width + 19, 206);
+  }
+  ctx.fillStyle = "#8d8d8d";
+  ctx.font = "400 25px Arial, sans-serif";
+  ctx.fillText(`@${handle} · ${relativeTime(post?.created_at)}`, 270, 252);
 
-  const ctaY = image ? 1570 : 1250;
+  const contentX = 140;
+  const contentY = 360;
   ctx.fillStyle = "#f5f5f5";
-  roundedRect(ctx, 220, ctaY, 640, 82, 41);
-  ctx.fill();
-  ctx.fillStyle = "#111111";
-  ctx.font = "700 27px Arial, sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText("Ver post no OPE Club", 540, ctaY + 51);
-  ctx.textAlign = "start";
-  ctx.fillStyle = "#888888";
-  ctx.font = "400 23px Arial, sans-serif";
-  ctx.fillText(postUrl.replace(/^https?:\/\//, ""), 220, ctaY + 145);
-  ctx.fillStyle = "#686868";
-  ctx.font = "600 20px Arial, sans-serif";
-  ctx.fillText("OPE CLUB  |  Biblioteca + comunidade", 220, ctaY + 190);
+  ctx.font = "400 38px Arial, sans-serif";
+  const contentLines = wrapLines(ctx, content, 800, 10);
+  contentLines.forEach((line, index) => ctx.fillText(line, contentX, contentY + index * 56));
+
+  const imageY = contentY + Math.max(contentLines.length, 1) * 56 + 38;
+  const imageWidth = 640;
+  const imageXCentered = (STORY_WIDTH - imageWidth) / 2;
+  const imageHeight = image ? 690 : 0;
+  ctx.save();
+  if (image) {
+    roundedRect(ctx, imageXCentered, imageY, imageWidth, imageHeight, 28);
+    ctx.clip();
+    const scale = Math.max(imageWidth / image.width, imageHeight / image.height);
+    const width = image.width * scale;
+    const height = image.height * scale;
+    ctx.drawImage(image, imageXCentered + (imageWidth - width) / 2, imageY + (imageHeight - height) / 2, width, height);
+  }
+  ctx.restore();
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Nao foi possivel gerar a arte."))), "image/png");
@@ -141,14 +153,14 @@ export function PostShareModal({ post, open, onClose }) {
     return `${window.location.origin}/app/post/${encodeURIComponent(post.id)}`;
   }, [post?.id]);
   const fileName = `${slug(post?.author)}-post-ope-club.png`;
-  const message = `Veja este post no OPE Club: ${postUrl}`;
+  const message = `${clean(post?.author, "Leitor")}: ${clean(post?.text)}\n${postUrl}`;
 
   useEffect(() => {
     if (!open || !postUrl) return undefined;
     let cancelled = false;
     setGenerating(true);
     setError("");
-    createPostArtwork(post, postUrl)
+    createPostArtwork(post)
       .then((blob) => {
         if (cancelled) return;
         setArtworkBlob(blob);
