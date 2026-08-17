@@ -70,19 +70,19 @@ function loadArtworkImage(value) {
 }
 
 function drawMetric(ctx, x, y, value, label) {
-  ctx.fillStyle = "#f2f4ee";
+  ctx.fillStyle = "#f5f5f5";
   ctx.font = "700 40px Arial, sans-serif";
   ctx.fillText(value, x, y);
-  ctx.fillStyle = "#9ca89e";
+  ctx.fillStyle = "#a4a4a4";
   ctx.font = "400 22px Arial, sans-serif";
   ctx.fillText(label, x, y + 40);
 }
 
 function drawButton(ctx, x, y, width, label) {
-  ctx.fillStyle = "#b9f36b";
+  ctx.fillStyle = "#f5f5f5";
   roundedRect(ctx, x, y, width, 76, 38);
   ctx.fill();
-  ctx.fillStyle = "#11150f";
+  ctx.fillStyle = "#111111";
   ctx.font = "700 25px Arial, sans-serif";
   ctx.textAlign = "center";
   ctx.fillText(label, x + width / 2, y + 48);
@@ -93,7 +93,7 @@ function drawCover(ctx, image, x, y, width, height, title) {
   ctx.save();
   roundedRect(ctx, x, y, width, height, 28);
   ctx.clip();
-  ctx.fillStyle = "#252d25";
+  ctx.fillStyle = "#303030";
   ctx.fillRect(x, y, width, height);
   if (image) {
     const scale = Math.max(width / image.width, height / image.height);
@@ -101,11 +101,11 @@ function drawCover(ctx, image, x, y, width, height, title) {
     const imageHeight = image.height * scale;
     ctx.drawImage(image, x + (width - imageWidth) / 2, y + (height - imageHeight) / 2, imageWidth, imageHeight);
   } else {
-    ctx.fillStyle = "#b9f36b";
+    ctx.fillStyle = "#f5f5f5";
     ctx.font = "700 24px Arial, sans-serif";
     ctx.textAlign = "center";
     ctx.fillText("OPE CLUB", x + width / 2, y + height / 2 - 14);
-    ctx.fillStyle = "#f2f4ee";
+    ctx.fillStyle = "#f5f5f5";
     ctx.font = "400 20px Arial, sans-serif";
     wrapLines(ctx, title, width - 56, 3).forEach((line, index) => ctx.fillText(line, x + width / 2, y + height / 2 + 30 + index * 28));
     ctx.textAlign = "start";
@@ -130,33 +130,33 @@ async function createArtwork(snapshot, kind, shareUrl) {
   const isDemo = snapshot?.isDemo === true;
   const coverImage = await loadArtworkImage(snapshot?.topBook?.image);
 
-  ctx.fillStyle = "#060706";
+  ctx.fillStyle = "#080808";
   ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
-  ctx.fillStyle = "#151914";
+  ctx.fillStyle = "#171717";
   roundedRect(ctx, 112, 190, 856, 1540, 48);
   ctx.fill();
 
-  ctx.fillStyle = "#b9f36b";
+  ctx.fillStyle = "#f5f5f5";
   ctx.font = "700 34px Arial, sans-serif";
   ctx.fillText("OPE CLUB", 184, 300);
-  ctx.fillStyle = "#9ca89e";
+  ctx.fillStyle = "#a4a4a4";
   ctx.font = "400 23px Arial, sans-serif";
   ctx.fillText(kind === "year" ? "retrospectiva anual" : "retrospectiva mensal", 184, 345);
   if (isDemo) {
-    ctx.fillStyle = "#b9f36b";
+    ctx.fillStyle = "#a4a4a4";
     ctx.font = "700 18px Arial, sans-serif";
     ctx.fillText("PREVIA COM DADOS FICTICIOS", 184, 380);
   }
 
-  ctx.fillStyle = "#f2f4ee";
+  ctx.fillStyle = "#f5f5f5";
   ctx.font = "700 67px Arial, sans-serif";
   ctx.fillText("Sua leitura", 184, 490);
   ctx.fillText("em perspectiva", 184, 570);
-  ctx.fillStyle = "#b9f36b";
+  ctx.fillStyle = "#c9c9c9";
   ctx.font = "700 31px Arial, sans-serif";
   ctx.fillText(period, 184, 632);
 
-  ctx.strokeStyle = "#394438";
+  ctx.strokeStyle = "#3b3b3b";
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(184, 700);
@@ -164,13 +164,13 @@ async function createArtwork(snapshot, kind, shareUrl) {
   ctx.stroke();
 
   drawCover(ctx, coverImage, 184, 740, 282, 350, topBook);
-  ctx.fillStyle = "#9ca89e";
+  ctx.fillStyle = "#a4a4a4";
   ctx.font = "400 22px Arial, sans-serif";
   ctx.fillText("Seu destaque do periodo", 520, 805);
-  ctx.fillStyle = "#f2f4ee";
+  ctx.fillStyle = "#f5f5f5";
   ctx.font = "700 39px Arial, sans-serif";
   wrapLines(ctx, topBook, 360, 4).forEach((line, index) => ctx.fillText(line, 520, 875 + index * 50));
-  ctx.fillStyle = "#b9f36b";
+  ctx.fillStyle = "#c9c9c9";
   ctx.font = "400 25px Arial, sans-serif";
   ctx.fillText(topAuthor, 520, 1080);
 
@@ -180,9 +180,11 @@ async function createArtwork(snapshot, kind, shareUrl) {
   drawMetric(ctx, 560, 1365, String(comments), comments === 1 ? "comentario" : "comentarios");
 
   drawButton(ctx, 184, 1515, 712, "Abrir no OPE Club");
-  ctx.fillStyle = "#7e897f";
+  ctx.fillStyle = "#8d8d8d";
   ctx.font = "400 19px Arial, sans-serif";
   ctx.fillText(shareUrl.replace(/^https?:\/\//, ""), 184, 1645);
+  ctx.fillStyle = "#686868";
+  ctx.font = "600 19px Arial, sans-serif";
   ctx.fillText("OPE CLUB  |  Leia, pense, compartilhe", 184, 1690);
 
   return new Promise((resolve, reject) => {
