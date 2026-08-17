@@ -20,6 +20,17 @@ function roundedRect(ctx, x, y, width, height, radius) {
   ctx.closePath();
 }
 
+function drawCta(ctx, x, y, width, label) {
+  ctx.fillStyle = "#f5f5f5";
+  roundedRect(ctx, x, y, width, 82, 41);
+  ctx.fill();
+  ctx.fillStyle = "#111111";
+  ctx.font = "700 27px Arial, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(label, x + width / 2, y + 51);
+  ctx.textAlign = "start";
+}
+
 function wrapLines(ctx, value, maxWidth, maxLines = 4) {
   const words = text(value).split(" ").filter(Boolean);
   const lines = [];
@@ -66,20 +77,20 @@ async function createAuthorArtwork(author, books, authorUrl) {
   ctx.fillStyle = "#080808";
   ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
   ctx.fillStyle = "#171717";
-  roundedRect(ctx, 76, 78, STORY_WIDTH - 152, STORY_HEIGHT - 156, 42);
+  roundedRect(ctx, 150, 210, 780, 1500, 52);
   ctx.fill();
 
   ctx.fillStyle = "#f5f5f5";
   ctx.font = "700 46px Arial, sans-serif";
-  ctx.fillText("OPE", 140, 170);
-  ctx.fillText("CLUB", 140, 220);
+  ctx.fillText("OPE", 220, 320);
+  ctx.fillText("CLUB", 220, 370);
   ctx.fillStyle = "#8d8d8d";
   ctx.font = "400 25px Arial, sans-serif";
-  ctx.fillText("uma comunidade para quem pensa junto", 140, 274);
+  ctx.fillText("uma comunidade para quem pensa junto", 220, 424);
 
-  const imageX = 140;
-  const imageY = 350;
-  const imageSize = 800;
+  const imageX = 220;
+  const imageY = 480;
+  const imageSize = 640;
   ctx.save();
   roundedRect(ctx, imageX, imageY, imageSize, imageSize, 28);
   ctx.clip();
@@ -92,7 +103,7 @@ async function createAuthorArtwork(author, books, authorUrl) {
     ctx.fillStyle = "#303030";
     ctx.fillRect(imageX, imageY, imageSize, imageSize);
     ctx.fillStyle = "#f5f5f5";
-    ctx.font = "700 240px Arial, sans-serif";
+    ctx.font = "700 190px Arial, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(authorName.charAt(0).toUpperCase(), imageX + imageSize / 2, imageY + imageSize / 2);
@@ -102,30 +113,28 @@ async function createAuthorArtwork(author, books, authorUrl) {
   ctx.restore();
 
   ctx.fillStyle = "#f5f5f5";
-  ctx.font = "700 72px Arial, sans-serif";
-  for (const [index, line] of wrapLines(ctx, authorName, 800, 2).entries()) {
-    ctx.fillText(line, 140, 1260 + index * 86);
+  ctx.font = "700 62px Arial, sans-serif";
+  for (const [index, line] of wrapLines(ctx, authorName, 640, 2).entries()) {
+    ctx.fillText(line, 220, 1215 + index * 74);
   }
   ctx.fillStyle = "#a9a9a9";
-  ctx.font = "400 34px Arial, sans-serif";
-  ctx.fillText(era, 140, 1450);
+  ctx.font = "400 30px Arial, sans-serif";
+  ctx.fillText(era, 220, 1370);
 
   ctx.fillStyle = "#d6d6d6";
-  ctx.font = "400 30px Arial, sans-serif";
-  wrapLines(ctx, bio, 800, 3).forEach((line, index) => ctx.fillText(line, 140, 1530 + index * 46));
+  ctx.font = "400 27px Arial, sans-serif";
+  wrapLines(ctx, bio, 640, 2).forEach((line, index) => ctx.fillText(line, 220, 1425 + index * 39));
 
   ctx.fillStyle = "#8d8d8d";
-  ctx.font = "400 27px Arial, sans-serif";
-  ctx.fillText(`${books.length} ${books.length === 1 ? "livro" : "livros"} na biblioteca`, 140, 1710);
-  ctx.fillStyle = "#f5f5f5";
-  ctx.font = "600 28px Arial, sans-serif";
-  ctx.fillText("Conheca este autor no OPE Club", 140, 1790);
+  ctx.font = "400 25px Arial, sans-serif";
+  ctx.fillText(`${books.length} ${books.length === 1 ? "livro" : "livros"} na biblioteca`, 220, 1535);
+  drawCta(ctx, 220, 1575, 640, "Conhecer autor");
   ctx.fillStyle = "#888888";
-  ctx.font = "400 21px Arial, sans-serif";
-  ctx.fillText(authorUrl.replace(/^https?:\/\//, ""), 140, 1840);
+  ctx.font = "400 20px Arial, sans-serif";
+  ctx.fillText(authorUrl.replace(/^https?:\/\//, ""), 220, 1690);
   ctx.fillStyle = "#686868";
-  ctx.font = "600 22px Arial, sans-serif";
-  ctx.fillText("OPE CLUB  |  Biblioteca + comunidade", 140, 1900);
+  ctx.font = "600 20px Arial, sans-serif";
+  ctx.fillText("OPE CLUB  |  Biblioteca + comunidade", 220, 1735);
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Nao foi possivel gerar a arte."))), "image/png");

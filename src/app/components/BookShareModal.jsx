@@ -14,6 +14,19 @@ function slug(value) {
     .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48) || "livro";
 }
 
+function drawCta(ctx, x, y, width, label) {
+  ctx.fillStyle = "#f5f5f5";
+  ctx.beginPath();
+  ctx.roundRect(x, y, width, 82, 41);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#111111";
+  ctx.font = "700 27px Arial, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(label, x + width / 2, y + 51);
+  ctx.textAlign = "start";
+}
+
 function wrapLines(ctx, value, maxWidth, maxLines = 3) {
   const lines = [];
   let line = "";
@@ -59,62 +72,60 @@ async function createBookArtwork(book, authorName, bookUrl) {
   ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
   ctx.fillStyle = "#171717";
   ctx.beginPath();
-  ctx.roundRect(76, 78, STORY_WIDTH - 152, STORY_HEIGHT - 156, 42);
+  ctx.roundRect(150, 120, 780, 1680, 52);
   ctx.fill();
 
   ctx.fillStyle = "#f5f5f5";
   ctx.font = "700 46px Arial, sans-serif";
-  ctx.fillText("OPE", 140, 170);
-  ctx.fillText("CLUB", 140, 220);
+  ctx.fillText("OPE", 220, 250);
+  ctx.fillText("CLUB", 220, 300);
   ctx.fillStyle = "#a4a4a4";
   ctx.font = "400 25px Arial, sans-serif";
-  ctx.fillText("biblioteca + comunidade", 140, 274);
+  ctx.fillText("biblioteca + comunidade", 220, 354);
 
   ctx.fillStyle = "#2b2b2b";
   ctx.shadowColor = "rgba(0,0,0,0.45)";
   ctx.shadowBlur = 28;
   ctx.beginPath();
-  ctx.roundRect(190, 340, 700, 920, 26);
+  ctx.roundRect(250, 430, 580, 760, 26);
   ctx.fill();
   ctx.shadowBlur = 0;
 
   if (cover) {
-    const scale = Math.min(700 / cover.width, 920 / cover.height);
+    const scale = Math.min(580 / cover.width, 760 / cover.height);
     const width = cover.width * scale;
     const height = cover.height * scale;
-    ctx.drawImage(cover, 190 + (700 - width) / 2, 340 + (920 - height) / 2, width, height);
+    ctx.drawImage(cover, 250 + (580 - width) / 2, 430 + (760 - height) / 2, width, height);
   } else {
     ctx.fillStyle = "#303030";
-    ctx.fillRect(190, 340, 700, 920);
+    ctx.fillRect(250, 430, 580, 760);
     ctx.fillStyle = "#f5f5f5";
-    ctx.font = "700 110px Arial, sans-serif";
-    ctx.fillText("OPE", 360, 760);
+    ctx.font = "700 90px Arial, sans-serif";
+    ctx.fillText("OPE", 420, 760);
     ctx.font = "400 34px Arial, sans-serif";
-    ctx.fillText("capa indisponivel", 360, 830);
+    ctx.fillText("capa indisponivel", 355, 830);
   }
 
   ctx.fillStyle = "#a4a4a4";
   ctx.font = "700 23px Arial, sans-serif";
-  ctx.fillText("LEITURA", 140, 1370);
+  ctx.fillText("LEITURA", 220, 1270);
   ctx.fillStyle = "#f5f5f5";
-  ctx.font = "700 66px Arial, sans-serif";
-  wrapLines(ctx, title, 800, 2).forEach((line, index) => ctx.fillText(line, 140, 1450 + index * 78));
+  ctx.font = "700 58px Arial, sans-serif";
+  wrapLines(ctx, title, 640, 2).forEach((line, index) => ctx.fillText(line, 220, 1340 + index * 70));
   ctx.fillStyle = "#c9c9c9";
-  ctx.font = "400 34px Arial, sans-serif";
-  ctx.fillText(author, 140, 1625);
+  ctx.font = "400 30px Arial, sans-serif";
+  ctx.fillText(author, 220, 1485);
   ctx.fillStyle = "#8d8d8d";
-  ctx.font = "400 27px Arial, sans-serif";
-  ctx.fillText(category, 140, 1680);
-  wrapLines(ctx, bio, 800, 2).forEach((line, index) => ctx.fillText(line, 140, 1750 + index * 40));
-  ctx.fillStyle = "#f5f5f5";
-  ctx.font = "600 27px Arial, sans-serif";
-  ctx.fillText("Abra este livro no OPE Club", 140, 1825);
+  ctx.font = "400 25px Arial, sans-serif";
+  ctx.fillText(category, 220, 1530);
+  wrapLines(ctx, bio, 640, 2).forEach((line, index) => ctx.fillText(line, 220, 1575 + index * 36));
+  drawCta(ctx, 220, 1645, 640, "Abrir livro");
   ctx.fillStyle = "#8d8d8d";
   ctx.font = "400 20px Arial, sans-serif";
-  ctx.fillText(bookUrl.replace(/^https?:\/\//, ""), 140, 1865);
+  ctx.fillText(bookUrl.replace(/^https?:\/\//, ""), 220, 1765);
   ctx.fillStyle = "#686868";
-  ctx.font = "600 21px Arial, sans-serif";
-  ctx.fillText("OPE CLUB  |  Leia, pense, compartilhe", 140, 1905);
+  ctx.font = "600 20px Arial, sans-serif";
+  ctx.fillText("OPE CLUB  |  Leia, pense, compartilhe", 220, 1795);
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Nao foi possivel gerar a arte."))), "image/png");
