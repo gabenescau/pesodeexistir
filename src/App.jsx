@@ -97,6 +97,12 @@ const SEO_PAGES = {
     type: 'website',
     robots: 'noindex, nofollow',
   },
+  '/app/retrospectiva': {
+    title: 'Retrospectiva | OPE Club',
+    description: 'Relembre sua jornada de leitura e participacao no OPE Club.',
+    type: 'website',
+    robots: 'noindex, nofollow',
+  },
   '/app/admin': {
     title: 'Painel Admin | OPE Club',
     description: 'Gestao interna do clube.',

@@ -4,6 +4,7 @@ import { AppShell as Shell } from "@/components/app-shell";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import { SubscriptionGuard } from "./components/SubscriptionGuard";
 import { AdminGuard } from "./components/AdminGuard";
+import { RetrospectivePrompt } from "./components/RetrospectivePrompt";
 
 const lazyPage = (loader, exportName) =>
   lazy(() => loader().then((module) => ({ default: module[exportName] })));
@@ -33,6 +34,7 @@ const SupportPage = lazyPage(() => import("./pages/SupportPage"), "SupportPage")
 const MyListPage = lazyPage(() => import("./pages/MyListPage"), "MyListPage");
 const RankingPage = lazyPage(() => import("./pages/RankingPage"), "RankingPage");
 const InstallAppPage = lazyPage(() => import("./pages/InstallAppPage"), "InstallAppPage");
+const RetrospectivePage = lazyPage(() => import("./pages/RetrospectivePage"), "RetrospectivePage");
 
 function PageLoading() {
   return (
@@ -45,6 +47,7 @@ function PageLoading() {
 export function AppShell() {
   return (
     <Shell>
+      <RetrospectivePrompt />
       <Suspense fallback={<PageLoading />}>
         <Routes>
           <Route path="/" element={<Navigate to="inicio" replace />} />
@@ -68,6 +71,7 @@ export function AppShell() {
         <Route path="seasons" element={<SubscriptionGuard feature="seasons"><SeasonPage /></SubscriptionGuard>} />
         <Route path="ranking" element={<SubscriptionGuard feature="ranking"><RankingPage /></SubscriptionGuard>} />
         <Route path="instalar" element={<InstallAppPage />} />
+        <Route path="retrospectiva" element={<RetrospectivePage />} />
         <Route path="meus-resgates" element={<MyRedemptionsPage />} />
         <Route path="suporte" element={<SupportPage />} />
         <Route path="minha-lista" element={<MyListPage />} />

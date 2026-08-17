@@ -29,6 +29,7 @@ import { getMySubscriptions } from "../server/billing.js";
 import { createUploadTicket, deleteUploadedFiles } from "../server/upload.js";
 import { getAccountState, handleAccountWrite } from "../server/account.js";
 import { handleSuggestionsAction } from "../server/suggestions.js";
+import { getRetrospective } from "../server/retrospective.js";
 
 function actionFromRequest(req) {
   const action = String(req.query?.action || "session").trim().toLowerCase();
@@ -40,7 +41,7 @@ function actionMethod(action, req) {
   if (action === "suggestions") return req.method === "GET" ? "GET" : "POST";
   if (action === "community-write") return "POST";
   if (action === "account-write") return "POST";
-  return action === "session" || action === "profile" || action === "catalog" || action === "season" || action === "community" || action === "wallet" || action === "store" || action === "redemptions" || action === "referrals" || action === "subscription" || action === "account-state"
+  return action === "session" || action === "profile" || action === "catalog" || action === "season" || action === "community" || action === "wallet" || action === "store" || action === "redemptions" || action === "referrals" || action === "subscription" || action === "account-state" || action === "retrospective"
     ? "GET"
     : "POST";
 }
@@ -120,6 +121,18 @@ export default async function handler(req, res) {
 
     if (action === "account-state") {
       return sendSuccess(req, res, await getAccountState(req, res));
+    }
+
+    if (action === "retrospective") {
+      const user = await getAuthenticatedUser(req, res);
+      if (!await enforceRateLimit(req, res, {
+        scope: "retrospective",
+        limit: 6,
+        windowSeconds: 300,
+        userId: user.id,
+      })) return;
+      res.setHeader("Cache-Control", "private, no-store");
+      return sendSuccess(req, res, await getRetrospective(req, res));
     }
 
     if (action === "account-write") {
@@ -255,6 +268,8 @@ export default async function handler(req, res) {
                 ? "Nao foi possivel carregar sua assinatura agora."
               : action === "account-state"
                 ? "Nao foi possivel carregar seus dados agora."
+              : action === "retrospective"
+                ? "Nao foi possivel carregar sua retrospectiva agora."
               : action === "upload-ticket"
                 ? "Nao foi possivel autorizar o upload agora."
               : action === "upload-delete"

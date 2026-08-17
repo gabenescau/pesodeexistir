@@ -364,7 +364,15 @@ export function BookDetailPage() {
           )}
         </div>
       </div>
-      <BookShareModal book={book} authorName={author?.name} open={shareOpen} onClose={() => setShareOpen(false)} />
+      <BookShareModal
+        book={book}
+        authorName={author?.name}
+        readingProgress={progresso}
+        currentPage={book.currentPage}
+        totalPages={totalPages}
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+      />
     </div>
   );
 }

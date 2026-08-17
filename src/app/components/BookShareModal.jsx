@@ -55,7 +55,7 @@ function loadImage(url) {
   });
 }
 
-async function createBookArtwork(book, authorName, bookUrl) {
+async function createBookArtwork(book, authorName, bookUrl, readingProgress, currentPage, totalPages) {
   const canvas = document.createElement("canvas");
   canvas.width = STORY_WIDTH;
   canvas.height = STORY_HEIGHT;
@@ -66,6 +66,9 @@ async function createBookArtwork(book, authorName, bookUrl) {
   const author = clean(authorName, "Autor OPE Club").slice(0, 80);
   const category = clean(book?.category, "Literatura").slice(0, 60);
   const bio = clean(book?.bio, "Uma leitura para descobrir no OPE Club.").slice(0, 220);
+  const progress = Math.min(100, Math.max(0, Number(readingProgress) || 0));
+  const page = Math.max(1, Number(currentPage) || 1);
+  const pages = Math.max(0, Number(totalPages) || 0);
   const cover = await loadImage(book?.image);
 
   ctx.fillStyle = "#080808";
@@ -118,7 +121,18 @@ async function createBookArtwork(book, authorName, bookUrl) {
   ctx.fillStyle = "#8d8d8d";
   ctx.font = "400 25px Arial, sans-serif";
   ctx.fillText(category, 220, 1530);
-  wrapLines(ctx, bio, 640, 2).forEach((line, index) => ctx.fillText(line, 220, 1575 + index * 36));
+  ctx.fillStyle = "#c9c9c9";
+  ctx.font = "400 23px Arial, sans-serif";
+  ctx.fillText(wrapLines(ctx, bio, 640, 1)[0] || "Uma leitura para descobrir no OPE Club.", 220, 1570);
+  ctx.fillStyle = "#3b3b3b";
+  roundedRect(ctx, 220, 1600, 640, 12, 6);
+  ctx.fill();
+  ctx.fillStyle = "#f5f5f5";
+  roundedRect(ctx, 220, 1600, Math.max(12, 640 * (progress / 100)), 12, 6);
+  ctx.fill();
+  ctx.fillStyle = "#b9b9b9";
+  ctx.font = "400 22px Arial, sans-serif";
+  ctx.fillText(pages > 0 ? `${progress}% lido  |  pagina ${Math.min(page, pages)} de ${pages}` : `${progress}% lido`, 220, 1630);
   drawCta(ctx, 220, 1645, 640, "Abrir livro");
   ctx.fillStyle = "#8d8d8d";
   ctx.font = "400 20px Arial, sans-serif";
@@ -132,7 +146,7 @@ async function createBookArtwork(book, authorName, bookUrl) {
   });
 }
 
-export function BookShareModal({ book, authorName, open, onClose }) {
+export function BookShareModal({ book, authorName, readingProgress, currentPage, totalPages, open, onClose }) {
   const [artworkUrl, setArtworkUrl] = useState("");
   const [artworkBlob, setArtworkBlob] = useState(null);
   const [generating, setGenerating] = useState(false);
@@ -142,14 +156,15 @@ export function BookShareModal({ book, authorName, open, onClose }) {
     return `${window.location.origin}/app/livro/${encodeURIComponent(book.id)}`;
   }, [book?.id]);
   const fileName = `${slug(book?.title)}-ope-club.png`;
-  const message = `Estou lendo "${clean(book?.title, "este livro")}" no OPE Club: ${bookUrl}`;
+  const progressValue = Math.min(100, Math.max(0, Number(readingProgress ?? book?.progress) || 0));
+  const message = `Estou lendo "${clean(book?.title, "este livro")}" (${progressValue}% concluido) no OPE Club: ${bookUrl}`;
 
   useEffect(() => {
     if (!open || !bookUrl) return undefined;
     let cancelled = false;
     setGenerating(true);
     setError("");
-    createBookArtwork(book, authorName, bookUrl)
+    createBookArtwork(book, authorName, bookUrl, progressValue, currentPage ?? book?.currentPage, totalPages ?? book?.totalPages)
       .then((blob) => {
         if (cancelled) return;
         setArtworkBlob(blob);
@@ -160,7 +175,7 @@ export function BookShareModal({ book, authorName, open, onClose }) {
       })
       .finally(() => { if (!cancelled) setGenerating(false); });
     return () => { cancelled = true; };
-  }, [open, book, authorName, bookUrl]);
+  }, [open, book, authorName, bookUrl, progressValue, currentPage, totalPages]);
 
   useEffect(() => () => {
     if (artworkUrl) URL.revokeObjectURL(artworkUrl);
@@ -228,6 +243,14 @@ export function BookShareModal({ book, authorName, open, onClose }) {
           </div>
           <div className="space-y-3">
             <p className="text-sm leading-relaxed text-[var(--text-secondary)]">Compartilhe a capa e leve seus amigos para a pagina deste livro no OPE Club.</p>
+            <div className="rounded-2xl border border-[var(--border)] p-3">
+              <div className="mb-2 flex items-center justify-between gap-3 text-xs text-[var(--text-secondary)]">
+                <span>Seu progresso</span>
+                <strong className="text-[var(--text-primary)]">{progressValue}%</strong>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-[var(--hover-overlay)]"><div className="h-full rounded-full bg-[var(--text-primary)]" style={{ width: `${progressValue}%` }} /></div>
+              {Number(totalPages ?? book?.totalPages) > 0 && <p className="mt-2 text-[10px] text-[var(--text-muted)]">Pagina {Math.min(Number(currentPage ?? book?.currentPage) || 1, Number(totalPages ?? book?.totalPages))} de {Number(totalPages ?? book?.totalPages)}</p>}
+            </div>
             <button type="button" onClick={shareNative} disabled={!artworkUrl || generating} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--text-primary)] px-4 text-sm font-semibold text-[var(--bg-card)] transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-50">
               <Share2 className="size-5" /> Compartilhar no celular
             </button>
