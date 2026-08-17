@@ -15,6 +15,7 @@ import { sanitizePlainText } from "@/lib/sanitize";
 import { toast } from "@/lib/toast";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useRewards } from "@/app/data/RewardsContext";
+import { PostShareModal } from "./PostShareModal";
 
 function Avatar({ src, fallback, className = "size-11" }) {
   const [broken, setBroken] = useState(false);
@@ -105,6 +106,7 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
   const [busy, setBusy] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [shareOpen, setShareOpen] = useState(false);
 
   const authorProfile = post.authorProfile || profiles.find((profile) => profile.id === post.user_id);
   const handle = post.handle || handleDoPerfil(authorProfile);
@@ -218,20 +220,7 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
   }
 
   async function sharePost() {
-    const url = `${window.location.origin}${postUrl}`;
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: "OPE Club", text: post.text, url });
-        toast.success("Compartilhamento aberto.");
-      } else {
-        await navigator.clipboard.writeText(url);
-        toast.success("Link copiado para a area de transferencia.");
-      }
-    } catch (err) {
-      if (err?.name !== "AbortError") {
-        toast.error("Nao foi possivel compartilhar o post.");
-      }
-    }
+    setShareOpen(true);
   }
 
   function openPost(event) {
@@ -355,6 +344,7 @@ export function PostCard({ post, onDelete, reacoesIniciais = null, expanded = fa
       )}
       {deleteError && <p className="text-xs text-red-400">{deleteError}</p>}
       {confirm.dialog}
+      <PostShareModal post={post} open={shareOpen} onClose={() => setShareOpen(false)} />
     </article>
   );
 }
