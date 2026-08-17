@@ -1,17 +1,9 @@
 import { isSupabaseReady } from "@/app/data/supabase";
 import { loadMySubscriptions } from "./subscription-api";
 
-export const ACTIVE_SUBSCRIPTION_STATUSES = [
-  "active",
-  "past_due",
-  "trialing",
-  "paid",
-  "approved",
-  "authorized",
-  "complete",
-  "completed",
-  "succeeded",
-];
+// Keep the browser's display rule aligned with the server entitlement rule.
+// Provider payment labels are not subscriptions and must not unlock features.
+export const ACTIVE_SUBSCRIPTION_STATUSES = ["active", "trialing"];
 
 // Codigos legados (modelo antigo de 2 planos) apontando para o equivalente atual.
 const LEGACY_PLAN_CODE_ALIASES = {
@@ -44,10 +36,10 @@ export function isActiveSubscription(sub) {
   if (!ACTIVE_SUBSCRIPTION_STATUSES.includes(status)) return false;
 
   const endDateValue = getSubscriptionEndDate(sub);
-  if (!endDateValue) return true;
+  if (!endDateValue) return false;
 
   const endDate = new Date(endDateValue);
-  if (Number.isNaN(endDate.getTime())) return true;
+  if (Number.isNaN(endDate.getTime())) return false;
 
   return endDate.getTime() >= Date.now();
 }

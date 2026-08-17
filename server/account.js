@@ -3,6 +3,11 @@ import { enforceRateLimit, supabaseUserRequest } from "./supabase.js";
 
 const MAX_ROWS = 5000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ACCOUNT_OPERATIONS = new Set([
+  "toggle_book_favorite", "toggle_author_favorite", "rate_book",
+  "create_collection", "update_collection", "delete_collection",
+  "add_collection_item", "remove_collection_item",
+]);
 
 function invalid(message) {
   const error = new Error(message);
@@ -56,6 +61,7 @@ export async function getAccountState(req, res) {
 export async function handleAccountWrite(req, res) {
   const session = await getRequiredCookieSession(req, res);
   const operation = text(req.body?.operation, "Operacao", 50, true);
+  if (!ACCOUNT_OPERATIONS.has(operation)) throw invalid("Operacao de conta invalida.");
   const userId = session.user.id;
   if (!await enforceRateLimit(req, res, {
     scope: `account_${operation}`,
@@ -125,6 +131,16 @@ export async function handleAccountWrite(req, res) {
     const itemId = id(req.body.itemId, "Item");
     const itemType = text(req.body.itemType, "Tipo", 20, true);
     if (!new Set(["book", "author"]).has(itemType)) throw invalid("Tipo de item invalido.");
+    const ownedCollection = await supabaseUserRequest(
+      session.accessToken,
+      `collections?select=id&user_id=eq.${encodeURIComponent(userId)}&id=eq.${encodeURIComponent(collectionId)}&limit=1`,
+    );
+    if (!ownedCollection?.[0]) {
+      const error = new Error("Colecao nao encontrada.");
+      error.status = 404;
+      error.userSafe = true;
+      throw error;
+    }
     const rows = await supabaseUserRequest(session.accessToken, "collection_items?select=*&limit=1", {
       method: "POST", headers: { Prefer: "resolution=ignore-duplicates,return=representation" },
       body: JSON.stringify({ collection_id: collectionId, item_type: itemType, item_id: itemId, position: Number(req.body.position) || 0 }),
@@ -133,7 +149,23 @@ export async function handleAccountWrite(req, res) {
   }
   if (operation === "remove_collection_item") {
     const itemId = id(req.body.itemId, "Item");
-    await supabaseUserRequest(session.accessToken, `collection_items?id=eq.${encodeURIComponent(itemId)}`, { method: "DELETE" });
+    const itemRows = await supabaseUserRequest(
+      session.accessToken,
+      `collection_items?select=id,collection_id&id=eq.${encodeURIComponent(itemId)}&limit=1`,
+    );
+    const collectionId = itemRows?.[0]?.collection_id;
+    if (!collectionId) return { id: itemId };
+    const ownedCollection = await supabaseUserRequest(
+      session.accessToken,
+      `collections?select=id&user_id=eq.${encodeURIComponent(userId)}&id=eq.${encodeURIComponent(collectionId)}&limit=1`,
+    );
+    if (!ownedCollection?.[0]) {
+      const error = new Error("Item nao encontrado.");
+      error.status = 404;
+      error.userSafe = true;
+      throw error;
+    }
+    await supabaseUserRequest(session.accessToken, `collection_items?id=eq.${encodeURIComponent(itemId)}&collection_id=eq.${encodeURIComponent(collectionId)}`, { method: "DELETE" });
     return { id: itemId };
   }
   throw invalid("Operacao de conta invalida.");

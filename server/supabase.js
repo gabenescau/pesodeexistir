@@ -515,30 +515,6 @@ function getClientAddress(req) {
   return req.socket?.remoteAddress || "unknown";
 }
 
-async function consumeRateLimit({ scope, limit, windowSeconds, rawIdentifier }) {
-  const secret = process.env.RATE_LIMIT_SECRET || SUPABASE_SERVICE_KEY;
-  const keyHash = crypto
-    .createHmac("sha256", secret)
-    .update(rawIdentifier)
-    .digest("hex");
-
-  try {
-    return await supabaseRequest("rpc/check_api_rate_limit", {
-      method: "POST",
-      body: JSON.stringify({
-        p_key_hash: keyHash,
-        p_scope: scope,
-        p_limit: limit,
-        p_window_seconds: windowSeconds,
-      }),
-    });
-
-  } catch (error) {
-    error.rateLimitScope = scope;
-    throw error;
-  }
-}
-
 export async function enforceRateLimit(req, res, {
   scope,
   limit,
@@ -557,15 +533,41 @@ export async function enforceRateLimit(req, res, {
     : [{ scope: `${scope}:ip`, limit, rawIdentifier: `ip:${getClientAddress(req)}` }];
 
   try {
-    const results = [];
-    for (const check of checks) {
-      const result = await consumeRateLimit({
-        ...check,
-        windowSeconds,
+    const secret = process.env.RATE_LIMIT_SECRET || SUPABASE_SERVICE_KEY;
+    const requestChecks = checks.map((check) => ({
+      key_hash: crypto.createHmac("sha256", secret).update(check.rawIdentifier).digest("hex"),
+      scope: check.scope,
+      limit: check.limit,
+      window_seconds: windowSeconds,
+    }));
+    let batch;
+    try {
+      batch = await supabaseRequest("rpc/check_api_rate_limit_batch", {
+        method: "POST",
+        body: JSON.stringify({ p_checks: requestChecks }),
       });
-      results.push({ ...check, result });
-      if (result?.allowed === false) break;
+    } catch (error) {
+      // Keep deployments compatible while the follow-up migration is being
+      // applied. The legacy RPC is still server-only and preserves the same
+      // fail-closed behavior if both paths are unavailable.
+      if (Number(error?.status) !== 404) throw error;
+      batch = [];
+      for (const check of requestChecks) {
+        batch.push(await supabaseRequest("rpc/check_api_rate_limit", {
+          method: "POST",
+          body: JSON.stringify({
+            p_key_hash: check.key_hash,
+            p_scope: check.scope,
+            p_limit: check.limit,
+            p_window_seconds: check.window_seconds,
+          }),
+        }));
+      }
     }
+    const results = checks.map((check, index) => ({
+      ...check,
+      result: Array.isArray(batch) ? batch[index] : null,
+    }));
 
     const blocked = results.find(({ result }) => result?.allowed === false);
     const strictest = blocked || results.reduce((lowest, current) => {

@@ -11,8 +11,10 @@ function agrupar(reacoes, meuId) {
   const mapa = new Map();
   for (const reacao of reacoes) {
     const atual = mapa.get(reacao.emoji) || { emoji: reacao.emoji, total: 0, minha: false };
-    atual.total += 1;
-    if (reacao.user_id === meuId) atual.minha = true;
+    atual.total += Number.isInteger(reacao.total)
+      ? reacao.total
+      : 1;
+    if (reacao.mine === true || reacao.user_id === meuId) atual.minha = true;
     mapa.set(reacao.emoji, atual);
   }
   return [...mapa.values()].sort((a, b) => b.total - a.total);
@@ -51,15 +53,21 @@ export function EmojiReactions({ targetType, targetId, reacoesIniciais = null })
 
   async function alternar(emoji) {
     if (!user?.id || ocupado) return;
-    const jaTenho = reacoes.some((item) => item.emoji === emoji && item.user_id === user.id);
+    const jaTenho = reacoes.some((item) =>
+      item.emoji === emoji && (item.mine === true || item.user_id === user.id)
+    );
     const anterior = reacoes;
 
     setAberto(false);
-    setReacoes((atual) =>
-      jaTenho
-        ? atual.filter((item) => !(item.emoji === emoji && item.user_id === user.id))
-        : [...atual, { user_id: user.id, emoji }]
-    );
+    setReacoes((atual) => {
+      const existing = atual.find((item) => item.emoji === emoji);
+      if (!existing && !jaTenho) return [...atual, { emoji, total: 1, mine: true }];
+      return atual
+        .map((item) => item.emoji === emoji
+          ? { ...item, total: Math.max(0, Number(item.total || 0) + (jaTenho ? -1 : 1)), mine: !jaTenho }
+          : item)
+        .filter((item) => item.total > 0);
+    });
 
     setOcupado(true);
     try {

@@ -24,6 +24,7 @@ export const TIERS = {
       { text: "Sincroniza\u00e7\u00e3o do progresso de leitura", feature: "reading_sync" },
       { text: "Lan\u00e7amentos semanais e cat\u00e1logo atualizado", feature: "weekly_releases" },
       { text: "Miss\u00f5es di\u00e1rias e semanais", feature: "missions" },
+      { text: "Retrospectiva mensal e anual da sua jornada", feature: "retrospective" },
     ],
   },
   pensador: {
@@ -51,6 +52,7 @@ export const TIERS = {
       { text: "Multiplicador 2x nas recompensas de atividade", feature: "credit_multiplier", exclusive: true },
       { text: "Atendimento priorit\u00e1rio pelo WhatsApp", feature: "vip_support", exclusive: true },
       { text: "Acesso antecipado aos drops", feature: "early_drops", exclusive: true },
+      { text: "Retrospectiva mensal e anual da sua jornada", feature: "retrospective" },
     ],
   },
 };

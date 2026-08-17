@@ -242,6 +242,27 @@ async function verifyUploadTicket(ticket: string) {
   return payload;
 }
 
+function sha256Hex(value: string) {
+  return crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)).then((digest) =>
+    Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join(""),
+  );
+}
+
+async function consumeUploadTicket(admin: ReturnType<typeof createClient>, payload: Record<string, unknown>) {
+  const nonce = typeof payload.nonce === "string" ? payload.nonce : "";
+  if (!/^[0-9a-f-]{20,100}$/i.test(nonce)) {
+    throw validationError("Upload ticket invalido");
+  }
+
+  const { data, error } = await admin.rpc("consume_upload_ticket_nonce", {
+    p_nonce_hash: await sha256Hex(nonce),
+    p_expires_at: new Date(Number(payload.exp) * 1000).toISOString(),
+  });
+  if (error || data !== true) {
+    throw validationError("Upload ticket expirado ou ja utilizado");
+  }
+}
+
 function runtimeReady() {
   return SUPABASE_URL.startsWith("https://") && SERVICE_ROLE_KEY.length >= 20
     && UPLOAD_TICKET_SECRET.length >= 32;
@@ -261,6 +282,7 @@ Deno.serve(async (request) => {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     });
     const ticket = await verifyUploadTicket(request.headers.get("x-upload-ticket") || "");
+    await consumeUploadTicket(admin, ticket);
     const form = await request.formData();
     const file = form.get("file");
     const bucket = String(form.get("bucket") || "");

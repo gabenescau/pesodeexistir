@@ -22,5 +22,20 @@ export function RetrospectivePage() {
 
   if (error) return <div className="mx-auto mt-24 max-w-md px-5 text-center text-sm text-[var(--text-secondary)]">{error}</div>;
   if (!data) return <div className="mx-auto mt-24 max-w-md px-5 text-center text-sm text-[var(--text-secondary)]">Carregando sua retrospectiva...</div>;
+  if (data.allowed === false) {
+    return (
+      <div className="mx-auto mt-24 max-w-md px-5 text-center">
+        <p className="text-lg font-semibold text-[var(--text-primary)]">Retrospectiva exclusiva para assinantes</p>
+        <p className="mt-2 text-sm text-[var(--text-secondary)]">Assine um plano OPE Club para acompanhar e compartilhar sua jornada de leitura.</p>
+        <button
+          type="button"
+          onClick={() => navigate("/app/planos")}
+          className="mt-5 min-h-11 rounded-full bg-[var(--text-primary)] px-5 text-sm font-semibold text-[var(--bg-card)]"
+        >
+          Ver planos
+        </button>
+      </div>
+    );
+  }
   return <RetrospectiveModal data={data} initialKind={kind} open onClose={() => navigate("/app/inicio")} />;
 }

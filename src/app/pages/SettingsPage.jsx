@@ -8,6 +8,7 @@ import { SettingsAppearance } from "./settings/SettingsAppearance";
 import { SettingsSubscription } from "./settings/SettingsSubscription";
 import { SettingsCollections } from "./settings/SettingsCollections";
 import { SettingsHelp } from "./settings/SettingsHelp";
+import { SettingsRetrospective } from "./settings/SettingsRetrospective";
 
 // Router fino: le ?aba= e renderiza o Hub (padrao) ou a sub-tela correspondente.
 // Mantem compatibilidade com o antigo ?aba=perfil.
@@ -23,6 +24,7 @@ export function SettingsPage() {
     case "aparencia": return <SettingsAppearance />;
     case "assinatura": return <SettingsSubscription />;
     case "colecoes": return <SettingsCollections />;
+    case "retrospectiva": return <SettingsRetrospective />;
     case "ajuda": return <SettingsHelp />;
     case "hub":
     default:

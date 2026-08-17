@@ -23,6 +23,19 @@ const UUID_FIELDS = new Set([
   "referredUserId",
 ]);
 
+const ADMIN_OPERATIONS = new Set([
+  "bootstrap",
+  "author-create", "author-update", "author-delete",
+  "book-create", "book-update", "book-delete",
+  "weekly-create", "weekly-update", "weekly-delete",
+  "category-create", "category-update", "category-delete",
+  "shop-catalog", "signed-media", "posts-page", "shop-save", "shop-toggle", "shop-delete",
+  "season-list", "season-create", "season-update", "season-delete",
+  "redemptions-list", "redemption-update", "credits-spent",
+  "orders-list", "order-status", "spam-revert",
+  "referrals-list", "referral-confirm", "referral-cancel",
+]);
+
 function text(value, max = 5000) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
@@ -126,6 +139,12 @@ export async function handleAdminAction(req, res) {
   const session = await getRequiredCookieSession(req, res);
   const body = parsePayload(req.body);
   const operation = text(body.operation, 80);
+  if (!ADMIN_OPERATIONS.has(operation)) {
+    const error = new Error("Operacao administrativa desconhecida");
+    error.status = 404;
+    error.userSafe = true;
+    throw error;
+  }
   await requireOperationAccess(session, operation);
   if (!await enforceRateLimit(req, res, {
     scope: `admin_${operation}`,

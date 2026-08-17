@@ -12,6 +12,7 @@ export const PLAN_FEATURES = Object.freeze({
     "reading_sync",
     "weekly_releases",
     "missions",
+    "retrospective",
   ]),
   pensador: Object.freeze([
     "library",
@@ -27,6 +28,7 @@ export const PLAN_FEATURES = Object.freeze({
     "credit_multiplier",
     "vip_support",
     "early_drops",
+    "retrospective",
   ]),
 });
 

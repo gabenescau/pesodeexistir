@@ -3,13 +3,16 @@ import {
   deleteAuthUser,
   enforceRateLimit,
   getAuthenticatedUser,
+  getOpenCheckoutAttempts,
   listUserSubscriptions,
   logAuditEvent,
   logServerError,
   sendError,
   sendSuccess,
+  updateCheckoutAttempt,
 } from "../server/supabase.js";
-import { getStripe } from "../server/stripe.js";
+import { expireCheckoutSession, getStripe } from "../server/stripe.js";
+import { cancelAsaasCheckout, deleteAsaasPayment } from "../server/asaas.js";
 import { parseDeleteAccountInput } from "../src/lib/api-contracts.js";
 
 const USER_STORAGE_BUCKETS = ["avatars", "post-media"];
@@ -62,6 +65,36 @@ async function deleteUserStorageFiles(userId) {
   }
 }
 
+async function cancelOpenBillingAttempts(userId) {
+  const attempts = await getOpenCheckoutAttempts(userId);
+  for (const attempt of attempts || []) {
+    if (attempt.provider === "stripe" && attempt.stripe_session_id) {
+      const result = await expireCheckoutSession(attempt.stripe_session_id);
+      if (result.paid) {
+        await updateCheckoutAttempt(attempt.attempt_id, { status: "completed" });
+        continue;
+      }
+    }
+    if (attempt.provider === "asaas" && attempt.provider_checkout_id) {
+      try {
+        if (attempt.payment_method === "PIX") {
+          await deleteAsaasPayment(attempt.provider_checkout_id);
+        } else {
+          await cancelAsaasCheckout(attempt.provider_checkout_id);
+        }
+      } catch (error) {
+        // A provider may already have expired or removed the resource. Other
+        // failures must stop deletion so no active checkout is orphaned.
+        if (![404, 409].includes(Number(error?.status))) throw error;
+      }
+    }
+    await updateCheckoutAttempt(attempt.attempt_id, {
+      status: attempt.provider === "asaas" ? "canceled" : "expired",
+    });
+  }
+  return attempts || [];
+}
+
 export default async function handler(req, res) {
   if (!allowPost(req, res)) return;
 
@@ -77,6 +110,7 @@ export default async function handler(req, res) {
     parseDeleteAccountInput(req.body);
 
     const subscriptions = await listUserSubscriptions(user.id);
+    const openAttempts = await cancelOpenBillingAttempts(user.id);
     const recurring = (subscriptions || []).filter((subscription) =>
       subscription.provider === "stripe" &&
       subscription.provider_subscription_id &&
@@ -96,8 +130,11 @@ export default async function handler(req, res) {
 
     logAuditEvent("account.delete.requested", req, {
       actorId: user.id,
-      outcome: "subscriptions_canceled",
-      provider: recurring.length > 0 ? "stripe" : "supabase",
+      outcome: "billing_resources_canceled",
+      provider: [
+        recurring.length > 0 ? "stripe" : null,
+        openAttempts.some((attempt) => attempt.provider === "asaas") ? "asaas" : null,
+      ].filter(Boolean).join(",") || "supabase",
     });
     await deleteAuthUser(user.id);
     return sendSuccess(req, res, null);

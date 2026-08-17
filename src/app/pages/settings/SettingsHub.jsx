@@ -1,7 +1,7 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Bell, Camera, ChevronRight, CreditCard, Eye, Hash, HelpCircleIcon,
-  Info, LogOut, Moon, PenLine, Shield, Smartphone, Sun, Trash2, User, Wallet,
+  ChartLine, Info, LogOut, Moon, PenLine, Shield, Smartphone, Sun, Trash2, User, Wallet,
 } from "@/lib/icons";
 import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "../../data/AuthContext";
@@ -151,6 +151,7 @@ export function SettingsHub() {
           <HubRow icon={Camera} title="Informacoes pessoais" description="Nome, @handle, bio e foto" onClick={() => go("perfil")} />
           <HubRow icon={User} title="Email e senha" description="Como voce entra no app" onClick={() => go("conta")} />
           <HubRow icon={CreditCard} title="Assinatura" description={active ? "Plano ativo" : isAdmin ? "Acesso admin" : "Sem assinatura"} onClick={() => go("assinatura")} />
+          {active ? <HubRow icon={ChartLine} title="Retrospectiva" description="Sua jornada mensal e anual" onClick={() => go("retrospectiva")} /> : null}
           <HubRow icon={Hash} title="Minhas colecoes" description={`${minhasColecoes} ${minhasColecoes === 1 ? "colecao" : "colecoes"}`} onClick={() => go("colecoes")} />
         </Group>
 

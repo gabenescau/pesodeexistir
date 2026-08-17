@@ -10,6 +10,13 @@ const POST_SELECT = "id,user_id,text,tag,book_id,image,image_paths,images,create
 const POST_PAGE_SIZE = 20;
 const MAX_OFFSET = 5000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const COMMUNITY_OPERATIONS = new Set([
+  "create_post", "delete_post", "sign_post_media", "ensure_entity_thread",
+  "list_reactions_batch", "toggle_like", "toggle_save", "toggle_follow",
+  "list_replies", "list_reactions", "create_reply", "delete_reply",
+  "list_page_comments", "create_page_comment", "delete_page_comment",
+  "toggle_poll_vote", "toggle_reaction",
+]);
 
 function invalid(message) {
   const error = new Error(message);
@@ -137,9 +144,27 @@ async function toggleUserRow(session, table, filters, row, enabled) {
   return { enabled };
 }
 
+function aggregateReactions(rows, { targetId = null, userId = null } = {}) {
+  const grouped = new Map();
+  for (const row of rows || []) {
+    const key = `${row.target_id || targetId || ""}:${row.emoji || ""}`;
+    const current = grouped.get(key) || {
+      ...(row.target_id || targetId ? { target_id: row.target_id || targetId } : {}),
+      emoji: row.emoji,
+      total: 0,
+      mine: false,
+    };
+    current.total += 1;
+    if (userId && row.user_id === userId) current.mine = true;
+    grouped.set(key, current);
+  }
+  return [...grouped.values()];
+}
+
 export async function handleCommunityWrite(req, res) {
   const session = await getRequiredCookieSession(req, res);
   const operation = boundedText(req.body?.operation, "Operacao", 40);
+  if (!COMMUNITY_OPERATIONS.has(operation)) throw invalid("Operacao da comunidade invalida.");
   if (!await enforceRateLimit(req, res, {
     scope: `community_${operation}`,
     limit: operation.startsWith("list_") ? 60 : 30,
@@ -180,7 +205,7 @@ export async function handleCommunityWrite(req, res) {
     return post;
   }
   if (operation === "delete_post") {
-    await supabaseUserRequest(session.accessToken, `posts?id=eq.${encodeURIComponent(input.postId)}`, { method: "DELETE" });
+    await supabaseUserRequest(session.accessToken, `posts?id=eq.${encodeURIComponent(input.postId)}&user_id=eq.${encodeURIComponent(session.user.id)}`, { method: "DELETE" });
     return { id: input.postId };
   }
   if (operation === "sign_post_media") {
@@ -209,10 +234,11 @@ export async function handleCommunityWrite(req, res) {
   }
   if (operation === "list_reactions_batch") {
     if (input.targetIds.length === 0) return [];
-    return supabaseUserRequest(
+    const rows = await supabaseUserRequest(
       session.accessToken,
       `reactions?select=target_id,user_id,emoji&target_type=eq.post&target_id=in.(${input.targetIds.join(",")})&limit=5000`,
     );
+    return aggregateReactions(rows, { userId: session.user.id });
   }
   if (operation === "toggle_like") return toggleUserRow(session, "post_likes", { user_id: session.user.id, post_id: input.postId }, { user_id: session.user.id, post_id: input.postId }, input.enabled);
   if (operation === "toggle_save") return toggleUserRow(session, "saved_posts", { user_id: session.user.id, post_id: input.postId }, { user_id: session.user.id, post_id: input.postId }, input.enabled);
@@ -220,19 +246,22 @@ export async function handleCommunityWrite(req, res) {
     if (input.targetId === session.user.id) throw invalid("Voce nao pode seguir a si mesmo.");
     return toggleUserRow(session, "follows", { follower_id: session.user.id, following_id: input.targetId }, { follower_id: session.user.id, following_id: input.targetId }, input.enabled);
   }
-  if (operation === "list_replies") return supabaseUserRequest(session.accessToken, `post_replies?select=*&post_id=eq.${encodeURIComponent(input.postId)}&order=created_at.asc&limit=100`);
-  if (operation === "list_reactions") return supabaseUserRequest(session.accessToken, `reactions?select=user_id,emoji&target_type=eq.${encodeURIComponent(input.targetType)}&target_id=eq.${encodeURIComponent(input.targetId)}&limit=100`);
+  if (operation === "list_replies") return supabaseUserRequest(session.accessToken, `post_replies?select=id,post_id,user_id,text,created_at,parent_id&post_id=eq.${encodeURIComponent(input.postId)}&order=created_at.asc&limit=100`);
+  if (operation === "list_reactions") {
+    const rows = await supabaseUserRequest(session.accessToken, `reactions?select=user_id,emoji&target_type=eq.${encodeURIComponent(input.targetType)}&target_id=eq.${encodeURIComponent(input.targetId)}&limit=100`);
+    return aggregateReactions(rows, { targetId: input.targetId, userId: session.user.id });
+  }
   if (operation === "create_reply") {
     const rows = await supabaseUserRequest(session.accessToken, "post_replies?select=*&limit=1", { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify({ post_id: input.postId, user_id: session.user.id, text: input.text, parent_id: input.parentId }) });
     return rows?.[0] || null;
   }
   if (operation === "delete_reply") {
-    await supabaseUserRequest(session.accessToken, `post_replies?id=eq.${encodeURIComponent(input.replyId)}`, { method: "DELETE" });
+    await supabaseUserRequest(session.accessToken, `post_replies?id=eq.${encodeURIComponent(input.replyId)}&user_id=eq.${encodeURIComponent(session.user.id)}`, { method: "DELETE" });
     return { id: input.replyId };
   }
   if (operation === "list_page_comments") {
     if (!Number.isInteger(input.pageNumber) || input.pageNumber < 1 || input.pageNumber > 100000) throw invalid("Pagina invalida.");
-    return supabaseUserRequest(session.accessToken, `book_page_comments?select=*&book_id=eq.${encodeURIComponent(input.bookId)}&page_number=eq.${input.pageNumber}&order=created_at.asc&limit=100`);
+    return supabaseUserRequest(session.accessToken, `book_page_comments?select=id,book_id,page_number,user_id,text,created_at,updated_at&book_id=eq.${encodeURIComponent(input.bookId)}&page_number=eq.${input.pageNumber}&order=created_at.asc&limit=100`);
   }
   if (operation === "create_page_comment") {
     if (!Number.isInteger(input.pageNumber) || input.pageNumber < 1 || input.pageNumber > 100000) throw invalid("Pagina invalida.");
@@ -240,7 +269,7 @@ export async function handleCommunityWrite(req, res) {
     return rows?.[0] || null;
   }
   if (operation === "delete_page_comment") {
-    await supabaseUserRequest(session.accessToken, `book_page_comments?id=eq.${encodeURIComponent(input.commentId)}`, { method: "DELETE" });
+    await supabaseUserRequest(session.accessToken, `book_page_comments?id=eq.${encodeURIComponent(input.commentId)}&user_id=eq.${encodeURIComponent(session.user.id)}`, { method: "DELETE" });
     return { id: input.commentId };
   }
   if (operation === "toggle_reaction") {
@@ -254,11 +283,9 @@ export async function handleCommunityWrite(req, res) {
       `post_poll_options?select=id&poll_id=eq.${encodeURIComponent(input.pollId)}&id=eq.${encodeURIComponent(input.optionId)}&limit=1`,
     );
     if (!option?.[0]) throw invalid("Opcao de enquete invalida.");
-    await supabaseUserRequest(session.accessToken, `post_poll_votes?poll_id=eq.${encodeURIComponent(input.pollId)}&user_id=eq.${encodeURIComponent(session.user.id)}`, { method: "DELETE" });
-    await supabaseUserRequest(session.accessToken, "post_poll_votes", {
+    await supabaseUserRequest(session.accessToken, "rpc/set_poll_vote", {
       method: "POST",
-      headers: { Prefer: "resolution=ignore-duplicates,return=minimal" },
-      body: JSON.stringify({ poll_id: input.pollId, option_id: input.optionId, user_id: session.user.id }),
+      body: JSON.stringify({ p_poll_id: input.pollId, p_option_id: input.optionId }),
     });
     return { optionId: input.optionId };
   }

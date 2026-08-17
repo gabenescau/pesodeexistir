@@ -13,18 +13,17 @@ import {
   supabaseRequest,
 } from "./supabase.js";
 
-const ACTIVE_STATUSES = new Set([
-  "active", "past_due", "trialing", "paid", "approved", "authorized",
-  "complete", "completed", "succeeded",
-]);
+const ACTIVE_STATUSES = new Set(["active", "trialing"]);
 const SIGNED_URL_TTL_SECONDS = 60 * 60;
 
 function isActiveSubscription(subscription) {
   if (!subscription || !ACTIVE_STATUSES.has(String(subscription.status || "").toLowerCase())) return false;
   const end = subscription.current_period_end || subscription.ends_at || subscription.expires_at || subscription.expiration_date;
-  if (!end) return true;
+  // A paid/approved provider response is not, by itself, an entitlement. The
+  // local subscription must have a bounded period written by the webhook.
+  if (!end) return false;
   const timestamp = new Date(end).getTime();
-  return Number.isNaN(timestamp) || timestamp >= Date.now();
+  return !Number.isNaN(timestamp) && timestamp >= Date.now();
 }
 
 function decodePath(value) {

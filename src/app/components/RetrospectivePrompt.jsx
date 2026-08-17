@@ -21,6 +21,7 @@ export function RetrospectivePrompt() {
     loadRetrospective()
       .then((snapshot) => {
         if (!active) return;
+        if (snapshot?.allowed === false) return;
         const candidates = [snapshot?.month, snapshot?.year].filter((item) => item?.hasData);
         const unseen = candidates.find((item) => {
           const key = seenKey(item);
