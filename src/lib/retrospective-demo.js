@@ -11,7 +11,7 @@ export const DEMO_RETROSPECTIVE = Object.freeze({
     booksStarted: 4,
     comments: 11,
     posts: 7,
-    topBook: Object.freeze({ title: "O Estrangeiro" }),
+    topBook: Object.freeze({ title: "O Estrangeiro", image: "/livros/17246e96e1849a868b81412a2de0bcbc.jpg" }),
     topAuthor: Object.freeze({ name: "Albert Camus" }),
   }),
   year: Object.freeze({
@@ -23,7 +23,7 @@ export const DEMO_RETROSPECTIVE = Object.freeze({
     booksStarted: 18,
     comments: 64,
     posts: 29,
-    topBook: Object.freeze({ title: "O Homem Revoltado" }),
+    topBook: Object.freeze({ title: "O Mito de Sísifo", image: "/livros/19ebdf73baa10690da782a6aa11963d8.jpg" }),
     topAuthor: Object.freeze({ name: "Albert Camus" }),
   }),
 });

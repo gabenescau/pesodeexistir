@@ -43,13 +43,39 @@ function wrapLines(ctx, value, maxWidth, maxLines = 3) {
   return result;
 }
 
-function drawMetric(ctx, x, y, value, label, icon) {
+function safeArtworkImageUrl(value) {
+  const raw = clean(value);
+  if (!raw) return "";
+  if (raw.startsWith("/") && !raw.startsWith("//")) return raw;
+  try {
+    const url = new URL(raw, window.location.origin);
+    const sameOrigin = url.origin === window.location.origin;
+    const supabaseStorage = url.hostname === "supabase.co" || url.hostname.endsWith(".supabase.co");
+    return sameOrigin || supabaseStorage ? url.href : "";
+  } catch {
+    return "";
+  }
+}
+
+function loadArtworkImage(value) {
+  const source = safeArtworkImageUrl(value);
+  if (!source) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => resolve(image);
+    image.onerror = () => resolve(null);
+    image.src = source;
+  });
+}
+
+function drawMetric(ctx, x, y, value, label) {
   ctx.fillStyle = "#f2f4ee";
   ctx.font = "700 40px Arial, sans-serif";
   ctx.fillText(value, x, y);
   ctx.fillStyle = "#9ca89e";
   ctx.font = "400 22px Arial, sans-serif";
-  ctx.fillText(`${icon}  ${label}`, x, y + 40);
+  ctx.fillText(label, x, y + 40);
 }
 
 function drawButton(ctx, x, y, width, label) {
@@ -63,7 +89,31 @@ function drawButton(ctx, x, y, width, label) {
   ctx.textAlign = "start";
 }
 
-function createArtwork(snapshot, kind, shareUrl) {
+function drawCover(ctx, image, x, y, width, height, title) {
+  ctx.save();
+  roundedRect(ctx, x, y, width, height, 28);
+  ctx.clip();
+  ctx.fillStyle = "#252d25";
+  ctx.fillRect(x, y, width, height);
+  if (image) {
+    const scale = Math.max(width / image.width, height / image.height);
+    const imageWidth = image.width * scale;
+    const imageHeight = image.height * scale;
+    ctx.drawImage(image, x + (width - imageWidth) / 2, y + (height - imageHeight) / 2, imageWidth, imageHeight);
+  } else {
+    ctx.fillStyle = "#b9f36b";
+    ctx.font = "700 24px Arial, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("OPE CLUB", x + width / 2, y + height / 2 - 14);
+    ctx.fillStyle = "#f2f4ee";
+    ctx.font = "400 20px Arial, sans-serif";
+    wrapLines(ctx, title, width - 56, 3).forEach((line, index) => ctx.fillText(line, x + width / 2, y + height / 2 + 30 + index * 28));
+    ctx.textAlign = "start";
+  }
+  ctx.restore();
+}
+
+async function createArtwork(snapshot, kind, shareUrl) {
   const canvas = document.createElement("canvas");
   canvas.width = STORY_WIDTH;
   canvas.height = STORY_HEIGHT;
@@ -78,6 +128,7 @@ function createArtwork(snapshot, kind, shareUrl) {
   const posts = Number(snapshot?.posts) || 0;
   const comments = Number(snapshot?.comments) || 0;
   const isDemo = snapshot?.isDemo === true;
+  const coverImage = await loadArtworkImage(snapshot?.topBook?.image);
 
   ctx.fillStyle = "#060706";
   ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
@@ -112,26 +163,27 @@ function createArtwork(snapshot, kind, shareUrl) {
   ctx.lineTo(896, 700);
   ctx.stroke();
 
-  drawMetric(ctx, 184, 805, minutes, "tempo de leitura", "◷");
-  drawMetric(ctx, 560, 805, String(books), books === 1 ? "livro iniciado" : "livros iniciados", "▣");
-  drawMetric(ctx, 184, 975, String(posts), posts === 1 ? "post publicado" : "posts publicados", "✦");
-  drawMetric(ctx, 560, 975, String(comments), comments === 1 ? "comentario" : "comentarios", "↗");
-
+  drawCover(ctx, coverImage, 184, 740, 282, 350, topBook);
   ctx.fillStyle = "#9ca89e";
   ctx.font = "400 22px Arial, sans-serif";
-  ctx.fillText("A leitura que mais ficou com voce", 184, 1160);
+  ctx.fillText("Seu destaque do periodo", 520, 805);
   ctx.fillStyle = "#f2f4ee";
   ctx.font = "700 39px Arial, sans-serif";
-  wrapLines(ctx, topBook, 712, 2).forEach((line, index) => ctx.fillText(line, 184, 1225 + index * 50));
+  wrapLines(ctx, topBook, 360, 4).forEach((line, index) => ctx.fillText(line, 520, 875 + index * 50));
   ctx.fillStyle = "#b9f36b";
   ctx.font = "400 25px Arial, sans-serif";
-  ctx.fillText(topAuthor, 184, 1345);
+  ctx.fillText(topAuthor, 520, 1080);
 
-  drawButton(ctx, 184, 1460, 712, "Ver minha retrospectiva");
+  drawMetric(ctx, 184, 1205, minutes, "tempo de leitura");
+  drawMetric(ctx, 560, 1205, String(books), books === 1 ? "livro iniciado" : "livros iniciados");
+  drawMetric(ctx, 184, 1365, String(posts), posts === 1 ? "post publicado" : "posts publicados");
+  drawMetric(ctx, 560, 1365, String(comments), comments === 1 ? "comentario" : "comentarios");
+
+  drawButton(ctx, 184, 1515, 712, "Abrir no OPE Club");
   ctx.fillStyle = "#7e897f";
   ctx.font = "400 19px Arial, sans-serif";
-  ctx.fillText(shareUrl.replace(/^https?:\/\//, ""), 184, 1615);
-  ctx.fillText("OPE CLUB  |  Leia, pense, compartilhe", 184, 1660);
+  ctx.fillText(shareUrl.replace(/^https?:\/\//, ""), 184, 1645);
+  ctx.fillText("OPE CLUB  |  Leia, pense, compartilhe", 184, 1690);
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Nao foi possivel gerar a arte."))), "image/png");
@@ -139,10 +191,7 @@ function createArtwork(snapshot, kind, shareUrl) {
 }
 
 export function RetrospectiveModal({ data, initialKind = "month", open, onClose }) {
-  const available = useMemo(() => ({
-    month: data?.month || null,
-    year: data?.year || null,
-  }), [data]);
+  const available = useMemo(() => ({ month: data?.month || null, year: data?.year || null }), [data]);
   const [kind, setKind] = useState(initialKind);
   const [artworkUrl, setArtworkUrl] = useState("");
   const [artworkBlob, setArtworkBlob] = useState(null);
@@ -161,7 +210,7 @@ export function RetrospectiveModal({ data, initialKind = "month", open, onClose 
     if (!open) return undefined;
     setKind(initialKind === "year" && available.year ? "year" : available.month ? "month" : "year");
     return undefined;
-  }, [open, initialKind, available.year]);
+  }, [open, initialKind, available.year, available.month]);
 
   useEffect(() => {
     if (!open || !snapshot || !shareUrl) return undefined;
@@ -174,16 +223,12 @@ export function RetrospectiveModal({ data, initialKind = "month", open, onClose 
         setArtworkBlob(blob);
         setArtworkUrl(URL.createObjectURL(blob));
       })
-      .catch((cause) => {
-        if (!cancelled) setError(cause?.message || "Nao foi possivel preparar a arte.");
-      })
+      .catch((cause) => { if (!cancelled) setError(cause?.message || "Nao foi possivel preparar a arte."); })
       .finally(() => { if (!cancelled) setGenerating(false); });
     return () => { cancelled = true; };
-  }, [open, snapshot, kind, shareUrl]);
+  }, [open, snapshot, kind, shareUrl, isDemo]);
 
-  useEffect(() => () => {
-    if (artworkUrl) URL.revokeObjectURL(artworkUrl);
-  }, [artworkUrl]);
+  useEffect(() => () => { if (artworkUrl) URL.revokeObjectURL(artworkUrl); }, [artworkUrl]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -216,12 +261,8 @@ export function RetrospectiveModal({ data, initialKind = "month", open, onClose 
   }
 
   async function copyLink() {
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      toast.success("Link da retrospectiva copiado.");
-    } catch {
-      toast.error("Nao foi possivel copiar o link.");
-    }
+    try { await navigator.clipboard.writeText(shareUrl); toast.success("Link da retrospectiva copiado."); }
+    catch { toast.error("Nao foi possivel copiar o link."); }
   }
 
   function shareWhatsApp() {
@@ -233,26 +274,16 @@ export function RetrospectiveModal({ data, initialKind = "month", open, onClose 
       <button type="button" className="absolute inset-0 cursor-default" aria-label="Fechar" onClick={onClose} />
       <div className="relative flex max-h-[94dvh] w-full flex-col overflow-hidden rounded-t-[24px] border border-[var(--border)] bg-[var(--bg-card)] shadow-2xl sm:max-w-[720px] sm:rounded-[24px]">
         <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--accent-mint)]">OPE Club</p>
-            <h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{isDemo ? "Exemplo de retrospectiva" : "Sua retrospectiva"}</h2>
-          </div>
+          <div><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--accent-mint)]">OPE Club</p><h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{isDemo ? "Exemplo de retrospectiva" : "Sua retrospectiva"}</h2></div>
           <button type="button" onClick={onClose} className="flex size-10 items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]" aria-label="Fechar retrospectiva"><X className="size-5" /></button>
         </div>
-
         <div className="flex flex-wrap gap-2 border-b border-[var(--border)] px-5 py-3">
-          {["month", "year"].map((option) => available[option] ? (
-            <button key={option} type="button" onClick={() => setKind(option)} className={`min-h-10 rounded-full px-4 text-xs font-semibold transition-colors ${kind === option ? "bg-[var(--text-primary)] text-[var(--bg-card)]" : "border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"}`}>
-              {option === "month" ? "Mensal" : "Anual"}
-            </button>
-          ) : null)}
+          {["month", "year"].map((option) => available[option] ? <button key={option} type="button" onClick={() => setKind(option)} className={`min-h-10 rounded-full px-4 text-xs font-semibold transition-colors ${kind === option ? "bg-[var(--text-primary)] text-[var(--bg-card)]" : "border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"}`}>{option === "month" ? "Mensal" : "Anual"}</button> : null)}
         </div>
-
         <div className="grid min-h-0 gap-5 overflow-y-auto p-5 sm:grid-cols-[240px_1fr] sm:items-center">
           <div className="mx-auto w-[min(55vw,240px)] overflow-hidden rounded-[16px] border border-[var(--border)] bg-black shadow-[var(--shadow-sm)]">
             {generating ? <div className="flex aspect-[9/16] items-center justify-center p-5 text-center text-xs text-white/60">Preparando sua arte...</div> : artworkUrl ? <img src={artworkUrl} alt={`Retrospectiva ${snapshot.label} do OPE Club`} className="aspect-[9/16] w-full object-cover" /> : <div className="flex aspect-[9/16] items-center justify-center p-4 text-center text-xs text-red-300">{error || "Arte indisponivel"}</div>}
           </div>
-
           <div className="space-y-4">
             <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{isDemo ? "Esta e uma pre-visualizacao com dados ficticios para voce testar o formato e o compartilhamento." : "Um resumo da sua jornada de leitura e participacao. A arte foi feita para compartilhar em Stories, WhatsApp ou onde voce quiser."}</p>
             <div className="grid grid-cols-2 gap-2 text-xs text-[var(--text-secondary)]">
@@ -262,10 +293,7 @@ export function RetrospectiveModal({ data, initialKind = "month", open, onClose 
               <div className="rounded-2xl border border-[var(--border)] p-3"><Share2 className="mb-2 size-4 text-[var(--accent-mint)]" /><strong className="block text-[var(--text-primary)]">{snapshot.posts || 0}</strong>posts</div>
             </div>
             <button type="button" onClick={shareNative} disabled={!artworkUrl || generating} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--text-primary)] px-4 text-sm font-semibold text-[var(--bg-card)] transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-50"><Share2 className="size-5" /> Compartilhar no celular</button>
-            <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={downloadArtwork} disabled={!artworkUrl || generating} className="flex min-h-11 items-center justify-center gap-2 rounded-full border border-[var(--border)] px-3 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] disabled:opacity-50"><Download className="size-4" /> Baixar para Story</button>
-              <button type="button" onClick={shareWhatsApp} className="flex min-h-11 items-center justify-center gap-2 rounded-full border border-[var(--border)] px-3 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--hover-overlay)]"><WhatsappLogo className="size-4" /> WhatsApp</button>
-            </div>
+            <div className="grid grid-cols-2 gap-2"><button type="button" onClick={downloadArtwork} disabled={!artworkUrl || generating} className="flex min-h-11 items-center justify-center gap-2 rounded-full border border-[var(--border)] px-3 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] disabled:opacity-50"><Download className="size-4" /> Baixar para Story</button><button type="button" onClick={shareWhatsApp} className="flex min-h-11 items-center justify-center gap-2 rounded-full border border-[var(--border)] px-3 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--hover-overlay)]"><WhatsappLogo className="size-4" /> WhatsApp</button></div>
             <button type="button" onClick={copyLink} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[var(--border)] px-4 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"><Copy className="size-4" /> Copiar link da retrospectiva</button>
             <p className="text-center text-[10px] text-[var(--text-muted)]">No celular, o compartilhamento abre Instagram, WhatsApp e outros apps instalados.</p>
           </div>
