@@ -14,6 +14,12 @@ function slug(value) {
     .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48) || "livro";
 }
 
+function roundedRect(ctx, x, y, width, height, radius) {
+  ctx.beginPath();
+  ctx.roundRect(x, y, width, height, radius);
+  ctx.closePath();
+}
+
 function drawCta(ctx, x, y, width, label) {
   ctx.fillStyle = "#f5f5f5";
   ctx.beginPath();
