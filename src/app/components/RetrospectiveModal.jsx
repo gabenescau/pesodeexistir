@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { BookOpen, Clock, Copy, Download, Share2, WhatsappLogo, X } from "@/lib/icons";
 import { toast } from "@/lib/toast";
 import { copyShareText, downloadShareFile, openWhatsAppShare, shareArtwork } from "@/app/components/share-utils";
+import { drawBrandFooter, drawBrandHeader, drawDivider, drawMetricIcon } from "@/app/components/share-artwork-style";
 
 const STORY_WIDTH = 1080;
 const STORY_HEIGHT = 1920;
@@ -82,22 +83,11 @@ function drawFavoriteList(ctx, x, y, width, title, items, getLabel) {
     const rowY = y + 62 + index * 48;
     ctx.fillStyle = "#8d8d8d";
     ctx.font = "700 22px Arial, sans-serif";
-    ctx.fillText(String(index + 1), x, rowY);
+    ctx.fillText(String(index + 1).padStart(2, "0"), x, rowY);
     ctx.fillStyle = "#f5f5f5";
     ctx.font = "400 22px Arial, sans-serif";
     ctx.fillText(line, x + 38, rowY);
   });
-}
-
-function drawButton(ctx, x, y, width, label) {
-  ctx.fillStyle = "#f5f5f5";
-  roundedRect(ctx, x, y, width, 76, 38);
-  ctx.fill();
-  ctx.fillStyle = "#111111";
-  ctx.font = "700 25px Arial, sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText(label, x + width / 2, y + 48);
-  ctx.textAlign = "start";
 }
 
 function drawCover(ctx, image, x, y, width, height, title) {
@@ -124,14 +114,14 @@ function drawCover(ctx, image, x, y, width, height, title) {
   ctx.restore();
 }
 
-async function createArtwork(snapshot, kind, shareUrl) {
+async function createArtwork(snapshot, kind) {
   const canvas = document.createElement("canvas");
   canvas.width = STORY_WIDTH;
   canvas.height = STORY_HEIGHT;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Seu navegador nao conseguiu criar a arte.");
 
-  const period = clean(snapshot?.label, kind === "year" ? "seu ano" : "seu mes");
+  const period = clean(snapshot?.label, kind === "year" ? "seu ano" : "seu mês");
   const topBooks = Array.isArray(snapshot?.topBooks) && snapshot.topBooks.length
     ? snapshot.topBooks
     : [snapshot?.topBook].filter(Boolean);
@@ -139,69 +129,62 @@ async function createArtwork(snapshot, kind, shareUrl) {
     ? snapshot.topAuthors
     : [snapshot?.topAuthor].filter(Boolean);
   const topBook = clean(topBooks[0]?.title, "Uma leitura marcante");
-  const topAuthor = clean(topAuthors[0]?.name, "Autores que acompanharam voce");
+  const topAuthor = clean(topAuthors[0]?.name, "Autores que acompanharam você");
   const minutes = formatMinutes(snapshot?.minutes);
   const books = Number(snapshot?.booksStarted) || 0;
+  const ratings = Number(snapshot?.ratings ?? snapshot?.reviews ?? 0) || 0;
   const coverImage = await loadArtworkImage(topBooks[0]?.image || snapshot?.topBook?.image);
 
   ctx.fillStyle = "#080808";
   ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
   ctx.fillStyle = "#171717";
-  roundedRect(ctx, 112, 190, 856, 1540, 48);
+  roundedRect(ctx, 40, 40, 1000, 1840, 36);
   ctx.fill();
-
-  ctx.fillStyle = "#f5f5f5";
-  ctx.font = "700 34px Arial, sans-serif";
-  ctx.fillText("OPE CLUB", 184, 300);
-  ctx.fillStyle = "#a4a4a4";
-  ctx.font = "400 23px Arial, sans-serif";
-  ctx.fillText(kind === "year" ? "retrospectiva anual" : "retrospectiva mensal", 184, 345);
-  ctx.fillStyle = "#f5f5f5";
-  ctx.font = "700 67px Arial, sans-serif";
-  ctx.fillText("Sua leitura", 184, 490);
-  ctx.fillText("em retrospectiva", 184, 570);
-  ctx.fillStyle = "#c9c9c9";
-  ctx.font = "700 31px Arial, sans-serif";
-  ctx.fillText(period, 184, 632);
-
-  ctx.strokeStyle = "#3b3b3b";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(184, 700);
-  ctx.lineTo(896, 700);
-  ctx.stroke();
-
-  drawCover(ctx, coverImage, 184, 740, 282, 350, topBook);
-  ctx.fillStyle = "#a4a4a4";
-  ctx.font = "400 22px Arial, sans-serif";
-  ctx.fillText("Seu destaque do periodo", 520, 805);
-  ctx.fillStyle = "#f5f5f5";
-  ctx.font = "700 39px Arial, sans-serif";
-  wrapLines(ctx, topBook, 360, 4).forEach((line, index) => ctx.fillText(line, 520, 875 + index * 50));
-  ctx.fillStyle = "#c9c9c9";
-  ctx.font = "400 25px Arial, sans-serif";
-  ctx.fillText(topAuthor, 520, 1080);
-
-  drawFavoriteList(ctx, 184, 1190, 330, "Livros favoritos", topBooks, (item) => item?.title);
-  drawFavoriteList(ctx, 560, 1190, 330, "Autores favoritos", topAuthors, (item) => item?.name);
+  drawBrandHeader(ctx, { x: 100, y: 120, date: period.toUpperCase() });
+  drawDivider(ctx, 100, 250, 880);
 
   ctx.fillStyle = "#a4a4a4";
-  ctx.font = "700 24px Arial, sans-serif";
-  ctx.fillText("Tempo de leitura", 184, 1475);
+  ctx.font = "700 25px Arial, sans-serif";
+  ctx.fillText(kind === "year" ? "RETROSPECTIVA ANUAL" : "RETROSPECTIVA MENSAL", 100, 335);
+  ctx.fillStyle = "#f5f5f5";
+  ctx.font = "700 68px Arial, sans-serif";
+  ctx.fillText(kind === "year" ? "Seu ano" : "Seu mês", 100, 425);
+  ctx.fillText("em perspectiva", 100, 505);
+
+  ctx.fillStyle = "#111111";
+  roundedRect(ctx, 100, 590, 880, 350, 28);
+  ctx.fill();
+  drawCover(ctx, coverImage, 135, 625, 265, 280, topBook);
+  ctx.fillStyle = "#a4a4a4";
+  ctx.font = "700 22px Arial, sans-serif";
+  ctx.fillText("SEU DESTAQUE", 455, 700);
+  ctx.fillStyle = "#f5f5f5";
+  ctx.font = "700 42px Arial, sans-serif";
+  wrapLines(ctx, topBook, 410, 3).forEach((line, index) => ctx.fillText(line, 455, 770 + index * 54));
+  ctx.fillStyle = "#a4a4a4";
+  ctx.font = "400 28px Arial, sans-serif";
+  ctx.fillText(topAuthor, 455, 890);
+
+  drawMetricIcon(ctx, "book", 190, 1005);
+  drawMetricIcon(ctx, "clock", 500, 1005);
+  drawMetricIcon(ctx, "star", 810, 1005);
   ctx.fillStyle = "#f5f5f5";
   ctx.font = "700 52px Arial, sans-serif";
-  ctx.fillText(minutes, 184, 1545);
-  ctx.fillStyle = "#8d8d8d";
-  ctx.font = "400 20px Arial, sans-serif";
-  ctx.fillText(`${books} ${books === 1 ? "livro iniciado" : "livros iniciados"}`, 184, 1585);
+  ctx.textAlign = "center";
+  ctx.fillText(String(books), 224, 1150);
+  ctx.fillText(minutes, 534, 1150);
+  ctx.fillText(String(ratings), 844, 1150);
+  ctx.fillStyle = "#a4a4a4";
+  ctx.font = "400 22px Arial, sans-serif";
+  ctx.fillText("LIVROS LIDOS", 224, 1195);
+  ctx.fillText("TEMPO DE LEITURA", 534, 1195);
+  ctx.fillText("AVALIAÇÕES", 844, 1195);
+  ctx.textAlign = "start";
 
-  drawButton(ctx, 184, 1610, 712, "Abrir no OPE Club");
-  ctx.fillStyle = "#8d8d8d";
-  ctx.font = "400 19px Arial, sans-serif";
-  ctx.fillText(shareUrl.replace(/^https?:\/\//, ""), 184, 1705);
-  ctx.fillStyle = "#686868";
-  ctx.font = "600 19px Arial, sans-serif";
-  ctx.fillText("OPE CLUB  |  Leia, pense, compartilhe", 184, 1750);
+  drawDivider(ctx, 100, 1280, 880);
+  drawFavoriteList(ctx, 100, 1360, 360, "LIVROS MAIS LIDOS", topBooks, (item) => item?.title);
+  drawFavoriteList(ctx, 570, 1360, 360, "AUTORES MAIS LIDOS", topAuthors, (item) => item?.name);
+  drawBrandFooter(ctx, { x: 100, y: 1720 });
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Nao foi possivel gerar a arte."))), "image/png");
@@ -234,7 +217,7 @@ export function RetrospectiveModal({ data, initialKind = "month", open, onClose 
     let cancelled = false;
     setGenerating(true);
     setError("");
-    createArtwork(snapshot, kind, shareUrl)
+    createArtwork(snapshot, kind)
       .then((blob) => {
         if (cancelled) return;
         setArtworkBlob(blob);

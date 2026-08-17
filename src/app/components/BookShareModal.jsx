@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { BookOpen, Copy, InstagramLogo, Share2, WhatsappLogo, X } from "@/lib/icons";
 import { toast } from "@/lib/toast";
 import { copyShareText, downloadShareFile, openWhatsAppShare, shareArtwork } from "@/app/components/share-utils";
+import { drawBrandFooter, drawBrandHeader, drawDivider } from "@/app/components/share-artwork-style";
 
 const STORY_WIDTH = 1080;
 const STORY_HEIGHT = 1920;
@@ -19,19 +20,6 @@ function roundedRect(ctx, x, y, width, height, radius) {
   ctx.beginPath();
   ctx.roundRect(x, y, width, height, radius);
   ctx.closePath();
-}
-
-function drawCta(ctx, x, y, width, label) {
-  ctx.fillStyle = "#f5f5f5";
-  ctx.beginPath();
-  ctx.roundRect(x, y, width, 82, 41);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = "#111111";
-  ctx.font = "700 27px Arial, sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText(label, x + width / 2, y + 51);
-  ctx.textAlign = "start";
 }
 
 function wrapLines(ctx, value, maxWidth, maxLines = 3) {
@@ -62,7 +50,7 @@ function loadImage(url) {
   });
 }
 
-async function createBookArtwork(book, authorName, bookUrl, readingProgress, currentPage, totalPages) {
+async function createBookArtwork(book, authorName, readingProgress, currentPage, totalPages) {
   const canvas = document.createElement("canvas");
   canvas.width = STORY_WIDTH;
   canvas.height = STORY_HEIGHT;
@@ -71,8 +59,6 @@ async function createBookArtwork(book, authorName, bookUrl, readingProgress, cur
 
   const title = clean(book?.title, "Livro no OPE Club").slice(0, 100);
   const author = clean(authorName, "Autor OPE Club").slice(0, 80);
-  const category = clean(book?.category, "Literatura").slice(0, 60);
-  const bio = clean(book?.bio, "Uma leitura para descobrir no OPE Club.").slice(0, 220);
   const progress = Math.min(100, Math.max(0, Number(readingProgress) || 0));
   const page = Math.max(1, Number(currentPage) || 1);
   const pages = Math.max(0, Number(totalPages) || 0);
@@ -81,72 +67,82 @@ async function createBookArtwork(book, authorName, bookUrl, readingProgress, cur
   ctx.fillStyle = "#080808";
   ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
   ctx.fillStyle = "#171717";
-  ctx.beginPath();
-  ctx.roundRect(150, 120, 780, 1680, 52);
+  roundedRect(ctx, 112, 100, 856, 1720, 48);
   ctx.fill();
+  drawBrandHeader(ctx, { x: 150, y: 170 });
+  drawDivider(ctx, 150, 330, 780);
 
-  ctx.fillStyle = "#f5f5f5";
-  ctx.font = "700 46px Arial, sans-serif";
-  ctx.fillText("OPE", 220, 250);
-  ctx.fillText("CLUB", 220, 300);
   ctx.fillStyle = "#a4a4a4";
-  ctx.font = "400 25px Arial, sans-serif";
-  ctx.fillText("biblioteca + comunidade", 220, 354);
+  ctx.font = "700 27px Arial, sans-serif";
+  ctx.fillText("LENDO NO MOMENTO", 150, 430);
 
+  const coverX = 150;
+  const coverY = 500;
+  const coverWidth = 405;
+  const coverHeight = 690;
   ctx.fillStyle = "#2b2b2b";
   ctx.shadowColor = "rgba(0,0,0,0.45)";
-  ctx.shadowBlur = 28;
-  ctx.beginPath();
-  ctx.roundRect(250, 430, 580, 760, 26);
+  ctx.shadowBlur = 24;
+  roundedRect(ctx, coverX, coverY, coverWidth, coverHeight, 28);
   ctx.fill();
   ctx.shadowBlur = 0;
 
   if (cover) {
-    const scale = Math.min(580 / cover.width, 760 / cover.height);
+    const scale = Math.max(coverWidth / cover.width, coverHeight / cover.height);
     const width = cover.width * scale;
     const height = cover.height * scale;
-    ctx.drawImage(cover, 250 + (580 - width) / 2, 430 + (760 - height) / 2, width, height);
+    ctx.save();
+    roundedRect(ctx, coverX, coverY, coverWidth, coverHeight, 28);
+    ctx.clip();
+    ctx.drawImage(cover, coverX + (coverWidth - width) / 2, coverY + (coverHeight - height) / 2, width, height);
+    ctx.restore();
   } else {
     ctx.fillStyle = "#303030";
-    ctx.fillRect(250, 430, 580, 760);
+    roundedRect(ctx, coverX, coverY, coverWidth, coverHeight, 28);
+    ctx.fill();
     ctx.fillStyle = "#f5f5f5";
     ctx.font = "700 90px Arial, sans-serif";
-    ctx.fillText("OPE", 420, 760);
+    ctx.fillText("OPE", 250, 820);
     ctx.font = "400 34px Arial, sans-serif";
-    ctx.fillText("capa indisponivel", 355, 830);
+    ctx.fillText("capa indisponivel", 235, 890);
   }
 
+  const textX = 625;
   ctx.fillStyle = "#a4a4a4";
-  ctx.font = "700 23px Arial, sans-serif";
-  ctx.fillText("LEITURA", 220, 1270);
+  ctx.font = "700 25px Arial, sans-serif";
+  ctx.fillText("LEITURA", textX, 560);
   ctx.fillStyle = "#f5f5f5";
-  ctx.font = "700 58px Arial, sans-serif";
-  wrapLines(ctx, title, 640, 2).forEach((line, index) => ctx.fillText(line, 220, 1340 + index * 70));
+  ctx.font = "700 54px Arial, sans-serif";
+  wrapLines(ctx, title, 300, 4).forEach((line, index) => ctx.fillText(line, textX, 660 + index * 68));
   ctx.fillStyle = "#c9c9c9";
-  ctx.font = "400 30px Arial, sans-serif";
-  ctx.fillText(author, 220, 1485);
-  ctx.fillStyle = "#8d8d8d";
+  ctx.font = "400 31px Arial, sans-serif";
+  ctx.fillText(author, textX, 1000);
+  drawDivider(ctx, textX, 1050, 300);
+  ctx.fillStyle = "#a4a4a4";
   ctx.font = "400 25px Arial, sans-serif";
-  ctx.fillText(category, 220, 1530);
-  ctx.fillStyle = "#c9c9c9";
-  ctx.font = "400 23px Arial, sans-serif";
-  ctx.fillText(wrapLines(ctx, bio, 640, 1)[0] || "Uma leitura para descobrir no OPE Club.", 220, 1570);
-  ctx.fillStyle = "#3b3b3b";
-  roundedRect(ctx, 220, 1600, 640, 12, 6);
+  ctx.fillText("Autor", textX, 1110);
+  ctx.fillStyle = "#f5f5f5";
+  ctx.fillText(author, textX, 1155);
+
+  ctx.fillStyle = "#171717";
+  roundedRect(ctx, 150, 1300, 780, 220, 28);
+  ctx.fill();
+  ctx.fillStyle = "#a4a4a4";
+  ctx.font = "700 25px Arial, sans-serif";
+  ctx.fillText("PROGRESSO DA LEITURA", 185, 1360);
+  ctx.fillStyle = "#2d2d2d";
+  roundedRect(ctx, 185, 1400, 710, 14, 7);
   ctx.fill();
   ctx.fillStyle = "#f5f5f5";
-  roundedRect(ctx, 220, 1600, Math.max(12, 640 * (progress / 100)), 12, 6);
+  roundedRect(ctx, 185, 1400, Math.max(14, 710 * (progress / 100)), 14, 7);
   ctx.fill();
-  ctx.fillStyle = "#b9b9b9";
-  ctx.font = "400 22px Arial, sans-serif";
-  ctx.fillText(pages > 0 ? `${progress}% lido  |  pagina ${Math.min(page, pages)} de ${pages}` : `${progress}% lido`, 220, 1630);
-  drawCta(ctx, 220, 1645, 640, "Abrir livro");
-  ctx.fillStyle = "#8d8d8d";
-  ctx.font = "400 20px Arial, sans-serif";
-  ctx.fillText(bookUrl.replace(/^https?:\/\//, ""), 220, 1765);
-  ctx.fillStyle = "#686868";
-  ctx.font = "600 20px Arial, sans-serif";
-  ctx.fillText("OPE CLUB  |  Leia, pense, compartilhe", 220, 1795);
+  ctx.fillStyle = "#a4a4a4";
+  ctx.font = "400 24px Arial, sans-serif";
+  ctx.fillText(`${progress}% lido`, 185, 1470);
+  ctx.textAlign = "right";
+  ctx.fillText(pages > 0 ? `pagina ${Math.min(page, pages)} de ${pages}` : "", 895, 1470);
+  ctx.textAlign = "start";
+  drawBrandFooter(ctx, { x: 150, y: 1660 });
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Nao foi possivel gerar a arte."))), "image/png");
@@ -171,7 +167,7 @@ export function BookShareModal({ book, authorName, readingProgress, currentPage,
     let cancelled = false;
     setGenerating(true);
     setError("");
-    createBookArtwork(book, authorName, bookUrl, progressValue, currentPage ?? book?.currentPage, totalPages ?? book?.totalPages)
+    createBookArtwork(book, authorName, progressValue, currentPage ?? book?.currentPage, totalPages ?? book?.totalPages)
       .then((blob) => {
         if (cancelled) return;
         setArtworkBlob(blob);

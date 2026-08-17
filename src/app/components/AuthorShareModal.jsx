@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Copy, Download, InstagramLogo, Share2, WhatsappLogo, X } from "@/lib/icons";
 import { toast } from "@/lib/toast";
 import { copyShareText, downloadShareFile, openWhatsAppShare, shareArtwork } from "@/app/components/share-utils";
+import { drawBrandFooter, drawBrandHeader, drawDivider } from "@/app/components/share-artwork-style";
 
 const STORY_WIDTH = 1080;
 const STORY_HEIGHT = 1920;
@@ -19,17 +20,6 @@ function roundedRect(ctx, x, y, width, height, radius) {
   ctx.beginPath();
   ctx.roundRect(x, y, width, height, radius);
   ctx.closePath();
-}
-
-function drawCta(ctx, x, y, width, label) {
-  ctx.fillStyle = "#f5f5f5";
-  roundedRect(ctx, x, y, width, 82, 41);
-  ctx.fill();
-  ctx.fillStyle = "#111111";
-  ctx.font = "700 27px Arial, sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText(label, x + width / 2, y + 51);
-  ctx.textAlign = "start";
 }
 
 function wrapLines(ctx, value, maxWidth, maxLines = 4) {
@@ -63,7 +53,7 @@ function loadImage(url) {
   });
 }
 
-async function createAuthorArtwork(author, books, authorUrl) {
+async function createAuthorArtwork(author) {
   const canvas = document.createElement("canvas");
   canvas.width = STORY_WIDTH;
   canvas.height = STORY_HEIGHT;
@@ -72,28 +62,22 @@ async function createAuthorArtwork(author, books, authorUrl) {
 
   const authorName = text(author?.name, "Autor OPE Club").slice(0, 80);
   const era = text(author?.era, "Literatura e pensamento").slice(0, 80);
-  const bio = text(author?.bio, "Descubra livros, ideias e conversas no OPE Club.").slice(0, 260);
   const image = await loadImage(author?.image);
 
   ctx.fillStyle = "#080808";
   ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
   ctx.fillStyle = "#171717";
-  roundedRect(ctx, 150, 210, 780, 1500, 52);
+  roundedRect(ctx, 112, 100, 856, 1720, 48);
   ctx.fill();
-
-  ctx.fillStyle = "#f5f5f5";
-  ctx.font = "700 46px Arial, sans-serif";
-  ctx.fillText("OPE", 220, 320);
-  ctx.fillText("CLUB", 220, 370);
-  ctx.fillStyle = "#8d8d8d";
-  ctx.font = "400 25px Arial, sans-serif";
-  ctx.fillText("uma comunidade para quem pensa junto", 220, 424);
+  drawBrandHeader(ctx, { x: 184, y: 190 });
+  drawDivider(ctx, 184, 355, 712);
 
   const imageX = 220;
-  const imageY = 480;
+  const imageY = 440;
   const imageSize = 640;
   ctx.save();
-  roundedRect(ctx, imageX, imageY, imageSize, imageSize, 28);
+  ctx.beginPath();
+  ctx.arc(imageX + imageSize / 2, imageY + imageSize / 2, imageSize / 2, 0, Math.PI * 2);
   ctx.clip();
   if (image) {
     const scale = Math.max(imageSize / image.width, imageSize / image.height);
@@ -113,29 +97,18 @@ async function createAuthorArtwork(author, books, authorUrl) {
   }
   ctx.restore();
 
+  ctx.fillStyle = "#a4a4a4";
+  ctx.font = "700 25px Arial, sans-serif";
+  ctx.fillText("AUTOR", 220, 1250);
   ctx.fillStyle = "#f5f5f5";
-  ctx.font = "700 62px Arial, sans-serif";
+  ctx.font = "700 66px Arial, sans-serif";
   for (const [index, line] of wrapLines(ctx, authorName, 640, 2).entries()) {
-    ctx.fillText(line, 220, 1215 + index * 74);
+    ctx.fillText(line, 220, 1340 + index * 78);
   }
   ctx.fillStyle = "#a9a9a9";
-  ctx.font = "400 30px Arial, sans-serif";
-  ctx.fillText(era, 220, 1370);
-
-  ctx.fillStyle = "#d6d6d6";
-  ctx.font = "400 27px Arial, sans-serif";
-  wrapLines(ctx, bio, 640, 2).forEach((line, index) => ctx.fillText(line, 220, 1425 + index * 39));
-
-  ctx.fillStyle = "#8d8d8d";
-  ctx.font = "400 25px Arial, sans-serif";
-  ctx.fillText(`${books.length} ${books.length === 1 ? "livro" : "livros"} na biblioteca`, 220, 1535);
-  drawCta(ctx, 220, 1575, 640, "Conhecer autor");
-  ctx.fillStyle = "#888888";
-  ctx.font = "400 20px Arial, sans-serif";
-  ctx.fillText(authorUrl.replace(/^https?:\/\//, ""), 220, 1690);
-  ctx.fillStyle = "#686868";
-  ctx.font = "600 20px Arial, sans-serif";
-  ctx.fillText("OPE CLUB  |  Biblioteca + comunidade", 220, 1735);
+  ctx.font = "400 34px Arial, sans-serif";
+  ctx.fillText(era, 220, 1435);
+  drawBrandFooter(ctx, { x: 184, y: 1660 });
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Nao foi possivel gerar a arte."))), "image/png");
@@ -159,7 +132,7 @@ export function AuthorShareModal({ author, books = [], open, onClose }) {
     let cancelled = false;
     setGenerating(true);
     setError("");
-    createAuthorArtwork(author, books, authorUrl)
+    createAuthorArtwork(author)
       .then((blob) => {
         if (cancelled) return;
         setArtworkBlob(blob);
