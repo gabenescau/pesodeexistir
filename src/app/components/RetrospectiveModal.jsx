@@ -77,6 +77,7 @@ function createArtwork(snapshot, kind, shareUrl) {
   const books = Number(snapshot?.booksStarted) || 0;
   const posts = Number(snapshot?.posts) || 0;
   const comments = Number(snapshot?.comments) || 0;
+  const isDemo = snapshot?.isDemo === true;
 
   ctx.fillStyle = "#060706";
   ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
@@ -90,6 +91,11 @@ function createArtwork(snapshot, kind, shareUrl) {
   ctx.fillStyle = "#9ca89e";
   ctx.font = "400 23px Arial, sans-serif";
   ctx.fillText(kind === "year" ? "retrospectiva anual" : "retrospectiva mensal", 184, 345);
+  if (isDemo) {
+    ctx.fillStyle = "#b9f36b";
+    ctx.font = "700 18px Arial, sans-serif";
+    ctx.fillText("PREVIA COM DADOS FICTICIOS", 184, 380);
+  }
 
   ctx.fillStyle = "#f2f4ee";
   ctx.font = "700 67px Arial, sans-serif";
@@ -143,12 +149,13 @@ export function RetrospectiveModal({ data, initialKind = "month", open, onClose 
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
   const snapshot = available[kind] || available.month || available.year;
+  const isDemo = data?.isDemo === true;
   const shareUrl = useMemo(() => {
     if (typeof window === "undefined") return "";
-    return `${window.location.origin}/app/retrospectiva?period=${kind}`;
-  }, [kind]);
+    return `${window.location.origin}/app/retrospectiva?period=${kind}${isDemo ? "&demo=1" : ""}`;
+  }, [kind, isDemo]);
   const fileName = `retrospectiva-${kind}-ope-club.png`;
-  const message = `Minha retrospectiva ${clean(snapshot?.label, "no OPE Club")}: ${shareUrl}`;
+  const message = `${isDemo ? "Exemplo de retrospectiva" : "Minha retrospectiva"} ${clean(snapshot?.label, "no OPE Club")}: ${shareUrl}`;
 
   useEffect(() => {
     if (!open) return undefined;
@@ -161,7 +168,7 @@ export function RetrospectiveModal({ data, initialKind = "month", open, onClose 
     let cancelled = false;
     setGenerating(true);
     setError("");
-    createArtwork(snapshot, kind, shareUrl)
+    createArtwork({ ...snapshot, isDemo }, kind, shareUrl)
       .then((blob) => {
         if (cancelled) return;
         setArtworkBlob(blob);
@@ -228,7 +235,7 @@ export function RetrospectiveModal({ data, initialKind = "month", open, onClose 
         <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--accent-mint)]">OPE Club</p>
-            <h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">Sua retrospectiva</h2>
+            <h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{isDemo ? "Exemplo de retrospectiva" : "Sua retrospectiva"}</h2>
           </div>
           <button type="button" onClick={onClose} className="flex size-10 items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]" aria-label="Fechar retrospectiva"><X className="size-5" /></button>
         </div>
@@ -247,7 +254,7 @@ export function RetrospectiveModal({ data, initialKind = "month", open, onClose 
           </div>
 
           <div className="space-y-4">
-            <p className="text-sm leading-relaxed text-[var(--text-secondary)]">Um resumo da sua jornada de leitura e participacao. A arte foi feita para compartilhar em Stories, WhatsApp ou onde voce quiser.</p>
+            <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{isDemo ? "Esta e uma pre-visualizacao com dados ficticios para voce testar o formato e o compartilhamento." : "Um resumo da sua jornada de leitura e participacao. A arte foi feita para compartilhar em Stories, WhatsApp ou onde voce quiser."}</p>
             <div className="grid grid-cols-2 gap-2 text-xs text-[var(--text-secondary)]">
               <div className="rounded-2xl border border-[var(--border)] p-3"><Clock className="mb-2 size-4 text-[var(--accent-mint)]" /><strong className="block text-[var(--text-primary)]">{formatMinutes(snapshot.minutes)}</strong>de leitura</div>
               <div className="rounded-2xl border border-[var(--border)] p-3"><BookOpen className="mb-2 size-4 text-[var(--accent-mint)]" /><strong className="block text-[var(--text-primary)]">{snapshot.booksStarted || 0}</strong>livros iniciados</div>

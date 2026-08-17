@@ -4,6 +4,7 @@ import { ArrowUpRight, BookOpen, ChartLine, ChatCircle, Clock, Lock } from "@/li
 import { SettingsLayout, SettingsSection } from "../../components/SettingsLayout";
 import { RetrospectiveModal } from "../../components/RetrospectiveModal";
 import { loadRetrospective } from "@/lib/retrospective-api";
+import { DEMO_RETROSPECTIVE } from "@/lib/retrospective-demo";
 
 function formatMinutes(value) {
   const minutes = Math.max(0, Number(value) || 0);
@@ -19,6 +20,7 @@ export function SettingsRetrospective() {
   const [data, setData] = useState(null);
   const [kind, setKind] = useState("month");
   const [shareOpen, setShareOpen] = useState(false);
+  const [demoMode, setDemoMode] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -29,17 +31,18 @@ export function SettingsRetrospective() {
     return () => { active = false; };
   }, []);
 
-  const snapshot = data?.[kind] || null;
-  const allowed = data?.allowed !== false;
+  const viewData = demoMode ? DEMO_RETROSPECTIVE : data;
+  const snapshot = viewData?.[kind] || null;
+  const allowed = demoMode || viewData?.allowed !== false;
 
   return (
     <SettingsLayout title="Retrospectiva" subtitle="Sua jornada de leitura no OPE Club" onBack={() => setSearchParams({})}>
       <SettingsSection icon={ChartLine} label="Sua jornada">
-        {error ? <p className="p-5 text-sm text-[var(--text-secondary)]">{error}</p> : !data ? <p className="p-5 text-sm text-[var(--text-secondary)]">Carregando sua retrospectiva...</p> : !allowed ? (
+        {error && !demoMode ? <div className="flex flex-col items-center gap-3 p-8 text-center"><p className="text-sm text-[var(--text-secondary)]">{error}</p><button type="button" onClick={() => { setError(""); setDemoMode(true); }} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[var(--border)] px-4 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--hover-overlay)]">Ver exemplo</button></div> : !data && !demoMode ? <p className="p-5 text-sm text-[var(--text-secondary)]">Carregando sua retrospectiva...</p> : !allowed ? (
           <div className="flex flex-col items-center gap-3 p-8 text-center">
             <div className="flex size-12 items-center justify-center rounded-full border border-[var(--border)] text-[var(--text-muted)]"><Lock className="size-5" /></div>
             <div><p className="font-medium text-[var(--text-primary)]">Beneficio dos planos OPE Club</p><p className="mt-1 text-xs text-[var(--text-muted)]">Assine um plano para acompanhar e compartilhar sua retrospectiva.</p></div>
-            <button type="button" onClick={() => navigate("/app/planos")} className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[var(--text-primary)] px-4 text-xs font-semibold text-[var(--bg-card)]"><ArrowUpRight className="size-4" /> Ver planos</button>
+            <div className="flex flex-wrap justify-center gap-2"><button type="button" onClick={() => navigate("/app/planos")} className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[var(--text-primary)] px-4 text-xs font-semibold text-[var(--bg-card)]"><ArrowUpRight className="size-4" /> Ver planos</button><button type="button" onClick={() => setDemoMode(true)} className="inline-flex min-h-10 items-center rounded-full border border-[var(--border)] px-4 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--hover-overlay)]">Ver exemplo</button></div>
           </div>
         ) : (
           <>
@@ -49,8 +52,10 @@ export function SettingsRetrospective() {
                   {option === "month" ? "Mensal" : "Anual"}
                 </button>
               ))}
+              <button type="button" onClick={() => setDemoMode((value) => !value)} className={`ml-auto min-h-10 rounded-full border px-3 text-[11px] font-semibold ${demoMode ? "border-[var(--accent-mint)] text-[var(--accent-mint)]" : "border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}>{demoMode ? "Voltar aos meus dados" : "Ver exemplo"}</button>
             </div>
             <div className="p-4 sm:p-5">
+              {demoMode ? <p className="mb-3 rounded-xl border border-[var(--accent-mint)]/40 bg-[var(--accent-mint)]/5 px-3 py-2 text-xs text-[var(--text-secondary)]">Pre-visualizacao com dados ficticios. Nada aqui altera sua conta.</p> : null}
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--accent-mint)]">{snapshot?.label || (kind === "month" ? "Ultimo mes" : "Ultimo ano")}</p>
               <h2 className="mt-2 text-xl font-semibold text-[var(--text-primary)]">Tudo o que voce viveu na leitura</h2>
               {snapshot?.hasData ? (
@@ -69,7 +74,7 @@ export function SettingsRetrospective() {
           </>
         )}
       </SettingsSection>
-      <RetrospectiveModal data={data} initialKind={kind} open={shareOpen} onClose={() => setShareOpen(false)} />
+      <RetrospectiveModal data={viewData} initialKind={kind} open={shareOpen} onClose={() => setShareOpen(false)} />
     </SettingsLayout>
   );
 }
