@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { BookOpen, Copy, InstagramLogo, Share2, WhatsappLogo, X } from "@/lib/icons";
 import { toast } from "@/lib/toast";
+import { copyShareText, downloadShareFile, openWhatsAppShare, shareArtwork } from "@/app/components/share-utils";
 
 const STORY_WIDTH = 1080;
 const STORY_HEIGHT = 1920;
@@ -197,34 +198,34 @@ export function BookShareModal({ book, authorName, readingProgress, currentPage,
   if (!open) return null;
 
   function downloadArtwork() {
-    if (!artworkUrl) return;
-    const anchor = document.createElement("a");
-    anchor.href = artworkUrl;
-    anchor.download = fileName;
-    anchor.click();
-    toast.success("Arte baixada. Agora voce pode publicar no Story.");
+    if (!downloadShareFile({ blob: artworkBlob, url: artworkUrl, fileName })) return;
+    toast.success("Arte pronta. Publique no Story do Instagram ou em outro app.");
   }
 
   async function shareNative() {
     try {
-      const file = artworkBlob ? new File([artworkBlob], fileName, { type: "image/png" }) : null;
-      const shareData = { title: `${clean(book?.title)} no OPE Club`, text: message, url: bookUrl };
-      if (file && navigator.canShare?.({ files: [file] })) shareData.files = [file];
-      if (!navigator.share) return downloadArtwork();
-      await navigator.share(shareData);
+      const result = await shareArtwork({
+        blob: artworkBlob,
+        fileName,
+        title: `${clean(book?.title)} no OPE Club`,
+        text: message,
+        url: bookUrl,
+        onFallback: downloadArtwork,
+      });
+      if (result === "shared") toast.success("Compartilhamento aberto.");
     } catch (cause) {
       if (cause?.name !== "AbortError") toast.error("Nao foi possivel abrir o compartilhamento.");
     }
   }
 
   function shareWhatsApp() {
-    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+    openWhatsAppShare(message);
   }
 
   async function copyLink() {
     try {
-      await navigator.clipboard.writeText(bookUrl);
-      toast.success("Link do livro copiado.");
+      if (await copyShareText(bookUrl)) toast.success("Link do livro copiado.");
+      else throw new Error("copy_failed");
     } catch {
       toast.error("Nao foi possivel copiar o link.");
     }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Copy, Download, InstagramLogo, Share2, WhatsappLogo, X } from "@/lib/icons";
 import { toast } from "@/lib/toast";
+import { copyShareText, downloadShareFile, openWhatsAppShare, shareArtwork } from "@/app/components/share-utils";
 
 const STORY_WIDTH = 1080;
 const STORY_HEIGHT = 1920;
@@ -184,35 +185,36 @@ export function AuthorShareModal({ author, books = [], open, onClose }) {
 
   if (!open) return null;
 
-  async function downloadArtwork() {
-    if (!artworkUrl) return;
-    const anchor = document.createElement("a");
-    anchor.href = artworkUrl;
-    anchor.download = fileName;
-    anchor.click();
-    toast.success("Arte baixada. Agora voce pode publicar no Story.");
+  function downloadArtwork() {
+    if (!downloadShareFile({ blob: artworkBlob, url: artworkUrl, fileName })) return;
+    toast.success("Arte pronta. Publique no Story do Instagram ou em outro app.");
   }
 
   async function shareNative() {
     try {
-      const file = artworkBlob ? new File([artworkBlob], fileName, { type: "image/png" }) : null;
-      const shareData = { title: `${text(author?.name)} no OPE Club`, text: message, url: authorUrl };
-      if (file && navigator.canShare?.({ files: [file] })) shareData.files = [file];
-      if (!navigator.share) return downloadArtwork();
-      await navigator.share(shareData);
+      const result = await shareArtwork({
+        blob: artworkBlob,
+        fileName,
+        title: `${text(author?.name)} no OPE Club`,
+        text: message,
+        url: authorUrl,
+        onFallback: downloadArtwork,
+      });
+      if (result === "shared") toast.success("Compartilhamento aberto.");
     } catch (cause) {
       if (cause?.name !== "AbortError") toast.error("Nao foi possivel abrir o compartilhamento.");
     }
   }
 
   function shareWhatsApp() {
-    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+    openWhatsAppShare(message);
   }
 
   async function copyLink() {
     try {
-      await navigator.clipboard.writeText(authorUrl);
+      if (await copyShareText(authorUrl)) {
       toast.success("Link do autor copiado.");
+      } else throw new Error("copy_failed");
     } catch {
       toast.error("Nao foi possivel copiar o link.");
     }
