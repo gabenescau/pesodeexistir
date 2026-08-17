@@ -158,7 +158,7 @@ async function createArtwork(snapshot, kind, shareUrl) {
   ctx.fillStyle = "#f5f5f5";
   ctx.font = "700 67px Arial, sans-serif";
   ctx.fillText("Sua leitura", 184, 490);
-  ctx.fillText("em perspectiva", 184, 570);
+  ctx.fillText("em retrospectiva", 184, 570);
   ctx.fillStyle = "#c9c9c9";
   ctx.font = "700 31px Arial, sans-serif";
   ctx.fillText(period, 184, 632);
