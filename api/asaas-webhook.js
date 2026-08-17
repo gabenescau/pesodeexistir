@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { markAsaasCheckoutState, syncAsaasCheckout } from "../server/asaas-sync.js";
+import { markAsaasCheckoutState, syncAsaasCheckout, syncAsaasPayment } from "../server/asaas-sync.js";
 import {
   prepareResponse,
   sendError,
@@ -34,12 +34,22 @@ function getCheckoutId(payload) {
   ).trim();
 }
 
-async function claimEvent(eventId, eventType, checkoutId) {
+function getPaymentId(payload) {
+  return String(
+    payload?.payment?.id ||
+    payload?.data?.payment?.id ||
+    payload?.paymentId ||
+    payload?.payment_id ||
+    ""
+  ).trim();
+}
+
+async function claimEvent(eventId, eventType, providerId) {
   try {
     const rows = await supabaseRequest("asaas_webhook_events", {
       method: "POST",
       headers: { Prefer: "return=representation" },
-      body: JSON.stringify({ event_id: eventId, event_type: eventType, checkout_id: checkoutId || null }),
+      body: JSON.stringify({ event_id: eventId, event_type: eventType, checkout_id: providerId || null }),
     });
     return { event: rows?.[0] || null, fresh: true };
   } catch (error) {
@@ -72,12 +82,14 @@ export default async function handler(req, res) {
   const eventId = getEventId(payload);
   const eventType = getEventType(payload);
   const checkoutId = getCheckoutId(payload);
+  const paymentId = getPaymentId(payload);
+  const providerId = checkoutId || paymentId;
   if (!/^[A-Za-z0-9._:&-]{1,255}$/.test(eventId) || !/^[A-Z0-9_.-]{1,255}$/.test(eventType)) {
     return res.status(400).json({ success: false, error: "Evento invalido" });
   }
 
   try {
-    const claim = await claimEvent(eventId, eventType, checkoutId);
+    const claim = await claimEvent(eventId, eventType, providerId);
     if (!claim.fresh) {
       // Asaas retries deliveries. A processed or currently processing event is
       // acknowledged without executing the entitlement mutation twice.
@@ -87,6 +99,11 @@ export default async function handler(req, res) {
     if (["CHECKOUT_PAID"].includes(eventType)) {
       if (!checkoutId) throw new Error("Evento pago sem checkout");
       await syncAsaasCheckout(checkoutId);
+    } else if (["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED", "PAYMENT_OVERDUE", "PAYMENT_UPDATED", "PAYMENT_REFUNDED"].includes(eventType)) {
+      if (!paymentId) throw new Error("Evento de pagamento sem cobranca");
+      await syncAsaasPayment(paymentId);
+    } else if (["PAYMENT_DELETED", "PAYMENT_CREDIT_CARD_CAPTURE_REFUSED", "PAYMENT_REPROVED_BY_RISK_ANALYSIS"].includes(eventType)) {
+      if (paymentId) await markAsaasCheckoutState(paymentId, "canceled");
     } else if (eventType === "CHECKOUT_CANCELED") {
       if (checkoutId) await markAsaasCheckoutState(checkoutId, "canceled");
     } else if (eventType === "CHECKOUT_EXPIRED") {

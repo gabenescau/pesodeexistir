@@ -1,4 +1,4 @@
-import { asaasRequest } from "./asaas.js";
+import { asaasRequest, getAsaasPayment } from "./asaas.js";
 import {
   insertSubscription,
   listUserSubscriptions,
@@ -57,7 +57,7 @@ function periodEnd(durationDays) {
   return end.toISOString();
 }
 
-async function grantSubscription(attempt, checkout, plan) {
+async function grantSubscription(attempt, checkout, plan, paymentMethod = "ASAAS_CHECKOUT") {
   const subscriptions = await listUserSubscriptions(attempt.user_id);
   const existing = subscriptions.find((subscription) =>
     subscription.provider === "asaas" && subscription.provider_order_id === checkout.id
@@ -67,7 +67,7 @@ async function grantSubscription(attempt, checkout, plan) {
     provider: "asaas",
     checkout_id: checkout.id,
     external_reference: attempt.external_reference,
-    payment_method: "ASAAS_CHECKOUT",
+    payment_method: paymentMethod,
   };
   const payload = {
     user_id: attempt.user_id,
@@ -94,6 +94,24 @@ async function grantSubscription(attempt, checkout, plan) {
   }
   if (existing) return updateSubscription(existing.id, payload);
   return insertSubscription(payload);
+}
+
+async function revokeSubscriptionForPayment(attempt, paymentId) {
+  const subscriptions = await listUserSubscriptions(attempt.user_id);
+  const subscription = subscriptions.find((item) =>
+    item.provider === "asaas" && item.provider_order_id === paymentId
+  );
+  if (!subscription || subscription.status === "refunded") return subscription || null;
+  return updateSubscription(subscription.id, {
+    status: "refunded",
+    cancel_at_period_end: false,
+    canceled_at: new Date().toISOString(),
+    metadata: {
+      ...subscription.metadata,
+      refund_confirmed_by: "asaas",
+      refunded_at: new Date().toISOString(),
+    },
+  });
 }
 
 export async function syncAsaasCheckout(checkoutId) {
@@ -133,7 +151,51 @@ export async function syncAsaasCheckout(checkoutId) {
     throw providerFailure("Valor do checkout Asaas nao confere com o plano", 409);
   }
 
-  const subscription = await grantSubscription(attempt, checkout, plan);
+  const subscription = await grantSubscription(attempt, checkout, plan, "ASAAS_CHECKOUT");
+  const updatedAttempt = attempt.status === "completed"
+    ? attempt
+    : await updateCheckoutAttempt(attempt.attempt_id, { status: "completed" });
+  return { status: "completed", attempt: updatedAttempt || attempt, subscription };
+}
+
+export async function syncAsaasPayment(paymentId) {
+  if (typeof paymentId !== "string" || !/^[A-Za-z0-9_-]{8,160}$/.test(paymentId)) {
+    throw providerFailure("Pagamento Asaas invalido", 400);
+  }
+
+  const attempt = await findAttempt(paymentId);
+  if (!attempt) throw providerFailure("Pagamento Asaas nao encontrado", 404);
+  const payment = await getAsaasPayment(paymentId);
+  const status = asaasStatus(payment);
+
+  if (["CANCELED", "DELETED", "OVERDUE", "REFUNDED", "PAYMENT_REFUNDED"].includes(status)) {
+    const subscription = status === "REFUNDED" || status === "PAYMENT_REFUNDED"
+      ? await revokeSubscriptionForPayment(attempt, paymentId)
+      : null;
+    const updated = attempt.status === "completed"
+      ? attempt
+      : await updateCheckoutAttempt(attempt.attempt_id, { status: status === "OVERDUE" ? "expired" : "canceled" });
+    return { status: updated?.status || attempt.status, attempt: updated || attempt, subscription };
+  }
+
+  // Asaas documents CONFIRMED as paid but not yet available. Entitlements are
+  // granted only after PAYMENT_RECEIVED, when the funds are available.
+  if (!["RECEIVED", "RECEIVED_IN_CASH"].includes(status)) {
+    return { status: attempt.status, attempt, subscription: null };
+  }
+
+  const reference = checkoutReference(payment);
+  if (reference !== attempt.external_reference || reference !== `ope-checkout:${attempt.attempt_id}`) {
+    throw providerFailure("Referencia do pagamento Asaas nao confere", 409);
+  }
+
+  const plan = getBillingPlan(attempt.plan_key);
+  const amount = amountInCents(payment);
+  if (amount !== plan.price) {
+    throw providerFailure("Valor do pagamento Asaas nao confere com o plano", 409);
+  }
+
+  const subscription = await grantSubscription(attempt, payment, plan, "PIX");
   const updatedAttempt = attempt.status === "completed"
     ? attempt
     : await updateCheckoutAttempt(attempt.attempt_id, { status: "completed" });

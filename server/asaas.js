@@ -46,7 +46,7 @@ function providerError(status, body) {
 }
 
 export async function asaasRequest(path, options = {}) {
-  if (!/^\/[a-zA-Z0-9_/?=&.-]+$/.test(path)) {
+  if (!/^\/[a-zA-Z0-9_/?=&.%:+-]+$/.test(path)) {
     const error = new Error("Caminho Asaas invalido");
     error.status = 500;
     throw error;
@@ -77,7 +77,7 @@ export function buildCheckoutLink(checkoutId) {
   return `${getCheckoutHost()}/checkoutSession/show?id=${encodeURIComponent(checkoutId)}`;
 }
 
-export async function createAsaasCheckout({ plan, email, name, attemptId, siteUrl }) {
+export async function createAsaasCheckout({ plan, attemptId, siteUrl }) {
   const externalReference = `ope-checkout:${attemptId}`;
   const payload = {
     billingTypes: ["PIX", "CREDIT_CARD"],
@@ -121,4 +121,110 @@ export async function cancelAsaasCheckout(checkoutId) {
     method: "POST",
     body: JSON.stringify({}),
   });
+}
+
+function assertProviderId(value, label, pattern = /^[A-Za-z0-9_-]{8,120}$/) {
+  if (typeof value !== "string" || !pattern.test(value)) {
+    const error = new Error(`${label} Asaas invalido`);
+    error.status = 502;
+    throw error;
+  }
+  return value;
+}
+
+function customerReference(userId) {
+  return `ope-user:${assertProviderId(userId, "Usuario", /^[0-9a-f-]{36}$/i)}`;
+}
+
+function documentDigits(value) {
+  return String(value || "").replace(/\D/g, "");
+}
+
+export async function createAsaasCustomer({ name, email, cpfCnpj, userId }) {
+  const externalReference = customerReference(userId);
+  const existing = await asaasRequest(
+    `/customers?externalReference=${encodeURIComponent(externalReference)}&limit=1`
+  );
+  const customer = Array.isArray(existing?.data) ? existing.data[0] : null;
+  if (customer?.id) {
+    const storedDocument = documentDigits(customer.cpfCnpj);
+    if (storedDocument && storedDocument !== documentDigits(cpfCnpj)) {
+      const error = new Error("O CPF/CNPJ informado nao corresponde ao cadastro de pagamento");
+      error.status = 400;
+      error.userSafe = true;
+      throw error;
+    }
+    return { id: assertProviderId(customer.id, "Cliente"), externalReference };
+  }
+
+  const created = await asaasRequest("/customers", {
+    method: "POST",
+    body: JSON.stringify({
+      name,
+      email,
+      cpfCnpj,
+      externalReference,
+      notificationDisabled: false,
+    }),
+  });
+  if (!created?.id) {
+    const error = new Error("Asaas nao retornou o identificador do cliente");
+    error.status = 502;
+    throw error;
+  }
+  return { id: assertProviderId(created.id, "Cliente"), externalReference };
+}
+
+export async function getAsaasPayment(paymentId) {
+  return asaasRequest(`/payments/${encodeURIComponent(assertProviderId(paymentId, "Pagamento"))}`);
+}
+
+export async function getAsaasPixQrCode(paymentId) {
+  const id = assertProviderId(paymentId, "Pagamento");
+  // The Asaas endpoint requires a genuinely empty GET body. Do not pass a
+  // JSON body here or the provider can reject the request with HTTP 403.
+  const qrCode = await asaasRequest(`/payments/${encodeURIComponent(id)}/pixQrCode`, {
+    method: "GET",
+  });
+  if (!qrCode?.encodedImage || !qrCode?.payload) {
+    const error = new Error("Asaas nao retornou um QR Code Pix valido");
+    error.status = 502;
+    throw error;
+  }
+  return {
+    encodedImage: String(qrCode.encodedImage),
+    payload: String(qrCode.payload),
+    expirationDate: qrCode.expirationDate || null,
+  };
+}
+
+export async function createAsaasPixPayment({ plan, email, name, cpfCnpj, userId, attemptId }) {
+  const customer = await createAsaasCustomer({ name, email, cpfCnpj, userId });
+  const externalReference = `ope-checkout:${assertProviderId(attemptId, "Tentativa", /^[A-Za-z0-9_-]{16,100}$/)}`;
+  const dueDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const payment = await asaasRequest("/payments", {
+    method: "POST",
+    body: JSON.stringify({
+      customer: customer.id,
+      billingType: "PIX",
+      value: Number((plan.price / 100).toFixed(2)),
+      dueDate,
+      description: plan.name,
+      externalReference,
+    }),
+  });
+  const paymentId = assertProviderId(payment?.id, "Pagamento");
+  const qrCode = await getAsaasPixQrCode(paymentId);
+  return {
+    id: paymentId,
+    customerId: customer.id,
+    externalReference,
+    status: payment?.status || "PENDING",
+    qrCode,
+  };
+}
+
+export async function deleteAsaasPayment(paymentId) {
+  const id = assertProviderId(paymentId, "Pagamento");
+  return asaasRequest(`/payments/${encodeURIComponent(id)}`, { method: "DELETE" });
 }

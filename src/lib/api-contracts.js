@@ -90,12 +90,55 @@ export function parseSubscriptionIdInput(input) {
   };
 }
 
+function isValidCpfCnpj(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (![11, 14].includes(digits.length) || /^(\d)\1+$/.test(digits)) return false;
+  if (digits.length === 11) {
+    let sum = 0;
+    for (let index = 0; index < 9; index += 1) sum += Number(digits[index]) * (10 - index);
+    let check = (sum * 10) % 11;
+    if (check === 10) check = 0;
+    if (check !== Number(digits[9])) return false;
+    sum = 0;
+    for (let index = 0; index < 10; index += 1) sum += Number(digits[index]) * (11 - index);
+    check = (sum * 10) % 11;
+    if (check === 10) check = 0;
+    return check === Number(digits[10]);
+  }
+  const calculate = (length) => {
+    let sum = 0;
+    let weight = length - 7;
+    for (let index = 0; index < length; index += 1) {
+      sum += Number(digits[index]) * weight;
+      weight -= 1;
+      if (weight < 2) weight = 9;
+    }
+    const remainder = sum % 11;
+    return remainder < 2 ? 0 : 11 - remainder;
+  };
+  return calculate(12) === Number(digits[12]) && calculate(13) === Number(digits[13]);
+}
+
 export function parseAsaasCheckoutInput(input) {
   const body = objectInput(input);
   const plan = planKey(body.plan || body.planKey || "leitor-monthly");
   const attemptId = body.attemptId == null ? null : requiredString(body.attemptId, "Tentativa de checkout", 100);
   if (attemptId && !ATTEMPT_ID_PATTERN.test(attemptId)) throw new ContractError("Tentativa de checkout invalida");
   return { plan, attemptId };
+}
+
+export function parseAsaasPixInput(input) {
+  const body = objectInput(input);
+  const plan = planKey(body.plan || body.planKey || "leitor-monthly");
+  const attemptId = body.attemptId == null ? null : requiredString(body.attemptId, "Tentativa de checkout", 100);
+  if (attemptId && !ATTEMPT_ID_PATTERN.test(attemptId)) throw new ContractError("Tentativa de checkout invalida");
+  const name = requiredString(body.name, "Nome", 80);
+  if (name.length < 2) throw new ContractError("Nome invalido");
+  const email = requiredString(body.email, "Email", 254).toLowerCase();
+  if (!EMAIL_PATTERN.test(email)) throw new ContractError("Email invalido");
+  const cpfCnpj = String(body.cpfCnpj || "").replace(/\D/g, "");
+  if (!isValidCpfCnpj(cpfCnpj)) throw new ContractError("CPF ou CNPJ invalido");
+  return { plan, attemptId, name, email, cpfCnpj };
 }
 
 export function parseAsaasAttemptInput(input) {

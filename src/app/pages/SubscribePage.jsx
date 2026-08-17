@@ -8,7 +8,7 @@ import { getCurrentSubscription, isActiveSubscription } from "@/lib/subscription
 import { Loader2, ShieldCheck } from "@/lib/icons";
 import { PlanBenefitList } from "@/components/plan-benefit";
 import { toast } from "@/lib/toast";
-import { parseAsaasCheckoutInput } from "@/lib/api-contracts";
+import { AsaasPixModal } from "@/app/components/AsaasPixModal";
 
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
@@ -29,6 +29,10 @@ export function SubscribePage() {
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState("");
   const [checkoutMessage, setCheckoutMessage] = useState("");
+  const [pixOpen, setPixOpen] = useState(false);
+  const [pixPlanKey, setPixPlanKey] = useState(null);
+  const [pixPayment, setPixPayment] = useState(null);
+  const [pixError, setPixError] = useState("");
 
   const visibleSubscription = currentSubscription || subscription;
   const active = isActiveSubscription(visibleSubscription);
@@ -89,40 +93,76 @@ export function SubscribePage() {
     return () => { cancelled = true; };
   }, [checkoutAttemptId, checkoutState, setSearchParams, user]);
 
-  async function handlePlanAction(planKey) {
-    if (working) return;
-    if (!isAdmin && active) {
-      toast.info("Seu acesso atual continua válido até a data exibida. Depois disso, escolha um novo plano.");
-      return;
-    }
-    setWorking("checkout");
-    try {
-      const checkoutInput = parseAsaasCheckoutInput({
-        plan: planKey,
-        attemptId:
-          window.crypto?.randomUUID?.() ||
-          `checkout-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      });
-      setCheckoutMessage("Redirecionando você para o checkout seguro do Asaas (Pix ou cartão)...");
-      const result = await authenticatedApiPost("/api/asaas-billing", { ...checkoutInput, action: "create" });
-      if (!result?.url) throw new Error("O Asaas não retornou o endereço do checkout.");
-      window.location.assign(result.url);
-    } catch (error) {
-      setCheckoutMessage("");
-      toast.error(error?.message || "Não foi possível abrir o checkout.");
-    } finally {
-      setWorking("");
-    }
-  }
-
   function handlePlanSelection(nextTierId) {
     setTierId(nextTierId);
     if (active && currentInfo?.tier === nextTierId && currentInfo?.cycle === cycle) {
       toast.info("Este ja e o seu plano atual.");
       return;
     }
-    void handlePlanAction(getTierPlanKey(nextTierId, cycle));
+    setPixPlanKey(getTierPlanKey(nextTierId, cycle));
+    setPixPayment(null);
+    setPixError("");
+    setPixOpen(true);
   }
+
+  async function handlePixSubmit(form) {
+    if (working || !pixPlanKey) return;
+    setWorking("pix");
+    setPixError("");
+    try {
+      const randomPart = window.crypto?.getRandomValues
+        ? Array.from(window.crypto.getRandomValues(new Uint32Array(2))).join("")
+        : "retry";
+      const attemptId = window.crypto?.randomUUID?.() || `checkout-${Date.now()}-${randomPart}`;
+      const result = await authenticatedApiPost("/api/asaas-billing", {
+        action: "create",
+        plan: pixPlanKey,
+        attemptId,
+        ...form,
+      });
+      if (!result?.qrCode?.payload) throw new Error("A Asaas nao retornou um Pix valido.");
+      setPixPayment(result);
+    } catch (error) {
+      setPixError(error?.message || "Nao foi possivel gerar o Pix.");
+    } finally {
+      setWorking("");
+    }
+  }
+
+  useEffect(() => {
+    if (!pixOpen || !pixPayment?.attemptId) return undefined;
+    let cancelled = false;
+    let timer;
+    let checks = 0;
+    async function pollPayment() {
+      try {
+        const result = await authenticatedApiPost("/api/asaas-billing", {
+          action: "status",
+          attemptId: pixPayment.attemptId,
+        });
+        if (cancelled) return;
+        if (result?.paid) {
+          toast.success("Pagamento confirmado. Seu acesso esta ativo.");
+          window.location.replace("/app/inicio?payment=success");
+          return;
+        }
+        if (["expired", "canceled"].includes(result?.status)) {
+          setPixError("Este Pix expirou ou foi cancelado. Gere um novo codigo.");
+          setPixPayment(null);
+          return;
+        }
+      } catch (error) {
+        if (!cancelled && checks >= 2) setPixError(error?.message || "Nao foi possivel consultar o pagamento.");
+      }
+      checks += 1;
+      if (!cancelled && checks < 24) timer = window.setTimeout(pollPayment, 5000);
+    }
+    pollPayment();
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [pixOpen, pixPayment?.attemptId]);
 
   if (loading) {
     return (
@@ -133,8 +173,20 @@ export function SubscribePage() {
   }
 
   const orderedTiers = TIER_ORDER.map((id) => TIERS[id]).filter(Boolean);
+  const pixPlan = pixPlanKey
+    ? (() => {
+      const [tier, selectedCycle] = pixPlanKey.split("-");
+      const config = TIERS[tier];
+      if (!config) return null;
+      return {
+        name: `${config.label} ${selectedCycle === "annual" ? "Anual" : "Mensal"}`,
+        price: selectedCycle === "annual" ? config.annualPrice : config.monthlyPrice,
+      };
+    })()
+    : null;
 
   return (
+    <>
     <main className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 sm:py-16">
 
       {/* ── Header Clean ── */}
@@ -304,7 +356,7 @@ export function SubscribePage() {
                     : "border border-[var(--border)] text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] active:scale-[0.99]"
                 }`}
               >
-                {working === "checkout" && isSelected ? (
+                {working === "pix" && isSelected ? (
                   <>
                     <Loader2 className="size-4 animate-spin" />
                     Processando...
@@ -323,5 +375,17 @@ export function SubscribePage() {
       </div>
 
     </main>
+    <AsaasPixModal
+      isOpen={pixOpen}
+      plan={pixPlan}
+      defaultEmail={user?.email || ""}
+      defaultName={user?.user_metadata?.name || ""}
+      working={working === "pix" ? working : ""}
+      error={pixError}
+      payment={pixPayment}
+      onClose={() => { if (!working) setPixOpen(false); }}
+      onSubmit={handlePixSubmit}
+    />
+    </>
   );
 }
