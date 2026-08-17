@@ -18,9 +18,9 @@ const SIGNED_URL_TTL_SECONDS = 60 * 60;
 
 function isActiveSubscription(subscription) {
   if (!subscription || !ACTIVE_STATUSES.has(String(subscription.status || "").toLowerCase())) return false;
-  const end = subscription.current_period_end || subscription.ends_at || subscription.expires_at || subscription.expiration_date;
-  // A paid/approved provider response is not, by itself, an entitlement. The
-  // local subscription must have a bounded period written by the webhook.
+  // The current subscriptions schema uses current_period_end as the single
+  // bounded entitlement timestamp. Do not trust provider status alone.
+  const end = subscription.current_period_end;
   if (!end) return false;
   const timestamp = new Date(end).getTime();
   return !Number.isNaN(timestamp) && timestamp >= Date.now();
@@ -109,7 +109,7 @@ export async function handleBookPdf(req, res) {
     const isAdmin = profile?.role === "admin";
     if (!isAdmin) {
       const subscriptions = await supabaseRequest(
-        `subscriptions?user_id=eq.${encodeURIComponent(user.id)}&select=status,current_period_end,ends_at,expires_at,expiration_date&order=updated_at.desc&limit=20`,
+        `subscriptions?user_id=eq.${encodeURIComponent(user.id)}&select=status,current_period_end&order=updated_at.desc&limit=20`,
       );
       if (!subscriptions.some(isActiveSubscription)) {
         return sendClientError(req, res, 403, "Assine um plano ativo para ler este livro.");
