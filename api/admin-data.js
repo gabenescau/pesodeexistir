@@ -4,8 +4,12 @@ import {
   sendSuccess,
 } from "../server/supabase.js";
 import { getAdminBootstrap, handleAdminAction } from "../server/admin.js";
+import handleAdminSubscription from "../server/admin-subscription.js";
 
 export default async function handler(req, res) {
+  if (String(req.query?.route || "") === "admin-subscription") {
+    return handleAdminSubscription(req, res);
+  }
   if (!allowAuthRequest(req, res, {
     method: req.method === "GET" ? "GET" : "POST",
     requireHeader: true,

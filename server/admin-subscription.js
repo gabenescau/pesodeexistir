@@ -1,4 +1,4 @@
-import { getGrantPlan, getPlanByCode } from "../server/plans.js";
+import { getGrantPlan, getPlanByCode } from "./plans.js";
 import { parseAdminSubscriptionInput } from "../src/lib/api-contracts.js";
 import {
   allowPost,
@@ -13,7 +13,7 @@ import {
   sendError,
   sendSuccess,
   updateSubscription,
-} from "../server/supabase.js";
+} from "./supabase.js";
 
 const ALLOWED_DURATIONS = new Set([7, 30, 90, 180, 365]);
 
@@ -104,7 +104,7 @@ async function setManualDuration({ admin, userId, durationDays }) {
   });
 }
 
-export default async function handler(req, res) {
+export default async function handleAdminSubscription(req, res) {
   if (!allowPost(req, res)) return;
 
   try {
@@ -120,13 +120,7 @@ export default async function handler(req, res) {
 
     let updated;
     if (action === "grant") {
-      updated = await grantManual({
-        admin: user,
-        userId,
-        email,
-        plan,
-        durationDays,
-      });
+      updated = await grantManual({ admin: user, userId, email, plan, durationDays });
     } else if (action === "set_duration") {
       updated = await setManualDuration({ admin: user, userId, durationDays });
     } else {

@@ -1,6 +1,7 @@
 {
   "rewrites": [
     { "source": "/api/book-pdf/:bookId", "destination": "/api/stripe-session?mode=book-pdf&bookId=:bookId" },
+    { "source": "/api/admin-subscription", "destination": "/api/admin-data?route=admin-subscription" },
     { "source": "/api/:path*", "destination": "/api/:path*" },
     { "source": "/:path*", "destination": "/index.html" }
   ],
