@@ -49,7 +49,7 @@ function wrapLines(ctx, value, maxWidth, maxLines = 6) {
 }
 
 function loadImage(url) {
-  if (!url || !/^https?:\/\//i.test(url)) return Promise.resolve(null);
+  if (!url || (!/^https?:\/\//i.test(url) && !url.startsWith("/"))) return Promise.resolve(null);
   return new Promise((resolve) => {
     const image = new Image();
     image.crossOrigin = "anonymous";
@@ -77,6 +77,7 @@ async function createPostArtwork(post) {
   const avatar = await loadImage(post?.avatar || post?.authorProfile?.avatar || post?.authorProfile?.avatar_url);
   const imageSource = Array.isArray(post?.images) ? post.images[0] : post?.image;
   const image = await loadImage(imageSource);
+  const opeLogo = await loadImage("/ope-share-logo.png");
 
   ctx.font = "400 38px Arial, sans-serif";
   const contentLines = wrapLines(ctx, content, CONTENT_WIDTH, 10);
@@ -106,7 +107,8 @@ async function createPostArtwork(post) {
   ctx.strokeStyle = "#292929";
   ctx.lineWidth = 2;
   ctx.stroke();
-  drawLogoMark(ctx, CARD_X + CARD_WIDTH - 76, CARD_Y + 40, 42);
+  if (opeLogo) ctx.drawImage(opeLogo, CARD_X + CARD_WIDTH - 76, CARD_Y + 40, 42, 42);
+  else drawLogoMark(ctx, CARD_X + CARD_WIDTH - 76, CARD_Y + 40, 42);
 
   const avatarX = 140;
   const avatarY = 170;
@@ -171,7 +173,8 @@ async function createPostArtwork(post) {
   ctx.fillText(`${likes} curtidas`, CONTENT_X, footerY);
   ctx.fillText(`${replies} respostas`, CONTENT_X + 220, footerY);
   const brandX = CONTENT_X + CONTENT_WIDTH - 168;
-  drawLogoMark(ctx, brandX, footerY - 29, 32);
+  if (opeLogo) ctx.drawImage(opeLogo, brandX, footerY - 29, 32, 32);
+  else drawLogoMark(ctx, brandX, footerY - 29, 32);
   ctx.fillStyle = "#d8d8d8";
   ctx.font = "700 20px Arial, sans-serif";
   ctx.fillText("OPE CLUB", brandX + 46, footerY - 5);
