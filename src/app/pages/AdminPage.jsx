@@ -8,6 +8,7 @@ import { isActiveSubscription, pickCurrentSubscription } from "@/lib/subscriptio
 import { planInfoFromCode } from "@/lib/plans";
 import {
   LIBRARY_BUCKETS,
+  publicStorageUrl,
   removeLibraryFile,
   uploadLibraryFile,
   validateLibraryFile,
@@ -1878,9 +1879,9 @@ function LojaTab() {
           bucket: LIBRARY_BUCKETS.shopMedia,
           kind: "product-image",
         });
-        const signed = await adminWrite("signed-media", { bucket: LIBRARY_BUCKETS.shopMedia, paths: [path] });
-        if (!signed?.[path]) throw new Error("Nao foi possivel gerar a imagem do produto.");
-        uploadedUrls.push(signed[path]);
+        const publicUrl = publicStorageUrl(LIBRARY_BUCKETS.shopMedia, path);
+        if (!publicUrl) throw new Error("Nao foi possivel gerar a imagem do produto.");
+        uploadedUrls.push(publicUrl);
       }
       const currentImages = Array.isArray(form.images) ? form.images : [];
       const updated = [...currentImages, ...uploadedUrls].slice(0, 12);

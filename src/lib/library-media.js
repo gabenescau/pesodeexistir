@@ -13,6 +13,15 @@ const MAX_PDF_BYTES = 50 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const IMAGE_UPLOAD_KINDS = new Set(["book-cover", "author-photo", "product-image"]);
 const PDF_UPLOAD_KINDS = new Set(["book-pdf"]);
+const SUPABASE_URL = import.meta.env.NEXT_PUBLIC_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL;
+
+export function publicStorageUrl(bucket, path) {
+  const baseUrl = String(SUPABASE_URL || "").replace(/\/+$/, "");
+  const normalizedBucket = String(bucket || "").trim();
+  const normalizedPath = String(path || "").split("/").filter(Boolean).map(encodeURIComponent).join("/");
+  if (!baseUrl || !normalizedBucket || !normalizedPath) return "";
+  return `${baseUrl}/storage/v1/object/public/${encodeURIComponent(normalizedBucket)}/${normalizedPath}`;
+}
 
 export function validateLibraryFile(file, kind) {
   if (!file) throw new Error("Selecione um arquivo.");
