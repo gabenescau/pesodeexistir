@@ -35,20 +35,6 @@ export function drawLogoMark(ctx, x, y, size, color = "#ffffff") {
   ctx.restore();
 }
 
-export function drawXMark(ctx, x, y, size, color = "#f5f5f5") {
-  ctx.save();
-  ctx.strokeStyle = color;
-  ctx.lineWidth = Math.max(3, size * 0.08);
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(x + size * 0.12, y + size * 0.12);
-  ctx.lineTo(x + size * 0.88, y + size * 0.88);
-  ctx.moveTo(x + size * 0.88, y + size * 0.12);
-  ctx.lineTo(x + size * 0.12, y + size * 0.88);
-  ctx.stroke();
-  ctx.restore();
-}
-
 export function drawBrandHeader(ctx, { x = 100, y = 100, date = "" } = {}) {
   drawLogoMark(ctx, x, y, 56);
   ctx.fillStyle = "#ffffff";

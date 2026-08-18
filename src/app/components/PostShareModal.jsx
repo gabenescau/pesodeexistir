@@ -3,7 +3,7 @@ import { Copy, Download, InstagramLogo, Share2, WhatsappLogo, X } from "@/lib/ic
 import { toast } from "@/lib/toast";
 import { copyShareText, downloadShareFile, openWhatsAppShare, shareArtwork } from "@/app/components/share-utils";
 import { relativeTime } from "@/lib/social";
-import { drawXMark } from "@/app/components/share-artwork-style";
+import { drawLogoMark } from "@/app/components/share-artwork-style";
 
 const STORY_WIDTH = 1080;
 const CARD_X = 80;
@@ -106,7 +106,7 @@ async function createPostArtwork(post) {
   ctx.strokeStyle = "#292929";
   ctx.lineWidth = 2;
   ctx.stroke();
-  drawXMark(ctx, CARD_X + CARD_WIDTH - 74, CARD_Y + 42, 42);
+  drawLogoMark(ctx, CARD_X + CARD_WIDTH - 76, CARD_Y + 40, 42);
 
   const avatarX = 140;
   const avatarY = 170;
@@ -170,9 +170,11 @@ async function createPostArtwork(post) {
   ctx.font = "400 23px Arial, sans-serif";
   ctx.fillText(`${likes} curtidas`, CONTENT_X, footerY);
   ctx.fillText(`${replies} respostas`, CONTENT_X + 220, footerY);
-  ctx.textAlign = "right";
-  ctx.fillText("x.com", CONTENT_X + CONTENT_WIDTH, footerY);
-  ctx.textAlign = "start";
+  const brandX = CONTENT_X + CONTENT_WIDTH - 168;
+  drawLogoMark(ctx, brandX, footerY - 29, 32);
+  ctx.fillStyle = "#d8d8d8";
+  ctx.font = "700 20px Arial, sans-serif";
+  ctx.fillText("OPE CLUB", brandX + 46, footerY - 5);
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Nao foi possivel gerar a arte."))), "image/png");
