@@ -103,3 +103,53 @@ export function drawMetricIcon(ctx, type, x, y) {
   }
   ctx.restore();
 }
+
+export function drawPersonIcon(ctx, x, y, color = "#888888") {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.2;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.arc(x + 10, y + 6, 5, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(x + 10, y + 21, 9, Math.PI * 1.15, Math.PI * 1.85);
+  ctx.stroke();
+  ctx.restore();
+}
+
+export function drawBookmarkIcon(ctx, x, y, color = "#888888") {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.2;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(x + 4, y + 2);
+  ctx.lineTo(x + 16, y + 2);
+  ctx.lineTo(x + 16, y + 22);
+  ctx.lineTo(x + 10, y + 16);
+  ctx.lineTo(x + 4, y + 22);
+  ctx.closePath();
+  ctx.stroke();
+  ctx.restore();
+}
+
+export function drawQuoteIcon(ctx, x, y, color = "#888888") {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.2;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(x + 4, y + 6);
+  ctx.lineTo(x + 9, y + 6);
+  ctx.lineTo(x + 6, y + 16);
+  ctx.moveTo(x + 12, y + 6);
+  ctx.lineTo(x + 17, y + 6);
+  ctx.lineTo(x + 14, y + 16);
+  ctx.stroke();
+  ctx.restore();
+}
+

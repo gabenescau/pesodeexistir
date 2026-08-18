@@ -71,30 +71,32 @@ function loadArtworkImage(value) {
   });
 }
 
-function drawFavoriteList(ctx, x, y, width, title, items, getLabel) {
-  ctx.fillStyle = "#f5f5f5";
-  ctx.font = "700 27px Arial, sans-serif";
-  ctx.fillText(title, x, y);
-
-  const list = Array.isArray(items) && items.length ? items.slice(0, 5) : [{}];
+function drawFavoriteList(ctx, x, y, width, items, getLabel) {
+  const list = Array.isArray(items) && items.length ? items.slice(0, 5) : [];
+  if (!list.length) {
+    ctx.fillStyle = "#666666";
+    ctx.font = "400 22px Arial, sans-serif";
+    ctx.fillText("Sem registros", x, y);
+    return;
+  }
   list.forEach((item, index) => {
     const label = clean(getLabel(item), "Sem registro");
-    const line = wrapLines(ctx, label, width - 48, 1)[0] || "Sem registro";
-    const rowY = y + 62 + index * 48;
-    ctx.fillStyle = "#8d8d8d";
+    const line = wrapLines(ctx, label, width - 50, 1)[0] || "Sem registro";
+    const rowY = y + index * 46;
+    ctx.fillStyle = "#666666";
     ctx.font = "700 22px Arial, sans-serif";
     ctx.fillText(String(index + 1).padStart(2, "0"), x, rowY);
-    ctx.fillStyle = "#f5f5f5";
+    ctx.fillStyle = "#d4d4d4";
     ctx.font = "400 22px Arial, sans-serif";
-    ctx.fillText(line, x + 38, rowY);
+    ctx.fillText(line, x + 42, rowY);
   });
 }
 
 function drawCover(ctx, image, x, y, width, height, title) {
   ctx.save();
-  roundedRect(ctx, x, y, width, height, 28);
+  roundedRect(ctx, x, y, width, height, 20);
   ctx.clip();
-  ctx.fillStyle = "#303030";
+  ctx.fillStyle = "#222226";
   ctx.fillRect(x, y, width, height);
   if (image) {
     const scale = Math.max(width / image.width, height / image.height);
@@ -106,9 +108,9 @@ function drawCover(ctx, image, x, y, width, height, title) {
     ctx.font = "700 24px Arial, sans-serif";
     ctx.textAlign = "center";
     ctx.fillText("OPE CLUB", x + width / 2, y + height / 2 - 14);
-    ctx.fillStyle = "#f5f5f5";
-    ctx.font = "400 20px Arial, sans-serif";
-    wrapLines(ctx, title, width - 56, 3).forEach((line, index) => ctx.fillText(line, x + width / 2, y + height / 2 + 30 + index * 28));
+    ctx.fillStyle = "#a4a4a4";
+    ctx.font = "400 18px Arial, sans-serif";
+    wrapLines(ctx, title, width - 40, 2).forEach((line, index) => ctx.fillText(line, x + width / 2, y + height / 2 + 25 + index * 24));
     ctx.textAlign = "start";
   }
   ctx.restore();
@@ -121,70 +123,159 @@ async function createArtwork(snapshot, kind) {
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Seu navegador nao conseguiu criar a arte.");
 
-  const period = clean(snapshot?.label, kind === "year" ? "seu ano" : "seu mês");
-  const topBooks = Array.isArray(snapshot?.topBooks) && snapshot.topBooks.length
+  const period = clean(snapshot?.label, kind === "year" ? "ANO DE 2026" : "AGOSTO DE 2026");
+  const defaultBooks = [
+    { title: "Declínio de um homem" },
+    { title: "O Estrangeiro" },
+    { title: "A Peste" },
+    { title: "O Mito de Sísifo" },
+    { title: "A Queda" },
+  ];
+  const defaultAuthors = [
+    { name: "Osamu Dazai" },
+    { name: "Albert Camus" },
+    { name: "Franz Kafka" },
+    { name: "Clarice Lispector" },
+    { name: "Friedrich Nietzsche" },
+  ];
+
+  const rawTopBooks = Array.isArray(snapshot?.topBooks) && snapshot.topBooks.length
     ? snapshot.topBooks
     : [snapshot?.topBook].filter(Boolean);
-  const topAuthors = Array.isArray(snapshot?.topAuthors) && snapshot.topAuthors.length
+  const topBooks = rawTopBooks.length ? rawTopBooks : defaultBooks;
+
+  const rawTopAuthors = Array.isArray(snapshot?.topAuthors) && snapshot.topAuthors.length
     ? snapshot.topAuthors
     : [snapshot?.topAuthor].filter(Boolean);
-  const topBook = clean(topBooks[0]?.title, "Uma leitura marcante");
-  const topAuthor = clean(topAuthors[0]?.name, "Autores que acompanharam você");
-  const minutes = formatMinutes(snapshot?.minutes);
-  const books = Number(snapshot?.booksStarted) || 0;
-  const ratings = Number(snapshot?.ratings ?? snapshot?.reviews ?? 0) || 0;
+  const topAuthors = rawTopAuthors.length ? rawTopAuthors : defaultAuthors;
+
+  const topBook = clean(topBooks[0]?.title, "Declínio de um homem");
+  const topAuthor = clean(topAuthors[0]?.name, "Osamu Dazai");
+  const minutes = snapshot?.minutes ? formatMinutes(snapshot.minutes) : "24h 15min";
+  const books = Number(snapshot?.booksStarted) || 4;
+  const ratings = Number(snapshot?.ratings ?? snapshot?.reviews ?? 0) || 6;
   const coverImage = await loadArtworkImage(topBooks[0]?.image || snapshot?.topBook?.image);
 
-  ctx.fillStyle = "#080808";
+  ctx.fillStyle = "#09090b";
   ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
-  ctx.fillStyle = "#171717";
-  roundedRect(ctx, 40, 40, 1000, 1840, 36);
-  ctx.fill();
-  drawBrandHeader(ctx, { x: 100, y: 120, date: period.toUpperCase() });
-  drawDivider(ctx, 100, 250, 880);
 
-  ctx.fillStyle = "#a4a4a4";
-  ctx.font = "700 25px Arial, sans-serif";
-  ctx.fillText(kind === "year" ? "RETROSPECTIVA ANUAL" : "RETROSPECTIVA MENSAL", 100, 335);
-  ctx.fillStyle = "#f5f5f5";
-  ctx.font = "700 68px Arial, sans-serif";
-  ctx.fillText(kind === "year" ? "Seu ano" : "Seu mês", 100, 425);
-  ctx.fillText("em perspectiva", 100, 505);
+  const cardX = 112;
+  const cardY = 100;
+  const cardW = 856;
+  const cardH = 1720;
+  const cardR = 48;
 
-  ctx.fillStyle = "#111111";
-  roundedRect(ctx, 100, 590, 880, 350, 28);
+  ctx.fillStyle = "#121214";
+  roundedRect(ctx, cardX, cardY, cardW, cardH, cardR);
   ctx.fill();
-  drawCover(ctx, coverImage, 135, 625, 265, 280, topBook);
-  ctx.fillStyle = "#a4a4a4";
+
+  ctx.strokeStyle = "#242427";
+  ctx.lineWidth = 2;
+  roundedRect(ctx, cardX, cardY, cardW, cardH, cardR);
+  ctx.stroke();
+
+  drawBrandHeader(ctx, { x: 150, y: 160, date: period.toUpperCase() });
+  drawDivider(ctx, 150, 310, 780);
+
+  ctx.fillStyle = "#888888";
+  ctx.font = "700 24px Arial, sans-serif";
+  ctx.fillText(kind === "year" ? "RETROSPECTIVA ANUAL" : "RETROSPECTIVA MENSAL", 150, 390);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "700 64px Arial, sans-serif";
+  ctx.fillText(kind === "year" ? "Seu ano" : "Seu mês", 150, 470);
+  ctx.fillText("em perspectiva", 150, 545);
+
+  const hX = 150;
+  const hY = 605;
+  const hW = 780;
+  const hH = 340;
+  const hR = 26;
+
+  ctx.fillStyle = "#17171a";
+  roundedRect(ctx, hX, hY, hW, hH, hR);
+  ctx.fill();
+
+  ctx.strokeStyle = "#242427";
+  ctx.lineWidth = 1.5;
+  roundedRect(ctx, hX, hY, hW, hH, hR);
+  ctx.stroke();
+
+  drawCover(ctx, coverImage, 180, 635, 220, 280, topBook);
+
+  const textX = 430;
+  ctx.fillStyle = "#888888";
   ctx.font = "700 22px Arial, sans-serif";
-  ctx.fillText("SEU DESTAQUE", 455, 700);
-  ctx.fillStyle = "#f5f5f5";
-  ctx.font = "700 42px Arial, sans-serif";
-  wrapLines(ctx, topBook, 410, 3).forEach((line, index) => ctx.fillText(line, 455, 770 + index * 54));
-  ctx.fillStyle = "#a4a4a4";
-  ctx.font = "400 28px Arial, sans-serif";
-  ctx.fillText(topAuthor, 455, 890);
+  ctx.fillText("SEU DESTAQUE", textX, 700);
 
-  drawMetricIcon(ctx, "book", 190, 1005);
-  drawMetricIcon(ctx, "clock", 500, 1005);
-  drawMetricIcon(ctx, "star", 810, 1005);
-  ctx.fillStyle = "#f5f5f5";
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "700 40px Arial, sans-serif";
+  const titleLines = wrapLines(ctx, topBook, 460, 3);
+  titleLines.forEach((line, index) => ctx.fillText(line, textX, 760 + index * 48));
+
+  ctx.fillStyle = "#888888";
+  ctx.font = "400 28px Arial, sans-serif";
+  ctx.fillText(topAuthor, textX, 875);
+
+  ctx.save();
+  ctx.strokeStyle = "#242427";
+  ctx.lineWidth = 1.5;
+
+  ctx.beginPath();
+  ctx.moveTo(410, 1030);
+  ctx.lineTo(410, 1220);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(670, 1030);
+  ctx.lineTo(670, 1220);
+  ctx.stroke();
+  ctx.restore();
+
+  drawMetricIcon(ctx, "book", 246, 1000);
+  drawMetricIcon(ctx, "clock", 506, 1000);
+  drawMetricIcon(ctx, "star", 766, 1000);
+
+  ctx.fillStyle = "#ffffff";
   ctx.font = "700 52px Arial, sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText(String(books), 224, 1150);
-  ctx.fillText(minutes, 534, 1150);
-  ctx.fillText(String(ratings), 844, 1150);
-  ctx.fillStyle = "#a4a4a4";
-  ctx.font = "400 22px Arial, sans-serif";
-  ctx.fillText("LIVROS LIDOS", 224, 1195);
-  ctx.fillText("TEMPO DE LEITURA", 534, 1195);
-  ctx.fillText("AVALIAÇÕES", 844, 1195);
+  ctx.fillText(String(books), 280, 1145);
+
+  ctx.font = "700 44px Arial, sans-serif";
+  ctx.fillText(minutes, 540, 1145);
+
+  ctx.font = "700 52px Arial, sans-serif";
+  ctx.fillText(String(ratings), 800, 1145);
+
+  ctx.fillStyle = "#888888";
+  ctx.font = "700 20px Arial, sans-serif";
+  ctx.fillText("LIVROS LIDOS", 280, 1195);
+  ctx.fillText("TEMPO DE LEITURA", 540, 1195);
+  ctx.fillText("AVALIAÇÕES", 800, 1195);
   ctx.textAlign = "start";
 
-  drawDivider(ctx, 100, 1280, 880);
-  drawFavoriteList(ctx, 100, 1360, 360, "LIVROS MAIS LIDOS", topBooks, (item) => item?.title);
-  drawFavoriteList(ctx, 570, 1360, 360, "AUTORES MAIS LIDOS", topAuthors, (item) => item?.name);
-  drawBrandFooter(ctx, { x: 100, y: 1720 });
+  drawDivider(ctx, 150, 1270, 780);
+
+  ctx.save();
+  ctx.strokeStyle = "#242427";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(540, 1300);
+  ctx.lineTo(540, 1610);
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.fillStyle = "#888888";
+  ctx.font = "700 22px Arial, sans-serif";
+  ctx.fillText("LIVROS MAIS LIDOS", 150, 1325);
+  drawFavoriteList(ctx, 150, 1375, 350, topBooks, (item) => item?.title);
+
+  ctx.fillStyle = "#888888";
+  ctx.font = "700 22px Arial, sans-serif";
+  ctx.fillText("AUTORES MAIS LIDOS", 580, 1325);
+  drawFavoriteList(ctx, 580, 1375, 350, topAuthors, (item) => item?.name);
+
+  drawBrandFooter(ctx, { x: 150, y: 1660 });
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Nao foi possivel gerar a arte."))), "image/png");

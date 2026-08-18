@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { BookOpen, Copy, InstagramLogo, Share2, WhatsappLogo, X } from "@/lib/icons";
 import { toast } from "@/lib/toast";
 import { copyShareText, downloadShareFile, openWhatsAppShare, shareArtwork } from "@/app/components/share-utils";
-import { drawBrandFooter, drawBrandHeader, drawDivider } from "@/app/components/share-artwork-style";
+import { drawBookmarkIcon, drawBrandFooter, drawBrandHeader, drawDivider, drawPersonIcon, drawQuoteIcon } from "@/app/components/share-artwork-style";
 
 const STORY_WIDTH = 1080;
 const STORY_HEIGHT = 1920;
@@ -57,97 +57,174 @@ async function createBookArtwork(book, authorName, readingProgress, currentPage,
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Seu navegador nao conseguiu criar a arte.");
 
-  const title = clean(book?.title, "Livro no OPE Club").slice(0, 100);
-  const author = clean(authorName, "Autor OPE Club").slice(0, 80);
+  const title = clean(book?.title, "Declínio de um homem").slice(0, 100);
+  const author = clean(authorName || book?.authorName || book?.author, "Osamu Dazai").slice(0, 80);
+  const genre = clean(book?.category || book?.genre || book?.tags?.[0], "Existencialismo").slice(0, 50);
+  const synopsis = clean(
+    book?.bio || book?.synopsis || book?.description,
+    "Yozo Oba narra sua própria vida marcada pela sensação de desencaixe e inadequação perante a sociedade."
+  );
   const progress = Math.min(100, Math.max(0, Number(readingProgress) || 0));
   const page = Math.max(1, Number(currentPage) || 1);
   const pages = Math.max(0, Number(totalPages) || 0);
   const cover = await loadImage(book?.image);
 
-  ctx.fillStyle = "#080808";
+  ctx.fillStyle = "#09090b";
   ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
-  ctx.fillStyle = "#171717";
-  roundedRect(ctx, 112, 100, 856, 1720, 48);
-  ctx.fill();
-  drawBrandHeader(ctx, { x: 150, y: 170 });
-  drawDivider(ctx, 150, 330, 780);
 
-  ctx.fillStyle = "#a4a4a4";
-  ctx.font = "700 27px Arial, sans-serif";
-  ctx.fillText("LENDO NO MOMENTO", 150, 430);
+  const cardX = 112;
+  const cardY = 100;
+  const cardW = 856;
+  const cardH = 1720;
+  const cardR = 48;
+
+  ctx.fillStyle = "#121214";
+  roundedRect(ctx, cardX, cardY, cardW, cardH, cardR);
+  ctx.fill();
+
+  ctx.strokeStyle = "#242427";
+  ctx.lineWidth = 2;
+  roundedRect(ctx, cardX, cardY, cardW, cardH, cardR);
+  ctx.stroke();
+
+  drawBrandHeader(ctx, { x: 150, y: 160 });
+  drawDivider(ctx, 150, 310, 780);
+
+  ctx.fillStyle = "#888888";
+  ctx.font = "700 25px Arial, sans-serif";
+  ctx.fillText("LENDO NO MOMENTO", 150, 400);
 
   const coverX = 150;
-  const coverY = 500;
-  const coverWidth = 405;
-  const coverHeight = 690;
-  ctx.fillStyle = "#2b2b2b";
-  ctx.shadowColor = "rgba(0,0,0,0.45)";
-  ctx.shadowBlur = 24;
-  roundedRect(ctx, coverX, coverY, coverWidth, coverHeight, 28);
+  const coverY = 460;
+  const coverWidth = 400;
+  const coverHeight = 660;
+  const coverRadius = 26;
+
+  ctx.fillStyle = "#222224";
+  ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
+  ctx.shadowBlur = 32;
+  ctx.shadowOffsetY = 12;
+  roundedRect(ctx, coverX, coverY, coverWidth, coverHeight, coverRadius);
   ctx.fill();
   ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
 
   if (cover) {
     const scale = Math.max(coverWidth / cover.width, coverHeight / cover.height);
     const width = cover.width * scale;
     const height = cover.height * scale;
     ctx.save();
-    roundedRect(ctx, coverX, coverY, coverWidth, coverHeight, 28);
+    roundedRect(ctx, coverX, coverY, coverWidth, coverHeight, coverRadius);
     ctx.clip();
     ctx.drawImage(cover, coverX + (coverWidth - width) / 2, coverY + (coverHeight - height) / 2, width, height);
     ctx.restore();
   } else {
-    ctx.fillStyle = "#303030";
-    roundedRect(ctx, coverX, coverY, coverWidth, coverHeight, 28);
+    ctx.fillStyle = "#26262a";
+    roundedRect(ctx, coverX, coverY, coverWidth, coverHeight, coverRadius);
     ctx.fill();
     ctx.fillStyle = "#f5f5f5";
     ctx.font = "700 90px Arial, sans-serif";
-    ctx.fillText("OPE", 250, 820);
-    ctx.font = "400 34px Arial, sans-serif";
-    ctx.fillText("capa indisponivel", 235, 890);
+    ctx.fillText("OPE", coverX + 100, coverY + 320);
+    ctx.font = "400 32px Arial, sans-serif";
+    ctx.fillText("capa indisponivel", coverX + 80, coverY + 380);
   }
 
-  const textX = 625;
-  ctx.fillStyle = "#a4a4a4";
-  ctx.font = "700 25px Arial, sans-serif";
-  ctx.fillText("LEITURA", textX, 560);
-  ctx.fillStyle = "#f5f5f5";
-  ctx.font = "700 54px Arial, sans-serif";
-  wrapLines(ctx, title, 300, 4).forEach((line, index) => ctx.fillText(line, textX, 660 + index * 68));
-  ctx.fillStyle = "#c9c9c9";
-  ctx.font = "400 31px Arial, sans-serif";
-  ctx.fillText(author, textX, 1000);
-  drawDivider(ctx, textX, 1050, 300);
-  ctx.fillStyle = "#a4a4a4";
-  ctx.font = "400 25px Arial, sans-serif";
-  ctx.fillText("Autor", textX, 1110);
-  ctx.fillStyle = "#f5f5f5";
-  ctx.fillText(author, textX, 1155);
+  const textX = 590;
+  const maxRightWidth = 340;
 
-  ctx.fillStyle = "#171717";
-  roundedRect(ctx, 150, 1300, 780, 220, 28);
-  ctx.fill();
+  ctx.fillStyle = "#888888";
+  ctx.font = "700 23px Arial, sans-serif";
+  ctx.fillText("LEITURA", textX, 520);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "700 50px Arial, sans-serif";
+  const titleLines = wrapLines(ctx, title, maxRightWidth, 3);
+  titleLines.forEach((line, index) => {
+    ctx.fillText(line, textX, 590 + index * 60);
+  });
+
+  const authorY = 590 + (titleLines.length - 1) * 60 + 65;
+
+  ctx.fillStyle = "#888888";
+  ctx.font = "400 31px Arial, sans-serif";
+  ctx.fillText(author, textX, authorY);
+
+  const dividerY = authorY + 45;
+  drawDivider(ctx, textX, dividerY, maxRightWidth);
+
+  let metaY = dividerY + 50;
+
+  drawPersonIcon(ctx, textX, metaY - 16, "#888888");
+  ctx.fillStyle = "#888888";
+  ctx.font = "400 21px Arial, sans-serif";
+  ctx.fillText("Autor", textX + 42, metaY - 2);
+  ctx.fillStyle = "#d4d4d4";
+  ctx.font = "400 25px Arial, sans-serif";
+  ctx.fillText(wrapLines(ctx, author, maxRightWidth - 42, 1)[0] || author, textX + 42, metaY + 28);
+
+  metaY += 90;
+
+  drawBookmarkIcon(ctx, textX, metaY - 16, "#888888");
+  ctx.fillStyle = "#888888";
+  ctx.font = "400 21px Arial, sans-serif";
+  ctx.fillText("Gênero", textX + 42, metaY - 2);
+  ctx.fillStyle = "#d4d4d4";
+  ctx.font = "400 25px Arial, sans-serif";
+  ctx.fillText(wrapLines(ctx, genre, maxRightWidth - 42, 1)[0] || genre, textX + 42, metaY + 28);
+
+  metaY += 90;
+
+  drawQuoteIcon(ctx, textX, metaY - 16, "#888888");
+  ctx.fillStyle = "#888888";
+  ctx.font = "400 21px Arial, sans-serif";
+  ctx.fillText("Sinopse", textX + 42, metaY - 2);
   ctx.fillStyle = "#a4a4a4";
-  ctx.font = "700 25px Arial, sans-serif";
-  ctx.fillText("PROGRESSO DA LEITURA", 185, 1360);
-  ctx.fillStyle = "#2d2d2d";
-  roundedRect(ctx, 185, 1400, 710, 14, 7);
+  ctx.font = "400 21px Arial, sans-serif";
+  const synopsisLines = wrapLines(ctx, synopsis, maxRightWidth - 42, 2);
+  synopsisLines.forEach((line, index) => {
+    ctx.fillText(line, textX + 42, metaY + 26 + index * 30);
+  });
+
+  const progBoxY = 1300;
+  ctx.fillStyle = "#18181a";
+  roundedRect(ctx, 150, progBoxY, 780, 220, 28);
   ctx.fill();
-  ctx.fillStyle = "#f5f5f5";
-  roundedRect(ctx, 185, 1400, Math.max(14, 710 * (progress / 100)), 14, 7);
+
+  ctx.strokeStyle = "#242427";
+  ctx.lineWidth = 1.5;
+  roundedRect(ctx, 150, progBoxY, 780, 220, 28);
+  ctx.stroke();
+
+  ctx.fillStyle = "#888888";
+  ctx.font = "700 23px Arial, sans-serif";
+  ctx.fillText("PROGRESSO DA LEITURA", 185, progBoxY + 55);
+
+  const barY = progBoxY + 92;
+  const barWidth = 710;
+  ctx.fillStyle = "#2a2a2e";
+  roundedRect(ctx, 185, barY, barWidth, 14, 7);
   ctx.fill();
-  ctx.fillStyle = "#a4a4a4";
+
+  const filledWidth = Math.max(14, barWidth * (progress / 100));
+  ctx.fillStyle = "#ffffff";
+  roundedRect(ctx, 185, barY, filledWidth, 14, 7);
+  ctx.fill();
+
+  ctx.fillStyle = "#888888";
   ctx.font = "400 24px Arial, sans-serif";
-  ctx.fillText(`${progress}% lido`, 185, 1470);
+  ctx.fillText(`${progress}% lido`, 185, progBoxY + 165);
+
   ctx.textAlign = "right";
-  ctx.fillText(pages > 0 ? `pagina ${Math.min(page, pages)} de ${pages}` : "", 895, 1470);
+  ctx.fillText(pages > 0 ? `página ${Math.min(page, pages)} de ${pages}` : `página ${page}`, 895, progBoxY + 165);
   ctx.textAlign = "start";
-  drawBrandFooter(ctx, { x: 150, y: 1660 });
+
+  drawBrandFooter(ctx, { x: 150, y: 1655 });
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Nao foi possivel gerar a arte."))), "image/png");
   });
 }
+
 
 export function BookShareModal({ book, authorName, readingProgress, currentPage, totalPages, open, onClose }) {
   const [artworkUrl, setArtworkUrl] = useState("");

@@ -60,55 +60,78 @@ async function createAuthorArtwork(author) {
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Seu navegador nao conseguiu criar a arte.");
 
-  const authorName = text(author?.name, "Autor OPE Club").slice(0, 80);
-  const era = text(author?.era, "Literatura e pensamento").slice(0, 80);
+  const authorName = text(author?.name, "Albert Camus").slice(0, 80);
+  const era = text(author?.era || author?.theme, "Século XX").slice(0, 80);
   const image = await loadImage(author?.image);
 
-  ctx.fillStyle = "#080808";
+  ctx.fillStyle = "#09090b";
   ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
-  ctx.fillStyle = "#171717";
-  roundedRect(ctx, 112, 100, 856, 1720, 48);
-  ctx.fill();
-  drawBrandHeader(ctx, { x: 184, y: 190 });
-  drawDivider(ctx, 184, 355, 712);
 
-  const imageX = 220;
-  const imageY = 440;
-  const imageSize = 640;
+  const cardX = 112;
+  const cardY = 100;
+  const cardW = 856;
+  const cardH = 1720;
+  const cardR = 48;
+
+  ctx.fillStyle = "#121214";
+  roundedRect(ctx, cardX, cardY, cardW, cardH, cardR);
+  ctx.fill();
+
+  ctx.strokeStyle = "#242427";
+  ctx.lineWidth = 2;
+  roundedRect(ctx, cardX, cardY, cardW, cardH, cardR);
+  ctx.stroke();
+
+  drawBrandHeader(ctx, { x: 160, y: 160 });
+
+  const cx = 540;
+  const cy = 730;
+  const radius = 290;
+
   ctx.save();
   ctx.beginPath();
-  ctx.arc(imageX + imageSize / 2, imageY + imageSize / 2, imageSize / 2, 0, Math.PI * 2);
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
   ctx.clip();
+
   if (image) {
-    const scale = Math.max(imageSize / image.width, imageSize / image.height);
+    const scale = Math.max((radius * 2) / image.width, (radius * 2) / image.height);
     const width = image.width * scale;
     const height = image.height * scale;
-    ctx.drawImage(image, imageX + (imageSize - width) / 2, imageY + (imageSize - height) / 2, width, height);
+    ctx.drawImage(image, cx - width / 2, cy - height / 2, width, height);
   } else {
-    ctx.fillStyle = "#303030";
-    ctx.fillRect(imageX, imageY, imageSize, imageSize);
-    ctx.fillStyle = "#f5f5f5";
-    ctx.font = "700 190px Arial, sans-serif";
+    ctx.fillStyle = "#222226";
+    ctx.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "700 180px Arial, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(authorName.charAt(0).toUpperCase(), imageX + imageSize / 2, imageY + imageSize / 2);
+    ctx.fillText(authorName.charAt(0).toUpperCase(), cx, cy);
     ctx.textAlign = "start";
     ctx.textBaseline = "alphabetic";
   }
   ctx.restore();
 
-  ctx.fillStyle = "#a4a4a4";
-  ctx.font = "700 25px Arial, sans-serif";
-  ctx.fillText("AUTOR", 220, 1250);
-  ctx.fillStyle = "#f5f5f5";
-  ctx.font = "700 66px Arial, sans-serif";
-  for (const [index, line] of wrapLines(ctx, authorName, 640, 2).entries()) {
-    ctx.fillText(line, 220, 1340 + index * 78);
-  }
-  ctx.fillStyle = "#a9a9a9";
-  ctx.font = "400 34px Arial, sans-serif";
-  ctx.fillText(era, 220, 1435);
-  drawBrandFooter(ctx, { x: 184, y: 1660 });
+  const textX = 160;
+  const textY = 1260;
+
+  ctx.fillStyle = "#888888";
+  ctx.font = "700 24px Arial, sans-serif";
+  ctx.fillText("AUTOR", textX, textY);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "700 68px Arial, sans-serif";
+  const nameLines = wrapLines(ctx, authorName, 730, 2);
+  nameLines.forEach((line, index) => {
+    ctx.fillText(line, textX, textY + 85 + index * 76);
+  });
+
+  const eraY = textY + 85 + (nameLines.length - 1) * 76 + 70;
+  ctx.fillStyle = "#888888";
+  ctx.font = "400 32px Arial, sans-serif";
+  ctx.fillText(era, textX, eraY);
+
+  drawDivider(ctx, 160, 1625, 740);
+  drawBrandFooter(ctx, { x: 160, y: 1665 });
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Nao foi possivel gerar a arte."))), "image/png");
