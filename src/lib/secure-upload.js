@@ -1,8 +1,6 @@
 import { isSupabaseReady } from "@/app/data/supabase";
 import { authenticatedApiPost } from "./authenticated-api";
 
-const FUNCTION_NAME = "secure-upload";
-
 const inFlightUploads = new Map();
 
 function uploadKey(file, bucket, kind) {
@@ -12,13 +10,6 @@ function uploadKey(file, bucket, kind) {
 async function uploadOnce({ file, bucket, kind }) {
   if (!isSupabaseReady()) throw new Error("Supabase nao configurado.");
   if (!(file instanceof File)) throw new Error("Arquivo invalido.");
-
-  const supabaseUrl = import.meta.env.NEXT_PUBLIC_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL;
-  const publicKey = import.meta.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-    || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
-    || import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    || import.meta.env.VITE_SUPABASE_ANON_KEY;
-  if (!supabaseUrl || !publicKey) throw new Error("Supabase nao configurado.");
 
   const ticketData = await authenticatedApiPost("/api/auth?action=upload-ticket", {
     bucket,
@@ -38,12 +29,13 @@ async function uploadOnce({ file, bucket, kind }) {
   const timeout = window.setTimeout(() => controller.abort(), 120000);
   let response;
   try {
-    response = await fetch(`${supabaseUrl}/functions/v1/${FUNCTION_NAME}`, {
+    response = await fetch("/api/secure-upload", {
       method: "POST",
       headers: {
-        apikey: publicKey,
+        "X-Requested-With": "OPE-App",
         "x-upload-ticket": ticketData.ticket,
       },
+      credentials: "include",
       body: form,
       signal: controller.signal,
     });
@@ -66,8 +58,9 @@ async function uploadOnce({ file, bucket, kind }) {
     throw error;
   }
 
-  if (!data?.path) throw new Error("O arquivo nao foi aceito pelo servidor.");
-  return data.path;
+  const uploadedPath = data?.path || data?.data?.path;
+  if (!uploadedPath) throw new Error("O arquivo nao foi aceito pelo servidor.");
+  return uploadedPath;
 }
 
 async function uploadWithFreshTicket({ file, bucket, kind }) {
