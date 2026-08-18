@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { Copy, Download, InstagramLogo, Share2, WhatsappLogo, X } from "@/lib/icons";
 import { toast } from "@/lib/toast";
 import { copyShareText, downloadShareFile, openWhatsAppShare, shareArtwork } from "@/app/components/share-utils";
-import { drawBrandFooter, drawBrandHeader, drawDivider } from "@/app/components/share-artwork-style";
+import { drawBrandFooter, drawBrandHeader } from "@/app/components/share-artwork-style";
 
 const STORY_WIDTH = 1080;
-const STORY_HEIGHT = 1920;
+const STORY_HEIGHT = 1620;
 
 function text(value, fallback = "") {
   return String(value || fallback).replace(/\s+/g, " ").trim();
@@ -67,11 +67,11 @@ async function createAuthorArtwork(author) {
   ctx.fillStyle = "#09090b";
   ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
 
-  const cardX = 112;
-  const cardY = 100;
-  const cardW = 856;
-  const cardH = 1720;
-  const cardR = 48;
+  const cardX = 151;
+  const cardY = 166;
+  const cardW = 778;
+  const cardH = 1288;
+  const cardR = 34;
 
   ctx.fillStyle = "#121214";
   roundedRect(ctx, cardX, cardY, cardW, cardH, cardR);
@@ -82,11 +82,11 @@ async function createAuthorArtwork(author) {
   roundedRect(ctx, cardX, cardY, cardW, cardH, cardR);
   ctx.stroke();
 
-  drawBrandHeader(ctx, { x: 160, y: 160 });
+  drawBrandHeader(ctx, { x: 214, y: 228 });
 
   const cx = 540;
-  const cy = 730;
-  const radius = 290;
+  const cy = 620;
+  const radius = 270;
 
   ctx.save();
   ctx.beginPath();
@@ -111,27 +111,26 @@ async function createAuthorArtwork(author) {
   }
   ctx.restore();
 
-  const textX = 160;
-  const textY = 1260;
+  const textX = 214;
+  const textY = 1088;
 
   ctx.fillStyle = "#888888";
-  ctx.font = "700 24px Arial, sans-serif";
+  ctx.font = "700 23px Arial, sans-serif";
   ctx.fillText("AUTOR", textX, textY);
 
   ctx.fillStyle = "#ffffff";
-  ctx.font = "700 68px Arial, sans-serif";
-  const nameLines = wrapLines(ctx, authorName, 730, 2);
+  ctx.font = "700 62px Arial, sans-serif";
+  const nameLines = wrapLines(ctx, authorName, 650, 2);
   nameLines.forEach((line, index) => {
-    ctx.fillText(line, textX, textY + 85 + index * 76);
+    ctx.fillText(line, textX, textY + 78 + index * 70);
   });
 
-  const eraY = textY + 85 + (nameLines.length - 1) * 76 + 70;
+  const eraY = textY + 78 + (nameLines.length - 1) * 70 + 66;
   ctx.fillStyle = "#888888";
-  ctx.font = "400 32px Arial, sans-serif";
+  ctx.font = "400 30px Arial, sans-serif";
   ctx.fillText(era, textX, eraY);
 
-  drawDivider(ctx, 160, 1625, 740);
-  drawBrandFooter(ctx, { x: 160, y: 1665 });
+  drawBrandFooter(ctx, { x: textX, y: 1368, width: 650 });
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Nao foi possivel gerar a arte."))), "image/png");
@@ -231,8 +230,8 @@ export function AuthorShareModal({ author, books = [], open, onClose }) {
         </div>
 
         <div className="grid min-h-0 gap-5 overflow-y-auto p-5 sm:grid-cols-[220px_1fr] sm:items-center">
-          <div className="mx-auto w-[min(54vw,220px)] overflow-hidden rounded-[16px] border border-[var(--border)] bg-black shadow-[var(--shadow-sm)] sm:w-full">
-            {generating ? <div className="flex aspect-[9/16] items-center justify-center text-xs text-white/60">Preparando arte...</div> : artworkUrl ? <img src={artworkUrl} alt={`Arte de compartilhamento de ${author?.name || "autor"}`} className="aspect-[9/16] w-full object-cover" /> : <div className="flex aspect-[9/16] items-center justify-center p-4 text-center text-xs text-red-300">{error || "Arte indisponivel"}</div>}
+          <div className="mx-auto flex max-h-[62dvh] w-[min(54vw,220px)] items-center justify-center overflow-hidden rounded-[16px] border border-[var(--border)] bg-black shadow-[var(--shadow-sm)] sm:w-full">
+            {generating ? <div className="flex min-h-32 items-center justify-center p-4 text-xs text-white/60">Preparando arte...</div> : artworkUrl ? <img src={artworkUrl} alt={`Arte de compartilhamento de ${author?.name || "autor"}`} className="block max-h-[62dvh] w-full object-contain" /> : <div className="flex min-h-32 items-center justify-center p-4 text-center text-xs text-red-300">{error || "Arte indisponivel"}</div>}
           </div>
 
           <div className="space-y-3">

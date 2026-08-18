@@ -5,7 +5,7 @@ import { copyShareText, downloadShareFile, openWhatsAppShare, shareArtwork } fro
 import { drawBookmarkIcon, drawBrandFooter, drawBrandHeader, drawDivider, drawPersonIcon, drawQuoteIcon } from "@/app/components/share-artwork-style";
 
 const STORY_WIDTH = 1080;
-const STORY_HEIGHT = 1920;
+const STORY_HEIGHT = 1620;
 
 function clean(value, fallback = "") {
   return String(value || fallback).replace(/\s+/g, " ").trim();
@@ -72,11 +72,11 @@ async function createBookArtwork(book, authorName, readingProgress, currentPage,
   ctx.fillStyle = "#080808";
   ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
 
-  const cardX = 112;
-  const cardY = 100;
-  const cardW = 856;
-  const cardH = 1720;
-  const cardR = 48;
+  const cardX = 48;
+  const cardY = 60;
+  const cardW = 984;
+  const cardH = 1488;
+  const cardR = 34;
 
   ctx.fillStyle = "#121214";
   roundedRect(ctx, cardX, cardY, cardW, cardH, cardR);
@@ -87,17 +87,17 @@ async function createBookArtwork(book, authorName, readingProgress, currentPage,
   roundedRect(ctx, cardX, cardY, cardW, cardH, cardR);
   ctx.stroke();
 
-  drawBrandHeader(ctx, { x: 150, y: 160 });
-  drawDivider(ctx, 150, 310, 780);
+  drawBrandHeader(ctx, { x: 112, y: 134 });
+  drawDivider(ctx, 112, 252, 856);
 
   ctx.fillStyle = "#888888";
   ctx.font = "700 25px Arial, sans-serif";
-  ctx.fillText("LENDO NO MOMENTO", 150, 395);
+  ctx.fillText("LENDO NO MOMENTO", 112, 352);
 
-  const coverX = 150;
-  const coverY = 450;
-  const coverWidth = 405;
-  const coverHeight = 670;
+  const coverX = 112;
+  const coverY = 404;
+  const coverWidth = 430;
+  const coverHeight = 710;
   const coverRadius = 26;
 
   ctx.fillStyle = "#222224";
@@ -129,21 +129,21 @@ async function createBookArtwork(book, authorName, readingProgress, currentPage,
     ctx.fillText("capa indisponivel", coverX + 80, coverY + 380);
   }
 
-  const textX = 595;
-  const maxRightWidth = 335;
+  const textX = 590;
+  const maxRightWidth = 360;
 
   ctx.fillStyle = "#888888";
   ctx.font = "700 23px Arial, sans-serif";
-  ctx.fillText("LEITURA", textX, 515);
+  ctx.fillText("LEITURA", textX, 488);
 
   ctx.fillStyle = "#ffffff";
   ctx.font = "700 52px Arial, sans-serif";
   const titleLines = wrapLines(ctx, title, maxRightWidth, 3);
   titleLines.forEach((line, index) => {
-    ctx.fillText(line, textX, 585 + index * 62);
+    ctx.fillText(line, textX, 558 + index * 62);
   });
 
-  const authorY = 585 + (titleLines.length - 1) * 62 + 65;
+  const authorY = 558 + (titleLines.length - 1) * 62 + 65;
 
   ctx.fillStyle = "#888888";
   ctx.font = "400 31px Arial, sans-serif";
@@ -185,7 +185,7 @@ async function createBookArtwork(book, authorName, readingProgress, currentPage,
     ctx.fillText(line, textX + 38, metaY + 26 + index * 28);
   });
 
-  const progBoxY = 1290;
+  const progBoxY = 1250;
   ctx.fillStyle = "#171719";
   roundedRect(ctx, 150, progBoxY, 780, 215, 26);
   ctx.fill();
@@ -218,7 +218,7 @@ async function createBookArtwork(book, authorName, readingProgress, currentPage,
   ctx.fillText(pages > 0 ? `página ${Math.min(page, pages)} de ${pages}` : `página ${page}`, 895, progBoxY + 160);
   ctx.textAlign = "start";
 
-  drawBrandFooter(ctx, { x: 150, y: 1645 });
+  drawBrandFooter(ctx, { x: 112, y: 1460, width: 856 });
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Nao foi possivel gerar a arte."))), "image/png");
@@ -318,8 +318,8 @@ export function BookShareModal({ book, authorName, readingProgress, currentPage,
           </button>
         </div>
         <div className="grid min-h-0 gap-5 overflow-y-auto p-5 sm:grid-cols-[220px_1fr] sm:items-center">
-          <div className="mx-auto w-[min(54vw,220px)] overflow-hidden rounded-[16px] border border-[var(--border)] bg-black shadow-[var(--shadow-sm)] sm:w-full">
-            {generating ? <div className="flex aspect-[9/16] items-center justify-center text-xs text-white/60">Preparando arte...</div> : artworkUrl ? <img src={artworkUrl} alt={`Arte de compartilhamento de ${book?.title || "livro"}`} className="aspect-[9/16] w-full object-cover" /> : <div className="flex aspect-[9/16] items-center justify-center p-4 text-center text-xs text-red-300">{error || "Arte indisponivel"}</div>}
+          <div className="mx-auto flex max-h-[62dvh] w-[min(54vw,220px)] items-center justify-center overflow-hidden rounded-[16px] border border-[var(--border)] bg-black shadow-[var(--shadow-sm)] sm:w-full">
+            {generating ? <div className="flex min-h-32 items-center justify-center p-4 text-xs text-white/60">Preparando arte...</div> : artworkUrl ? <img src={artworkUrl} alt={`Arte de compartilhamento de ${book?.title || "livro"}`} className="block max-h-[62dvh] w-full object-contain" /> : <div className="flex min-h-32 items-center justify-center p-4 text-center text-xs text-red-300">{error || "Arte indisponivel"}</div>}
           </div>
           <div className="space-y-3">
             <p className="text-sm leading-relaxed text-[var(--text-secondary)]">Compartilhe a capa e leve seus amigos para a pagina deste livro no OPE Club.</p>

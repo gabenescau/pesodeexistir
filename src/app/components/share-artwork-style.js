@@ -51,8 +51,8 @@ export function drawDivider(ctx, x, y, width) {
   ctx.restore();
 }
 
-export function drawBrandFooter(ctx, { x = 100, y = 1710 } = {}) {
-  drawDivider(ctx, x, y - 42, 780);
+export function drawBrandFooter(ctx, { x = 100, y = 1710, width = 780 } = {}) {
+  drawDivider(ctx, x, y - 42, width);
   drawLogoMark(ctx, x, y, 36);
   ctx.fillStyle = "#ffffff";
   ctx.font = "700 23px Arial, sans-serif";
@@ -156,4 +156,3 @@ export function drawQuoteIcon(ctx, x, y, color = "#888888") {
   ctx.stroke();
   ctx.restore();
 }
-
