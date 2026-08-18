@@ -1,2 +1,0 @@
-[functions.secure-upload]
-verify_jwt = false

@@ -13,8 +13,11 @@ export async function authenticatedApiRequest(path, {
   body,
   signal,
 } = {}) {
+  const pathString = String(path);
   const headers = {
-    "X-Requested-With": String(path).startsWith("/api/auth") || String(path).startsWith("/api/admin-data")
+    "X-Requested-With": pathString.startsWith("/api/auth")
+      || pathString.startsWith("/api/admin-data")
+      || pathString.startsWith("/api/admin-subscription")
       ? "OPE-Auth"
       : "OPE-App",
   };

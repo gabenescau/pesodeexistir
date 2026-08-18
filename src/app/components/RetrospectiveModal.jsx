@@ -116,44 +116,29 @@ function drawCover(ctx, image, x, y, width, height, title) {
   ctx.restore();
 }
 
-async function createArtwork(snapshot, kind) {
+export async function createArtwork(snapshot, kind) {
   const canvas = document.createElement("canvas");
   canvas.width = STORY_WIDTH;
   canvas.height = STORY_HEIGHT;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Seu navegador nao conseguiu criar a arte.");
 
-  const period = clean(snapshot?.label, kind === "year" ? "ANO DE 2026" : "AGOSTO DE 2026");
-  const defaultBooks = [
-    { title: "Declínio de um homem" },
-    { title: "O Estrangeiro" },
-    { title: "A Peste" },
-    { title: "O Mito de Sísifo" },
-    { title: "A Queda" },
-  ];
-  const defaultAuthors = [
-    { name: "Osamu Dazai" },
-    { name: "Albert Camus" },
-    { name: "Franz Kafka" },
-    { name: "Clarice Lispector" },
-    { name: "Friedrich Nietzsche" },
-  ];
-
+  const period = clean(snapshot?.label, kind === "year" ? "ANO ATUAL" : "MES ATUAL");
   const rawTopBooks = Array.isArray(snapshot?.topBooks) && snapshot.topBooks.length
     ? snapshot.topBooks
     : [snapshot?.topBook].filter(Boolean);
-  const topBooks = rawTopBooks.length ? rawTopBooks : defaultBooks;
+  const topBooks = rawTopBooks;
 
   const rawTopAuthors = Array.isArray(snapshot?.topAuthors) && snapshot.topAuthors.length
     ? snapshot.topAuthors
     : [snapshot?.topAuthor].filter(Boolean);
-  const topAuthors = rawTopAuthors.length ? rawTopAuthors : defaultAuthors;
+  const topAuthors = rawTopAuthors;
 
-  const topBook = clean(topBooks[0]?.title, "Declínio de um homem");
-  const topAuthor = clean(topAuthors[0]?.name, "Osamu Dazai");
-  const minutes = snapshot?.minutes ? formatMinutes(snapshot.minutes) : "24h 15min";
-  const books = Number(snapshot?.booksStarted) || 4;
-  const ratings = Number(snapshot?.ratings ?? snapshot?.reviews ?? 0) || 6;
+  const topBook = clean(topBooks[0]?.title, "Sem destaque");
+  const topAuthor = clean(topAuthors[0]?.name, "Sem autor registrado");
+  const minutes = formatMinutes(snapshot?.minutes);
+  const books = Number(snapshot?.booksStarted) || 0;
+  const ratings = Number(snapshot?.ratings ?? snapshot?.reviews ?? 0) || 0;
   const coverImage = await loadArtworkImage(topBooks[0]?.image || snapshot?.topBook?.image);
 
   ctx.fillStyle = "#09090b";
@@ -183,7 +168,7 @@ async function createArtwork(snapshot, kind) {
 
   ctx.fillStyle = "#ffffff";
   ctx.font = "700 64px Arial, sans-serif";
-  ctx.fillText(kind === "year" ? "Seu ano" : "Seu mês", 150, 470);
+  ctx.fillText(kind === "year" ? "Seu ano" : "Seu mes", 150, 470);
   ctx.fillText("em perspectiva", 150, 545);
 
   const hX = 150;
@@ -251,7 +236,7 @@ async function createArtwork(snapshot, kind) {
   ctx.font = "700 20px Arial, sans-serif";
   ctx.fillText("LIVROS LIDOS", 280, 1195);
   ctx.fillText("TEMPO DE LEITURA", 540, 1195);
-  ctx.fillText("AVALIAÇÕES", 800, 1195);
+  ctx.fillText("AVALIACOES", 800, 1195);
   ctx.textAlign = "start";
 
   drawDivider(ctx, 150, 1270, 780);
@@ -280,6 +265,56 @@ async function createArtwork(snapshot, kind) {
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Nao foi possivel gerar a arte."))), "image/png");
   });
+}
+
+export function RetrospectiveArtworkPreview({ data, kind = "month" }) {
+  const snapshot = data?.[kind];
+  const [artworkUrl, setArtworkUrl] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!snapshot?.hasData) {
+      setArtworkUrl("");
+      setLoading(false);
+      setError("");
+      return undefined;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+    createArtwork(snapshot, kind)
+      .then((blob) => {
+        if (cancelled) return;
+        setArtworkUrl(URL.createObjectURL(blob));
+      })
+      .catch((cause) => {
+        if (!cancelled) setError(cause?.message || "Nao foi possivel preparar a previa.");
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [snapshot, kind]);
+
+  useEffect(() => () => {
+    if (artworkUrl) URL.revokeObjectURL(artworkUrl);
+  }, [artworkUrl]);
+
+  return (
+    <div className="min-w-0">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold text-[var(--text-primary)]">Previa da arte</p>
+          <p className="mt-1 text-[11px] text-[var(--text-muted)]">Gerada com os seus dados reais.</p>
+        </div>
+        {snapshot?.label ? <span className="shrink-0 text-[10px] uppercase tracking-[0.14em] text-[var(--text-muted)]">{snapshot.label}</span> : null}
+      </div>
+      <div className="mx-auto w-[min(100%,220px)] overflow-hidden rounded-[16px] border border-[var(--border)] bg-black shadow-[var(--shadow-sm)] sm:mx-0">
+        {loading ? <div className="flex aspect-[9/16] items-center justify-center p-4 text-center text-xs text-white/60">Preparando previa...</div> : artworkUrl ? <img src={artworkUrl} alt={`Previa da retrospectiva ${snapshot?.label || "atual"}`} className="aspect-[9/16] w-full object-cover" /> : <div className="flex aspect-[9/16] items-center justify-center p-4 text-center text-xs text-[var(--text-muted)]">{error || "A previa aparece depois da sua primeira atividade de leitura."}</div>}
+      </div>
+    </div>
+  );
 }
 
 export function RetrospectiveModal({ data, initialKind = "month", open, onClose }) {

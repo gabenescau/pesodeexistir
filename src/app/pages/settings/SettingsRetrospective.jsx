@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowUpRight, BookOpen, ChartLine, Clock, Lock } from "@/lib/icons";
 import { SettingsLayout, SettingsSection } from "../../components/SettingsLayout";
-import { RetrospectiveModal } from "../../components/RetrospectiveModal";
+import { RetrospectiveArtworkPreview, RetrospectiveModal } from "../../components/RetrospectiveModal";
 import { loadRetrospective } from "@/lib/retrospective-api";
 
 function formatMinutes(value) {
@@ -59,6 +59,9 @@ export function SettingsRetrospective() {
             <div className="p-4 sm:p-5">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--accent-mint)]">{snapshot?.label || (kind === "month" ? "Ultimo mes" : "Ultimo ano")}</p>
               <h2 className="mt-2 text-xl font-semibold text-[var(--text-primary)]">Tudo o que voce viveu na leitura</h2>
+              <div className="mt-5 border-b border-[var(--border)] pb-5">
+                <RetrospectiveArtworkPreview data={data} kind={kind} />
+              </div>
               {snapshot?.hasData ? (
                 <>
                   <div className="mt-4 grid grid-cols-2 gap-2">

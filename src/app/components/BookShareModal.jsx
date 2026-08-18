@@ -69,7 +69,7 @@ async function createBookArtwork(book, authorName, readingProgress, currentPage,
   const pages = Math.max(0, Number(totalPages) || 0);
   const cover = await loadImage(book?.image);
 
-  ctx.fillStyle = "#09090b";
+  ctx.fillStyle = "#080808";
   ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
 
   const cardX = 112;
@@ -82,7 +82,7 @@ async function createBookArtwork(book, authorName, readingProgress, currentPage,
   roundedRect(ctx, cardX, cardY, cardW, cardH, cardR);
   ctx.fill();
 
-  ctx.strokeStyle = "#242427";
+  ctx.strokeStyle = "#222225";
   ctx.lineWidth = 2;
   roundedRect(ctx, cardX, cardY, cardW, cardH, cardR);
   ctx.stroke();
@@ -92,18 +92,18 @@ async function createBookArtwork(book, authorName, readingProgress, currentPage,
 
   ctx.fillStyle = "#888888";
   ctx.font = "700 25px Arial, sans-serif";
-  ctx.fillText("LENDO NO MOMENTO", 150, 400);
+  ctx.fillText("LENDO NO MOMENTO", 150, 395);
 
   const coverX = 150;
-  const coverY = 460;
-  const coverWidth = 400;
-  const coverHeight = 660;
+  const coverY = 450;
+  const coverWidth = 405;
+  const coverHeight = 670;
   const coverRadius = 26;
 
   ctx.fillStyle = "#222224";
-  ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
-  ctx.shadowBlur = 32;
-  ctx.shadowOffsetY = 12;
+  ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
+  ctx.shadowBlur = 30;
+  ctx.shadowOffsetY = 10;
   roundedRect(ctx, coverX, coverY, coverWidth, coverHeight, coverRadius);
   ctx.fill();
   ctx.shadowBlur = 0;
@@ -122,28 +122,28 @@ async function createBookArtwork(book, authorName, readingProgress, currentPage,
     ctx.fillStyle = "#26262a";
     roundedRect(ctx, coverX, coverY, coverWidth, coverHeight, coverRadius);
     ctx.fill();
-    ctx.fillStyle = "#f5f5f5";
+    ctx.fillStyle = "#ffffff";
     ctx.font = "700 90px Arial, sans-serif";
     ctx.fillText("OPE", coverX + 100, coverY + 320);
     ctx.font = "400 32px Arial, sans-serif";
     ctx.fillText("capa indisponivel", coverX + 80, coverY + 380);
   }
 
-  const textX = 590;
-  const maxRightWidth = 340;
+  const textX = 595;
+  const maxRightWidth = 335;
 
   ctx.fillStyle = "#888888";
   ctx.font = "700 23px Arial, sans-serif";
-  ctx.fillText("LEITURA", textX, 520);
+  ctx.fillText("LEITURA", textX, 515);
 
   ctx.fillStyle = "#ffffff";
-  ctx.font = "700 50px Arial, sans-serif";
+  ctx.font = "700 52px Arial, sans-serif";
   const titleLines = wrapLines(ctx, title, maxRightWidth, 3);
   titleLines.forEach((line, index) => {
-    ctx.fillText(line, textX, 590 + index * 60);
+    ctx.fillText(line, textX, 585 + index * 62);
   });
 
-  const authorY = 590 + (titleLines.length - 1) * 60 + 65;
+  const authorY = 585 + (titleLines.length - 1) * 62 + 65;
 
   ctx.fillStyle = "#888888";
   ctx.font = "400 31px Arial, sans-serif";
@@ -152,56 +152,56 @@ async function createBookArtwork(book, authorName, readingProgress, currentPage,
   const dividerY = authorY + 45;
   drawDivider(ctx, textX, dividerY, maxRightWidth);
 
-  let metaY = dividerY + 50;
+  let metaY = dividerY + 48;
 
   drawPersonIcon(ctx, textX, metaY - 16, "#888888");
-  ctx.fillStyle = "#888888";
-  ctx.font = "400 21px Arial, sans-serif";
-  ctx.fillText("Autor", textX + 42, metaY - 2);
-  ctx.fillStyle = "#d4d4d4";
-  ctx.font = "400 25px Arial, sans-serif";
-  ctx.fillText(wrapLines(ctx, author, maxRightWidth - 42, 1)[0] || author, textX + 42, metaY + 28);
+  ctx.fillStyle = "#777777";
+  ctx.font = "400 20px Arial, sans-serif";
+  ctx.fillText("Autor", textX + 38, metaY - 2);
+  ctx.fillStyle = "#cccccc";
+  ctx.font = "400 24px Arial, sans-serif";
+  ctx.fillText(wrapLines(ctx, author, maxRightWidth - 38, 1)[0] || author, textX + 38, metaY + 28);
 
-  metaY += 90;
+  metaY += 88;
 
   drawBookmarkIcon(ctx, textX, metaY - 16, "#888888");
-  ctx.fillStyle = "#888888";
-  ctx.font = "400 21px Arial, sans-serif";
-  ctx.fillText("Gênero", textX + 42, metaY - 2);
-  ctx.fillStyle = "#d4d4d4";
-  ctx.font = "400 25px Arial, sans-serif";
-  ctx.fillText(wrapLines(ctx, genre, maxRightWidth - 42, 1)[0] || genre, textX + 42, metaY + 28);
+  ctx.fillStyle = "#777777";
+  ctx.font = "400 20px Arial, sans-serif";
+  ctx.fillText("Gênero", textX + 38, metaY - 2);
+  ctx.fillStyle = "#cccccc";
+  ctx.font = "400 24px Arial, sans-serif";
+  ctx.fillText(wrapLines(ctx, genre, maxRightWidth - 38, 1)[0] || genre, textX + 38, metaY + 28);
 
-  metaY += 90;
+  metaY += 88;
 
   drawQuoteIcon(ctx, textX, metaY - 16, "#888888");
-  ctx.fillStyle = "#888888";
-  ctx.font = "400 21px Arial, sans-serif";
-  ctx.fillText("Sinopse", textX + 42, metaY - 2);
-  ctx.fillStyle = "#a4a4a4";
-  ctx.font = "400 21px Arial, sans-serif";
-  const synopsisLines = wrapLines(ctx, synopsis, maxRightWidth - 42, 2);
+  ctx.fillStyle = "#777777";
+  ctx.font = "400 20px Arial, sans-serif";
+  ctx.fillText("Sinopse", textX + 38, metaY - 2);
+  ctx.fillStyle = "#999999";
+  ctx.font = "400 20px Arial, sans-serif";
+  const synopsisLines = wrapLines(ctx, synopsis, maxRightWidth - 38, 2);
   synopsisLines.forEach((line, index) => {
-    ctx.fillText(line, textX + 42, metaY + 26 + index * 30);
+    ctx.fillText(line, textX + 38, metaY + 26 + index * 28);
   });
 
-  const progBoxY = 1300;
-  ctx.fillStyle = "#18181a";
-  roundedRect(ctx, 150, progBoxY, 780, 220, 28);
+  const progBoxY = 1290;
+  ctx.fillStyle = "#171719";
+  roundedRect(ctx, 150, progBoxY, 780, 215, 26);
   ctx.fill();
 
-  ctx.strokeStyle = "#242427";
+  ctx.strokeStyle = "#222225";
   ctx.lineWidth = 1.5;
-  roundedRect(ctx, 150, progBoxY, 780, 220, 28);
+  roundedRect(ctx, 150, progBoxY, 780, 215, 26);
   ctx.stroke();
 
   ctx.fillStyle = "#888888";
   ctx.font = "700 23px Arial, sans-serif";
-  ctx.fillText("PROGRESSO DA LEITURA", 185, progBoxY + 55);
+  ctx.fillText("PROGRESSO DA LEITURA", 185, progBoxY + 52);
 
-  const barY = progBoxY + 92;
+  const barY = progBoxY + 88;
   const barWidth = 710;
-  ctx.fillStyle = "#2a2a2e";
+  ctx.fillStyle = "#28282c";
   roundedRect(ctx, 185, barY, barWidth, 14, 7);
   ctx.fill();
 
@@ -211,14 +211,14 @@ async function createBookArtwork(book, authorName, readingProgress, currentPage,
   ctx.fill();
 
   ctx.fillStyle = "#888888";
-  ctx.font = "400 24px Arial, sans-serif";
-  ctx.fillText(`${progress}% lido`, 185, progBoxY + 165);
+  ctx.font = "400 23px Arial, sans-serif";
+  ctx.fillText(`${progress}% lido`, 185, progBoxY + 160);
 
   ctx.textAlign = "right";
-  ctx.fillText(pages > 0 ? `página ${Math.min(page, pages)} de ${pages}` : `página ${page}`, 895, progBoxY + 165);
+  ctx.fillText(pages > 0 ? `página ${Math.min(page, pages)} de ${pages}` : `página ${page}`, 895, progBoxY + 160);
   ctx.textAlign = "start";
 
-  drawBrandFooter(ctx, { x: 150, y: 1655 });
+  drawBrandFooter(ctx, { x: 150, y: 1645 });
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Nao foi possivel gerar a arte."))), "image/png");
