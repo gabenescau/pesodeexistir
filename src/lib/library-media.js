@@ -11,6 +11,8 @@ export const LIBRARY_BUCKETS = {
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_PDF_BYTES = 50 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const IMAGE_UPLOAD_KINDS = new Set(["book-cover", "author-photo", "product-image"]);
+const PDF_UPLOAD_KINDS = new Set(["book-pdf"]);
 
 export function validateLibraryFile(file, kind) {
   if (!file) throw new Error("Selecione um arquivo.");
@@ -28,7 +30,13 @@ export function validateLibraryFile(file, kind) {
 }
 
 export async function uploadLibraryFile({ file, bucket, kind }) {
-  const validationKind = bucket === LIBRARY_BUCKETS.pdfs ? "pdf" : "image";
+  const isPdf = PDF_UPLOAD_KINDS.has(kind);
+  const isImage = IMAGE_UPLOAD_KINDS.has(kind);
+  const validBucket = (isPdf && bucket === LIBRARY_BUCKETS.pdfs)
+    || (isImage && bucket !== LIBRARY_BUCKETS.pdfs);
+  if (!validBucket) throw new Error("Tipo de upload invalido para este arquivo.");
+
+  const validationKind = isPdf ? "pdf" : "image";
   validateLibraryFile(file, validationKind);
   return secureUpload({ file, bucket, kind });
 }
