@@ -16,6 +16,19 @@ test("upload ticket accepts a bounded image policy", () => {
   assert.equal(result.fileSize, 1024);
 });
 
+test("upload ticket accepts product images in the shop media bucket", () => {
+  const result = parseUploadInput({
+    bucket: "shop-media",
+    kind: "product-image",
+    fileName: "camisa.webp",
+    fileType: "image/webp",
+    fileSize: 1024,
+  });
+
+  assert.equal(result.bucket, "shop-media");
+  assert.equal(result.kind, "product-image");
+});
+
 test("upload ticket rejects path traversal and oversized files", () => {
   assert.throws(
     () => parseUploadInput({

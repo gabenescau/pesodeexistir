@@ -28,7 +28,7 @@ export function validateLibraryFile(file, kind) {
 }
 
 export async function uploadLibraryFile({ file, bucket, kind }) {
-  const validationKind = bucket === LIBRARY_BUCKETS.covers ? "image" : "pdf";
+  const validationKind = bucket === LIBRARY_BUCKETS.pdfs ? "pdf" : "image";
   validateLibraryFile(file, validationKind);
   return secureUpload({ file, bucket, kind });
 }

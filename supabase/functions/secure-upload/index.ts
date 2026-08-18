@@ -282,7 +282,6 @@ Deno.serve(async (request) => {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     });
     const ticket = await verifyUploadTicket(request.headers.get("x-upload-ticket") || "");
-    await consumeUploadTicket(admin, ticket);
     const form = await request.formData();
     const file = form.get("file");
     const bucket = String(form.get("bucket") || "");
@@ -319,6 +318,12 @@ Deno.serve(async (request) => {
       ? "pdf"
       : IMAGE_TYPES.get(contentType)?.extension;
     if (!extension) throw validationError("Extensao de arquivo nao permitida");
+
+    // Consume only after the request, role, size, and file signature have all
+    // passed validation. This keeps a malformed upload from burning a ticket,
+    // while still reserving it immediately before the Storage write so a
+    // concurrent replay cannot upload the same ticket twice.
+    await consumeUploadTicket(admin, ticket);
 
     const path = `${ticket.sub}/${kind.replace(/[^a-z0-9_-]/gi, "-").slice(0, 32)}/${crypto.randomUUID()}-${safeBaseName(file.name)}.${extension}`;
     const { error: uploadError } = await admin.storage.from(bucket).upload(path, bytes, {

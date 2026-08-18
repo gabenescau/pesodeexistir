@@ -3,7 +3,13 @@ import { authenticatedApiPost } from "./authenticated-api";
 
 const FUNCTION_NAME = "secure-upload";
 
-export async function secureUpload({ file, bucket, kind }) {
+const inFlightUploads = new Map();
+
+function uploadKey(file, bucket, kind) {
+  return [bucket, kind, file.name, file.size, file.lastModified].join(":");
+}
+
+async function uploadOnce({ file, bucket, kind }) {
   if (!isSupabaseReady()) throw new Error("Supabase nao configurado.");
   if (!(file instanceof File)) throw new Error("Arquivo invalido.");
 
@@ -51,11 +57,39 @@ export async function secureUpload({ file, bucket, kind }) {
   }
   const data = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new Error(data?.error || (response.status >= 500
+    const message = data?.error || (response.status >= 500
       ? "O servico de upload esta temporariamente indisponivel."
-      : "O arquivo nao foi aceito pelo servidor."));
+      : "O arquivo nao foi aceito pelo servidor.");
+    const error = new Error(message);
+    error.uploadTicketConsumed = response.status === 400
+      && /upload ticket (expirado|ja utilizado)/i.test(String(message));
+    throw error;
   }
 
   if (!data?.path) throw new Error("O arquivo nao foi aceito pelo servidor.");
   return data.path;
+}
+
+async function uploadWithFreshTicket({ file, bucket, kind }) {
+  try {
+    return await uploadOnce({ file, bucket, kind });
+  } catch (error) {
+    // A previous interrupted request may have consumed the one-time ticket.
+    // Request exactly one fresh ticket; never retry arbitrary validation errors.
+    if (!error?.uploadTicketConsumed) throw error;
+    return uploadOnce({ file, bucket, kind });
+  }
+}
+
+export function secureUpload({ file, bucket, kind }) {
+  if (!(file instanceof File)) return uploadOnce({ file, bucket, kind });
+
+  const key = uploadKey(file, bucket, kind);
+  const current = inFlightUploads.get(key);
+  if (current) return current;
+
+  const request = uploadWithFreshTicket({ file, bucket, kind })
+    .finally(() => inFlightUploads.delete(key));
+  inFlightUploads.set(key, request);
+  return request;
 }
