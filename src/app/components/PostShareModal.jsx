@@ -3,9 +3,15 @@ import { Copy, Download, InstagramLogo, Share2, WhatsappLogo, X } from "@/lib/ic
 import { toast } from "@/lib/toast";
 import { copyShareText, downloadShareFile, openWhatsAppShare, shareArtwork } from "@/app/components/share-utils";
 import { relativeTime } from "@/lib/social";
+import { drawXMark } from "@/app/components/share-artwork-style";
 
 const STORY_WIDTH = 1080;
-const STORY_HEIGHT = 1920;
+const CARD_X = 80;
+const CARD_Y = 100;
+const CARD_WIDTH = 920;
+const CARD_RADIUS = 44;
+const CONTENT_X = 140;
+const CONTENT_WIDTH = 800;
 
 function clean(value, fallback = "") {
   return String(value || fallback).replace(/\s+/g, " ").trim();
@@ -53,10 +59,15 @@ function loadImage(url) {
   });
 }
 
+function formatCount(value) {
+  const count = Math.max(0, Number(value) || 0);
+  if (count >= 1000000) return `${(count / 1000000).toFixed(1).replace(".", ",")}M`;
+  if (count >= 1000) return `${(count / 1000).toFixed(1).replace(".", ",")}K`;
+  return count.toLocaleString("pt-BR");
+}
+
 async function createPostArtwork(post) {
   const canvas = document.createElement("canvas");
-  canvas.width = STORY_WIDTH;
-  canvas.height = STORY_HEIGHT;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Seu navegador nao conseguiu criar a arte.");
 
@@ -64,16 +75,38 @@ async function createPostArtwork(post) {
   const handle = clean(post?.handle, "leitor").slice(0, 32);
   const content = clean(post?.text, "").slice(0, 800);
   const avatar = await loadImage(post?.avatar || post?.authorProfile?.avatar || post?.authorProfile?.avatar_url);
-  const image = await loadImage(post?.images?.[0]);
+  const imageSource = Array.isArray(post?.images) ? post.images[0] : post?.image;
+  const image = await loadImage(imageSource);
+
+  ctx.font = "400 38px Arial, sans-serif";
+  const contentLines = wrapLines(ctx, content, CONTENT_WIDTH, 10);
+  const contentY = 360;
+  const lineHeight = 56;
+  const contentHeight = Math.max(contentLines.length, 1) * lineHeight;
+  const imageY = contentY + contentHeight + 38;
+  const imageWidth = CONTENT_WIDTH;
+  const imageHeight = image
+    ? Math.min(900, Math.max(320, Math.round(imageWidth * (image.height / image.width))))
+    : 0;
+  const mediaBottom = image ? imageY + imageHeight : imageY;
+  const footerY = mediaBottom + 72;
+  const cardHeight = Math.max(430, footerY + 46 - CARD_Y);
+  const canvasHeight = CARD_Y + cardHeight + 100;
+
+  // The artwork is sized from its actual content. Posts without media do not
+  // reserve a portrait image slot, while image posts keep a bounded ratio.
+  canvas.width = STORY_WIDTH;
+  canvas.height = canvasHeight;
 
   ctx.fillStyle = "#000000";
-  ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
+  ctx.fillRect(0, 0, STORY_WIDTH, canvasHeight);
   ctx.fillStyle = "#0b0b0b";
-  roundedRect(ctx, 80, 100, 920, 1720, 44);
+  roundedRect(ctx, CARD_X, CARD_Y, CARD_WIDTH, cardHeight, CARD_RADIUS);
   ctx.fill();
   ctx.strokeStyle = "#292929";
   ctx.lineWidth = 2;
   ctx.stroke();
+  drawXMark(ctx, CARD_X + CARD_WIDTH - 74, CARD_Y + 42, 42);
 
   const avatarX = 140;
   const avatarY = 170;
@@ -116,27 +149,30 @@ async function createPostArtwork(post) {
   ctx.font = "400 25px Arial, sans-serif";
   ctx.fillText(`@${handle} · ${relativeTime(post?.created_at)}`, 270, 252);
 
-  const contentX = 140;
-  const contentY = 360;
   ctx.fillStyle = "#f5f5f5";
   ctx.font = "400 38px Arial, sans-serif";
-  const contentLines = wrapLines(ctx, content, 800, 10);
-  contentLines.forEach((line, index) => ctx.fillText(line, contentX, contentY + index * 56));
+  contentLines.forEach((line, index) => ctx.fillText(line, CONTENT_X, contentY + index * lineHeight));
 
-  const imageY = contentY + Math.max(contentLines.length, 1) * 56 + 38;
-  const imageWidth = 640;
-  const imageXCentered = (STORY_WIDTH - imageWidth) / 2;
-  const imageHeight = image ? 690 : 0;
   ctx.save();
   if (image) {
-    roundedRect(ctx, imageXCentered, imageY, imageWidth, imageHeight, 28);
+    roundedRect(ctx, CONTENT_X, imageY, imageWidth, imageHeight, 28);
     ctx.clip();
     const scale = Math.max(imageWidth / image.width, imageHeight / image.height);
     const width = image.width * scale;
     const height = image.height * scale;
-    ctx.drawImage(image, imageXCentered + (imageWidth - width) / 2, imageY + (imageHeight - height) / 2, width, height);
+    ctx.drawImage(image, CONTENT_X + (imageWidth - width) / 2, imageY + (imageHeight - height) / 2, width, height);
   }
   ctx.restore();
+
+  const likes = formatCount(post?.likes);
+  const replies = formatCount(post?.replies);
+  ctx.fillStyle = "#969696";
+  ctx.font = "400 23px Arial, sans-serif";
+  ctx.fillText(`${likes} curtidas`, CONTENT_X, footerY);
+  ctx.fillText(`${replies} respostas`, CONTENT_X + 220, footerY);
+  ctx.textAlign = "right";
+  ctx.fillText("x.com", CONTENT_X + CONTENT_WIDTH, footerY);
+  ctx.textAlign = "start";
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Nao foi possivel gerar a arte."))), "image/png");
@@ -228,8 +264,8 @@ export function PostShareModal({ post, open, onClose }) {
           <button type="button" onClick={onClose} className="flex size-10 items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]" aria-label="Fechar compartilhamento"><X className="size-5" /></button>
         </div>
         <div className="grid min-h-0 gap-5 overflow-y-auto p-5 sm:grid-cols-[220px_1fr] sm:items-center">
-          <div className="mx-auto w-[min(54vw,220px)] overflow-hidden rounded-[16px] border border-[var(--border)] bg-black shadow-[var(--shadow-sm)] sm:w-full">
-            {generating ? <div className="flex aspect-[9/16] items-center justify-center text-xs text-white/60">Preparando arte...</div> : artworkUrl ? <img src={artworkUrl} alt="Arte de compartilhamento do post" className="aspect-[9/16] w-full object-cover" /> : <div className="flex aspect-[9/16] items-center justify-center p-4 text-center text-xs text-red-300">{error || "Arte indisponivel"}</div>}
+          <div className="mx-auto flex max-h-[62dvh] w-[min(54vw,220px)] items-center justify-center overflow-hidden rounded-[16px] border border-[var(--border)] bg-black shadow-[var(--shadow-sm)] sm:w-full">
+            {generating ? <div className="flex min-h-32 items-center justify-center p-4 text-xs text-white/60">Preparando arte...</div> : artworkUrl ? <img src={artworkUrl} alt="Arte de compartilhamento do post" className="block max-h-[62dvh] w-full object-contain" /> : <div className="flex min-h-32 items-center justify-center p-4 text-center text-xs text-red-300">{error || "Arte indisponivel"}</div>}
           </div>
           <div className="space-y-3">
             <p className="text-sm leading-relaxed text-[var(--text-secondary)]">Compartilhe o post como imagem e leve seus amigos para a conversa no OPE Club.</p>

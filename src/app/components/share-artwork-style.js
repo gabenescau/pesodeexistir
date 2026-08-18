@@ -7,18 +7,44 @@ export function roundedRect(ctx, x, y, width, height, radius) {
 export function drawLogoMark(ctx, x, y, size, color = "#ffffff") {
   ctx.save();
   ctx.strokeStyle = color;
-  ctx.lineWidth = Math.max(3.5, size * 0.08);
-  ctx.lineCap = "round";
+  ctx.lineWidth = Math.max(3.5, size * 0.095);
+  ctx.lineCap = "square";
+  ctx.lineJoin = "round";
   const cx = x + size * 0.5;
-  const cy = y + size * 0.5;
-  const rx = size * 0.38;
-  const ry = size * 0.43;
+  const top = y + size * 0.08;
+  const bottom = y + size * 0.94;
+  const left = x + size * 0.12;
+  const right = x + size * 0.88;
+  const middle = y + size * 0.5;
   ctx.beginPath();
-  ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+  ctx.moveTo(cx, top);
+  ctx.lineTo(cx, bottom);
   ctx.stroke();
+
   ctx.beginPath();
-  ctx.moveTo(cx, y + size * 0.04);
-  ctx.lineTo(cx, y + size * 0.96);
+  ctx.moveTo(cx, top);
+  ctx.bezierCurveTo(left + size * 0.12, top, left, y + size * 0.26, left, middle);
+  ctx.bezierCurveTo(left, y + size * 0.74, left + size * 0.12, bottom, cx, bottom);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(cx, top);
+  ctx.bezierCurveTo(right - size * 0.12, top, right, y + size * 0.26, right, middle);
+  ctx.bezierCurveTo(right, y + size * 0.74, right - size * 0.12, bottom, cx, bottom);
+  ctx.stroke();
+  ctx.restore();
+}
+
+export function drawXMark(ctx, x, y, size, color = "#f5f5f5") {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(3, size * 0.08);
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(x + size * 0.12, y + size * 0.12);
+  ctx.lineTo(x + size * 0.88, y + size * 0.88);
+  ctx.moveTo(x + size * 0.88, y + size * 0.12);
+  ctx.lineTo(x + size * 0.12, y + size * 0.88);
   ctx.stroke();
   ctx.restore();
 }
