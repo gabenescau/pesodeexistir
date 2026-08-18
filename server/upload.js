@@ -10,8 +10,6 @@ const POLICIES = {
   "shop-media": { maxBytes: 5 * 1024 * 1024, kinds: new Set(["product-image"]), types: IMAGE_TYPES, roles: new Set(["admin", "editor"]) },
   pdfs: { maxBytes: 50 * 1024 * 1024, kinds: new Set(["book-pdf"]), types: new Set(["application/pdf"]), roles: new Set(["admin", "editor"]) },
 };
-const SAFE_FILE_NAME = /^[^/\\]{1,180}$/;
-const TICKET_TTL_SECONDS = 5 * 60;
 const MAX_IMAGE_PIXELS = 40_000_000;
 
 function invalid(message, status = 400) {
@@ -19,55 +17,6 @@ function invalid(message, status = 400) {
   error.status = status;
   error.userSafe = true;
   return error;
-}
-
-function getTicketSecret() {
-  const secret = String(process.env.UPLOAD_TICKET_SECRET || "");
-  if (secret.length < 32) {
-    const error = new Error("UPLOAD_TICKET_SECRET nao configurado no servidor.");
-    error.status = 503;
-    error.userSafe = true;
-    throw error;
-  }
-  return secret;
-}
-
-function base64Url(value) {
-  return Buffer.from(value).toString("base64url");
-}
-
-function signTicket(payload) {
-  const body = base64Url(JSON.stringify(payload));
-  const signature = crypto.createHmac("sha256", getTicketSecret()).update(body).digest("base64url");
-  return `${body}.${signature}`;
-}
-
-function hasUnsafeFileCharacters(value) {
-  return [...value].some((character) => {
-    const code = character.charCodeAt(0);
-    return code <= 31 || code === 127;
-  });
-}
-
-export function parseUploadInput(body = {}) {
-  const bucket = String(body.bucket || "").trim();
-  const kind = String(body.kind || "").trim();
-  const fileName = String(body.fileName || "").trim();
-  const fileType = String(body.fileType || "").trim().toLowerCase();
-  const fileSize = Number(body.fileSize);
-  const policy = POLICIES[bucket];
-
-  if (!policy || !policy.kinds.has(kind) || !policy.types.has(fileType)) {
-    throw invalid("Tipo de upload nao permitido.");
-  }
-  if (!SAFE_FILE_NAME.test(fileName) || hasUnsafeFileCharacters(fileName) || fileName === "." || fileName === "..") {
-    throw invalid("Nome de arquivo invalido.");
-  }
-  if (!Number.isSafeInteger(fileSize) || fileSize < 1 || fileSize > policy.maxBytes) {
-    throw invalid("Tamanho de arquivo nao permitido.");
-  }
-
-  return { bucket, kind, fileName, fileType, fileSize, policy };
 }
 
 async function getUserRole(userId) {
@@ -92,70 +41,6 @@ function validateDeletePath(path) {
     throw invalid("Caminho de arquivo invalido.");
   }
   return value;
-}
-
-export async function createUploadTicket(req, res) {
-  const session = await getRequiredCookieSession(req, res);
-  const input = parseUploadInput(req.body);
-  const role = await getUserRole(session.user.id);
-  if (!input.policy.roles.has("owner") && !input.policy.roles.has(role)) {
-    throw invalid("Sem permissao para este tipo de arquivo.", 403);
-  }
-
-  const expiresAt = Math.floor(Date.now() / 1000) + TICKET_TTL_SECONDS;
-  return {
-    ticket: signTicket({
-      sub: session.user.id,
-      bucket: input.bucket,
-      kind: input.kind,
-      fileName: input.fileName,
-      fileType: input.fileType,
-      fileSize: input.fileSize,
-      exp: expiresAt,
-      nonce: crypto.randomUUID(),
-    }),
-    expiresAt,
-  };
-}
-
-function decodeBase64Url(value) {
-  const normalized = String(value || "").replace(/-/g, "+").replace(/_/g, "/")
-    .padEnd(Math.ceil(String(value || "").length / 4) * 4, "=");
-  return Buffer.from(normalized, "base64");
-}
-
-function verifyUploadTicket(ticket) {
-  const [body, signature] = String(ticket || "").split(".");
-  const secret = String(process.env.UPLOAD_TICKET_SECRET || "");
-  if (!secret || !body || !signature || body.length > 4096 || signature.length > 256) {
-    throw invalid("Upload ticket invalido");
-  }
-
-  const expected = crypto.createHmac("sha256", secret).update(body).digest();
-  const received = decodeBase64Url(signature);
-  if (expected.length !== received.length || !crypto.timingSafeEqual(expected, received)) {
-    throw invalid("Upload ticket invalido");
-  }
-
-  let payload;
-  try {
-    payload = JSON.parse(decodeBase64Url(body).toString("utf8"));
-  } catch {
-    throw invalid("Upload ticket invalido");
-  }
-  if (
-    typeof payload.sub !== "string"
-    || typeof payload.bucket !== "string"
-    || typeof payload.kind !== "string"
-    || typeof payload.fileName !== "string"
-    || typeof payload.fileType !== "string"
-    || !Number.isSafeInteger(payload.fileSize)
-    || !Number.isSafeInteger(payload.exp)
-    || payload.exp < Math.floor(Date.now() / 1000)
-  ) {
-    throw invalid("Upload ticket expirado");
-  }
-  return payload;
 }
 
 function hasBytes(bytes, offset, values) {
@@ -228,13 +113,6 @@ function validateUploadBytes(bytes, claimedType) {
     if (!hasBytes(bytes, 0, [0x25, 0x50, 0x44, 0x46, 0x2d])) {
       throw invalid("O arquivo nao e um PDF valido.");
     }
-    const tail = bytes.subarray(Math.max(0, bytes.length - 4096)).toString("latin1").trimEnd();
-    if (!tail.endsWith("%%EOF")) throw invalid("O PDF parece incompleto.");
-    const source = bytes.toString("latin1");
-    if (["/JavaScript", "/JS", "/Launch", "/EmbeddedFile", "/RichMedia", "/XFA"]
-      .some((token) => source.includes(token))) {
-      throw invalid("O PDF contem recursos ativos proibidos.");
-    }
     return "application/pdf";
   }
 
@@ -256,37 +134,17 @@ function safeBaseName(name) {
     .replace(/[^a-z0-9._-]+/g, "-").replace(/(^-+|-+$)/g, "").slice(0, 80) || "arquivo";
 }
 
-async function consumeUploadTicket(payload) {
-  const nonce = String(payload.nonce || "");
-  if (!/^[0-9a-f-]{20,100}$/i.test(nonce)) throw invalid("Upload ticket invalido");
-  const hash = crypto.createHash("sha256").update(nonce).digest("hex");
-  const result = await supabaseRequest("rpc/consume_upload_ticket_nonce", {
-    method: "POST",
-    body: JSON.stringify({
-      p_nonce_hash: hash,
-      p_expires_at: new Date(Number(payload.exp) * 1000).toISOString(),
-    }),
-  });
-  if (result !== true) throw invalid("Upload ticket expirado ou ja utilizado");
-}
-
 export async function uploadUploadedFile(req, res, form, existingSession = null) {
   const session = existingSession || await getRequiredCookieSession(req, res);
   const file = form.get("file");
   const bucket = String(form.get("bucket") || "");
   const kind = String(form.get("kind") || "");
-  const ticket = verifyUploadTicket(req.headers["x-upload-ticket"] || "");
   const policy = POLICIES[bucket];
 
   if (!file || typeof file.arrayBuffer !== "function" || !policy || !policy.kinds.has(kind)) {
     throw invalid("Upload invalido");
   }
   const claimedType = String(file.type || "").toLowerCase();
-  if (ticket.sub !== session.user.id || ticket.bucket !== bucket || ticket.kind !== kind
-    || ticket.fileName !== file.name || String(ticket.fileType).toLowerCase() !== claimedType
-    || ticket.fileSize !== file.size) {
-    throw invalid("O upload nao corresponde a autorizacao");
-  }
   if (!policy.types.has(claimedType) || !Number.isSafeInteger(file.size)
     || file.size < 1 || file.size > policy.maxBytes) {
     throw invalid("Tipo ou tamanho de arquivo nao permitido");
@@ -304,7 +162,6 @@ export async function uploadUploadedFile(req, res, form, existingSession = null)
     : ({ "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif" }[contentType]);
   if (!extension) throw invalid("Extensao de arquivo nao permitida");
 
-  await consumeUploadTicket(ticket);
   const path = `${session.user.id}/${kind.replace(/[^a-z0-9_-]/gi, "-").slice(0, 32)}/${crypto.randomUUID()}-${safeBaseName(file.name)}.${extension}`;
   await supabaseStorageRequest(`object/${encodeURIComponent(bucket)}/${path.split("/").map(encodeURIComponent).join("/")}`, {
     method: "POST",

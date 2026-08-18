@@ -45,6 +45,17 @@ function optionalText(value, max = 5000) {
   return result || null;
 }
 
+function safeImageUrl(value) {
+  const candidate = text(value, 1000);
+  if (!candidate) return "";
+  try {
+    const parsed = new URL(candidate);
+    return parsed.protocol === "https:" ? parsed.toString() : "";
+  } catch {
+    return "";
+  }
+}
+
 function uuid(value, field) {
   return requireUuid(value, field);
 }
@@ -334,8 +345,10 @@ async function saveShopProduct(payload) {
   data.real_price = Math.max(0, Number(data.real_price) || 0);
   data.min_months_active = Math.max(0, Number(data.min_months_active) || 0);
   data.stock = data.stock === null || data.stock === "" ? null : Math.max(0, Number(data.stock) || 0);
-  data.images = Array.isArray(data.images) ? data.images.slice(0, 12).map((item) => text(item, 1000)).filter(Boolean) : [];
-  data.image_url = data.images[0] || optionalText(data.image_url, 1000);
+  data.images = Array.isArray(data.images)
+    ? data.images.slice(0, 12).map(safeImageUrl).filter(Boolean)
+    : [];
+  data.image_url = data.images[0] || safeImageUrl(data.image_url) || null;
   if (data.season_id) data.season_id = uuid(data.season_id, "seasonId");
   const product = payload.id
     ? await patchById("shop_products", payload.id, data)

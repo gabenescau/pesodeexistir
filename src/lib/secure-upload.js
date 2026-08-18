@@ -1,6 +1,3 @@
-import { isSupabaseReady } from "@/app/data/supabase";
-import { authenticatedApiPost } from "./authenticated-api";
-
 const inFlightUploads = new Map();
 
 function uploadKey(file, bucket, kind) {
@@ -8,17 +5,7 @@ function uploadKey(file, bucket, kind) {
 }
 
 async function uploadOnce({ file, bucket, kind }) {
-  if (!isSupabaseReady()) throw new Error("Supabase nao configurado.");
   if (!(file instanceof File)) throw new Error("Arquivo invalido.");
-
-  const ticketData = await authenticatedApiPost("/api/auth?action=upload-ticket", {
-    bucket,
-    kind,
-    fileName: file.name || "arquivo",
-    fileType: file.type || "application/octet-stream",
-    fileSize: file.size,
-  });
-  if (!ticketData?.ticket) throw new Error("Nao foi possivel autorizar o upload.");
 
   const form = new FormData();
   form.append("file", file, file.name || "arquivo");
@@ -29,12 +16,8 @@ async function uploadOnce({ file, bucket, kind }) {
   const timeout = window.setTimeout(() => controller.abort(), 120000);
   let response;
   try {
-    response = await fetch("/api/secure-upload", {
+    response = await fetch("/api/uploads", {
       method: "POST",
-      headers: {
-        "X-Requested-With": "OPE-App",
-        "x-upload-ticket": ticketData.ticket,
-      },
       credentials: "include",
       body: form,
       signal: controller.signal,
@@ -47,31 +30,18 @@ async function uploadOnce({ file, bucket, kind }) {
   } finally {
     window.clearTimeout(timeout);
   }
+
   const data = await response.json().catch(() => null);
   if (!response.ok) {
     const message = data?.error || (response.status >= 500
       ? "O servico de upload esta temporariamente indisponivel."
       : "O arquivo nao foi aceito pelo servidor.");
-    const error = new Error(message);
-    error.uploadTicketConsumed = response.status === 400
-      && /upload ticket (expirado|ja utilizado)/i.test(String(message));
-    throw error;
+    throw new Error(message);
   }
 
-  const uploadedPath = data?.path || data?.data?.path;
+  const uploadedPath = data?.data?.path || data?.path;
   if (!uploadedPath) throw new Error("O arquivo nao foi aceito pelo servidor.");
   return uploadedPath;
-}
-
-async function uploadWithFreshTicket({ file, bucket, kind }) {
-  try {
-    return await uploadOnce({ file, bucket, kind });
-  } catch (error) {
-    // A previous interrupted request may have consumed the one-time ticket.
-    // Request exactly one fresh ticket; never retry arbitrary validation errors.
-    if (!error?.uploadTicketConsumed) throw error;
-    return uploadOnce({ file, bucket, kind });
-  }
 }
 
 export function secureUpload({ file, bucket, kind }) {
@@ -81,7 +51,7 @@ export function secureUpload({ file, bucket, kind }) {
   const current = inFlightUploads.get(key);
   if (current) return current;
 
-  const request = uploadWithFreshTicket({ file, bucket, kind })
+  const request = uploadOnce({ file, bucket, kind })
     .finally(() => inFlightUploads.delete(key));
   inFlightUploads.set(key, request);
   return request;

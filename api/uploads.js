@@ -14,7 +14,7 @@ export const config = {
 };
 
 export default async function handler(req, res) {
-  if (!allowAuthRequest(req, res, { method: "POST", requireHeader: true })) return;
+  if (!allowAuthRequest(req, res, { method: "POST", requireHeader: false })) return;
 
   const contentLength = Number(req.headers["content-length"] || 0);
   if (contentLength > 52 * 1024 * 1024) {
@@ -28,7 +28,8 @@ export default async function handler(req, res) {
       res.status(401).json({ success: false, error: "Sessao invalida ou expirada." });
       return;
     }
-    const request = new Request(`https://${req.headers.host || "localhost"}${req.url || "/api/secure-upload"}`, {
+
+    const request = new Request(`https://${req.headers.host || "localhost"}${req.url || "/api/uploads"}`, {
       method: req.method,
       headers: req.headers,
       body: req,

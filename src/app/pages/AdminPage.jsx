@@ -1839,6 +1839,17 @@ function LojaTab() {
     e?.preventDefault();
     const url = newImageUrl.trim();
     if (!url) return;
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(url);
+    } catch {
+      setError("Informe uma URL de imagem valida começando com https://.");
+      return;
+    }
+    if (parsedUrl.protocol !== "https:") {
+      setError("A URL da imagem deve começar com https://.");
+      return;
+    }
     const currentImages = Array.isArray(form.images) ? form.images : (form.image_url ? [form.image_url] : []);
     if (currentImages.includes(url)) {
       setNewImageUrl("");

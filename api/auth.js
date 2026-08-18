@@ -26,7 +26,7 @@ import { getCommunityFeed, handleCommunityWrite } from "../server/community.js";
 import { getReadingProgress, updateReadingProgress } from "../server/reading.js";
 import { handleRewardsAction } from "../server/rewards.js";
 import { getMySubscriptions } from "../server/billing.js";
-import { createUploadTicket, deleteUploadedFiles } from "../server/upload.js";
+import { deleteUploadedFiles } from "../server/upload.js";
 import { getAccountState, handleAccountWrite } from "../server/account.js";
 import { handleSuggestionsAction } from "../server/suggestions.js";
 import { getRetrospective } from "../server/retrospective.js";
@@ -137,18 +137,6 @@ export default async function handler(req, res) {
 
     if (action === "account-write") {
       return sendSuccess(req, res, await handleAccountWrite(req, res));
-    }
-
-    if (action === "upload-ticket") {
-      const user = await getAuthenticatedUser(req, res);
-      if (!await enforceRateLimit(req, res, {
-        scope: "upload_ticket",
-        limit: 30,
-        windowSeconds: 300,
-        userId: user.id,
-      })) return;
-      res.setHeader("Cache-Control", "no-store");
-      return sendSuccess(req, res, await createUploadTicket(req, res));
     }
 
     if (action === "upload-delete") {
@@ -270,8 +258,6 @@ export default async function handler(req, res) {
                 ? "Nao foi possivel carregar seus dados agora."
               : action === "retrospective"
                 ? "Nao foi possivel carregar sua retrospectiva agora."
-              : action === "upload-ticket"
-                ? "Nao foi possivel autorizar o upload agora."
               : action === "upload-delete"
                 ? "Nao foi possivel remover o arquivo agora."
               : action === "wallet"
