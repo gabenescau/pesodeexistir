@@ -158,10 +158,22 @@ export async function updateAuthenticatedProfile(req, res, payload) {
 export async function readProviderResponse(response) {
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
-    const error = new Error("Nao foi possivel concluir a operacao de autenticacao.");
+    const providerMessage = String(payload?.msg || payload?.message || payload?.error_description || "");
+    const providerCode = String(payload?.error_code || payload?.code || "").toLowerCase();
+    let safeMessage = "Nao foi possivel concluir a operacao de autenticacao.";
+    if (providerCode === "user_already_exists" || /already registered|already exists/i.test(providerMessage)) {
+      safeMessage = "Esse email ja tem uma conta. Faca login ou use outro email.";
+    } else if (/invalid email|email address is invalid/i.test(providerMessage)) {
+      safeMessage = "Digite um email valido.";
+    } else if (/password.*(weak|short)|weak password/i.test(providerMessage)) {
+      safeMessage = "Use uma senha mais forte, com pelo menos 12 caracteres.";
+    } else if (/email.*(rate|send|deliver)|smtp|mail provider/i.test(providerMessage)) {
+      safeMessage = "Nao conseguimos enviar o email de confirmacao agora. Tente novamente mais tarde.";
+    }
+    const error = new Error(safeMessage);
     error.status = response.status === 429 ? 429 : response.status >= 500 ? 503 : 400;
     error.userSafe = true;
-    error.providerCode = payload?.error_code || payload?.code || null;
+    error.providerCode = providerCode || null;
     throw error;
   }
   return payload || {};

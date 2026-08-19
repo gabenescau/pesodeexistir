@@ -63,6 +63,7 @@ async function createAuthorArtwork(author) {
   const authorName = text(author?.name, "Albert Camus").slice(0, 80);
   const era = text(author?.era || author?.theme, "Século XX").slice(0, 80);
   const image = await loadImage(author?.image);
+  const opeLogo = await loadImage("/ope-share-logo.png");
 
   ctx.fillStyle = "#09090b";
   ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
@@ -82,7 +83,7 @@ async function createAuthorArtwork(author) {
   roundedRect(ctx, cardX, cardY, cardW, cardH, cardR);
   ctx.stroke();
 
-  drawBrandHeader(ctx, { x: 214, y: 228 });
+  drawBrandHeader(ctx, { x: 214, y: 228, logoImage: opeLogo });
 
   const cx = 540;
   const cy = 620;
@@ -130,7 +131,7 @@ async function createAuthorArtwork(author) {
   ctx.font = "400 30px Arial, sans-serif";
   ctx.fillText(era, textX, eraY);
 
-  drawBrandFooter(ctx, { x: textX, y: 1368, width: 650 });
+  drawBrandFooter(ctx, { x: textX, y: 1368, width: 650, logoImage: opeLogo });
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Nao foi possivel gerar a arte."))), "image/png");

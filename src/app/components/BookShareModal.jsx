@@ -68,6 +68,7 @@ async function createBookArtwork(book, authorName, readingProgress, currentPage,
   const page = Math.max(1, Number(currentPage) || 1);
   const pages = Math.max(0, Number(totalPages) || 0);
   const cover = await loadImage(book?.image);
+  const opeLogo = await loadImage("/ope-share-logo.png");
 
   ctx.fillStyle = "#080808";
   ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
@@ -87,7 +88,7 @@ async function createBookArtwork(book, authorName, readingProgress, currentPage,
   roundedRect(ctx, cardX, cardY, cardW, cardH, cardR);
   ctx.stroke();
 
-  drawBrandHeader(ctx, { x: 112, y: 134 });
+  drawBrandHeader(ctx, { x: 112, y: 134, logoImage: opeLogo });
   drawDivider(ctx, 112, 252, 856);
 
   ctx.fillStyle = "#888888";
@@ -218,7 +219,7 @@ async function createBookArtwork(book, authorName, readingProgress, currentPage,
   ctx.fillText(pages > 0 ? `página ${Math.min(page, pages)} de ${pages}` : `página ${page}`, 895, progBoxY + 160);
   ctx.textAlign = "start";
 
-  drawBrandFooter(ctx, { x: 112, y: 1460, width: 856 });
+  drawBrandFooter(ctx, { x: 112, y: 1460, width: 856, logoImage: opeLogo });
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Nao foi possivel gerar a arte."))), "image/png");

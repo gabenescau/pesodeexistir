@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseUploadInput } from "../server/upload.js";
+import { validateUploadMetadata } from "../server/upload.js";
 
-test("upload ticket accepts a bounded image policy", () => {
-  const result = parseUploadInput({
+test("upload metadata accepts a bounded avatar image policy", () => {
+  const result = validateUploadMetadata({
     bucket: "avatars",
     kind: "avatar",
     fileName: "perfil.png",
@@ -16,8 +16,8 @@ test("upload ticket accepts a bounded image policy", () => {
   assert.equal(result.fileSize, 1024);
 });
 
-test("upload ticket accepts product images in the shop media bucket", () => {
-  const result = parseUploadInput({
+test("upload metadata accepts product images in the shop media bucket", () => {
+  const result = validateUploadMetadata({
     bucket: "shop-media",
     kind: "product-image",
     fileName: "camisa.webp",
@@ -29,20 +29,18 @@ test("upload ticket accepts product images in the shop media bucket", () => {
   assert.equal(result.kind, "product-image");
 });
 
-test("upload ticket rejects path traversal and oversized files", () => {
-  assert.throws(
-    () => parseUploadInput({
-      bucket: "post-media",
-      kind: "post-image",
-      fileName: "../payload.png",
-      fileType: "image/png",
-      fileSize: 1024,
-    }),
-    /nome de arquivo invalido/i,
-  );
+test("upload metadata normalizes unsafe file names and rejects oversized files", () => {
+  const result = validateUploadMetadata({
+    bucket: "post-media",
+    kind: "post-image",
+    fileName: "../payload.png",
+    fileType: "image/png",
+    fileSize: 1024,
+  });
+  assert.match(result.fileName, /^payload\.png$/);
 
   assert.throws(
-    () => parseUploadInput({
+    () => validateUploadMetadata({
       bucket: "avatars",
       kind: "avatar",
       fileName: "perfil.png",
@@ -53,9 +51,9 @@ test("upload ticket rejects path traversal and oversized files", () => {
   );
 });
 
-test("upload ticket does not allow a client to choose an unrelated bucket kind", () => {
+test("upload metadata does not allow a client to choose an unrelated bucket kind", () => {
   assert.throws(
-    () => parseUploadInput({
+    () => validateUploadMetadata({
       bucket: "pdfs",
       kind: "avatar",
       fileName: "arquivo.pdf",

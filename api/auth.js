@@ -49,9 +49,14 @@ function actionMethod(action, req) {
 export default async function handler(req, res) {
   const action = actionFromRequest(req);
   const method = actionMethod(action, req);
+  const publicAuthAction = ["session", "login", "signup", "resend"].includes(action);
   if (!allowAuthRequest(req, res, {
     method,
-    requireHeader: action !== "session",
+    // Login, cadastro, reenvio e restauracao de sessao sao endpoints publicos.
+    // CORS, rate limit e a propria autenticacao continuam sendo aplicados;
+    // um cabecalho customizado nao pode ser tratado como controle de acesso,
+    // pois navegadores, WebViews e gerenciadores de senha podem omiti-lo.
+    requireHeader: !publicAuthAction,
   })) return;
 
   try {

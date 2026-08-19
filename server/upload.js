@@ -130,8 +130,28 @@ function validateUploadBytes(bytes, claimedType) {
 }
 
 function safeBaseName(name) {
-  return String(name).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+  const baseName = String(name || "").replace(/\\/g, "/").split("/").pop() || "arquivo";
+  return baseName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
     .replace(/[^a-z0-9._-]+/g, "-").replace(/(^-+|-+$)/g, "").slice(0, 80) || "arquivo";
+}
+
+export function validateUploadMetadata({ bucket, kind, fileName, fileType, fileSize } = {}) {
+  const normalizedBucket = String(bucket || "");
+  const normalizedKind = String(kind || "");
+  const normalizedType = String(fileType || "").toLowerCase();
+  const policy = POLICIES[normalizedBucket];
+  if (!policy || !policy.kinds.has(normalizedKind)) throw invalid("Tipo de upload nao permitido");
+  if (!policy.types.has(normalizedType) || !Number.isSafeInteger(fileSize)
+    || fileSize < 1 || fileSize > policy.maxBytes) {
+    throw invalid("Tipo ou tamanho de arquivo nao permitido");
+  }
+  return {
+    bucket: normalizedBucket,
+    kind: normalizedKind,
+    fileName: safeBaseName(fileName),
+    fileType: normalizedType,
+    fileSize,
+  };
 }
 
 export async function uploadUploadedFile(req, res, form, existingSession = null) {
@@ -139,16 +159,16 @@ export async function uploadUploadedFile(req, res, form, existingSession = null)
   const file = form.get("file");
   const bucket = String(form.get("bucket") || "");
   const kind = String(form.get("kind") || "");
-  const policy = POLICIES[bucket];
-
-  if (!file || typeof file.arrayBuffer !== "function" || !policy || !policy.kinds.has(kind)) {
-    throw invalid("Upload invalido");
-  }
-  const claimedType = String(file.type || "").toLowerCase();
-  if (!policy.types.has(claimedType) || !Number.isSafeInteger(file.size)
-    || file.size < 1 || file.size > policy.maxBytes) {
-    throw invalid("Tipo ou tamanho de arquivo nao permitido");
-  }
+  if (!file || typeof file.arrayBuffer !== "function") throw invalid("Upload invalido");
+  const metadata = validateUploadMetadata({
+    bucket,
+    kind,
+    fileName: file.name,
+    fileType: file.type,
+    fileSize: file.size,
+  });
+  const policy = POLICIES[metadata.bucket];
+  const claimedType = metadata.fileType;
 
   const role = await getUserRole(session.user.id);
   if (!policy.roles.has("owner") && !policy.roles.has(role)) {
@@ -162,8 +182,8 @@ export async function uploadUploadedFile(req, res, form, existingSession = null)
     : ({ "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif" }[contentType]);
   if (!extension) throw invalid("Extensao de arquivo nao permitida");
 
-  const path = `${session.user.id}/${kind.replace(/[^a-z0-9_-]/gi, "-").slice(0, 32)}/${crypto.randomUUID()}-${safeBaseName(file.name)}.${extension}`;
-  await supabaseStorageRequest(`object/${encodeURIComponent(bucket)}/${path.split("/").map(encodeURIComponent).join("/")}`, {
+  const path = `${session.user.id}/${metadata.kind.replace(/[^a-z0-9_-]/gi, "-").slice(0, 32)}/${crypto.randomUUID()}-${metadata.fileName}.${extension}`;
+  await supabaseStorageRequest(`object/${encodeURIComponent(metadata.bucket)}/${path.split("/").map(encodeURIComponent).join("/")}`, {
     method: "POST",
     headers: { "Content-Type": contentType, "x-upsert": "false" },
     body: bytes,

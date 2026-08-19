@@ -35,8 +35,9 @@ export function drawLogoMark(ctx, x, y, size, color = "#ffffff") {
   ctx.restore();
 }
 
-export function drawBrandHeader(ctx, { x = 100, y = 100, date = "" } = {}) {
-  drawLogoMark(ctx, x, y, 56);
+export function drawBrandHeader(ctx, { x = 100, y = 100, date = "", logoImage = null } = {}) {
+  if (logoImage) ctx.drawImage(logoImage, x, y, 56, 56);
+  else drawLogoMark(ctx, x, y, 56);
   ctx.fillStyle = "#ffffff";
   ctx.font = "700 30px Arial, sans-serif";
   ctx.fillText("OPE CLUB", x + 84, y + 25);
@@ -63,9 +64,10 @@ export function drawDivider(ctx, x, y, width) {
   ctx.restore();
 }
 
-export function drawBrandFooter(ctx, { x = 100, y = 1710, width = 780 } = {}) {
+export function drawBrandFooter(ctx, { x = 100, y = 1710, width = 780, logoImage = null } = {}) {
   drawDivider(ctx, x, y - 42, width);
-  drawLogoMark(ctx, x, y, 36);
+  if (logoImage) ctx.drawImage(logoImage, x, y, 36, 36);
+  else drawLogoMark(ctx, x, y, 36);
   ctx.fillStyle = "#ffffff";
   ctx.font = "700 23px Arial, sans-serif";
   ctx.fillText("OPE CLUB", x + 54, y + 26);

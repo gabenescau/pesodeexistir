@@ -140,6 +140,7 @@ export async function createArtwork(snapshot, kind) {
   const books = Number(snapshot?.booksStarted) || 0;
   const ratings = Number(snapshot?.ratings ?? snapshot?.reviews ?? 0) || 0;
   const coverImage = await loadArtworkImage(topBooks[0]?.image || snapshot?.topBook?.image);
+  const opeLogo = await loadArtworkImage("/ope-share-logo.png");
 
   ctx.fillStyle = "#09090b";
   ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
@@ -159,7 +160,7 @@ export async function createArtwork(snapshot, kind) {
   roundedRect(ctx, cardX, cardY, cardW, cardH, cardR);
   ctx.stroke();
 
-  drawBrandHeader(ctx, { x: 150, y: 160, date: period.toUpperCase() });
+  drawBrandHeader(ctx, { x: 150, y: 160, date: period.toUpperCase(), logoImage: opeLogo });
   drawDivider(ctx, 150, 310, 780);
 
   ctx.fillStyle = "#888888";
@@ -260,7 +261,7 @@ export async function createArtwork(snapshot, kind) {
   ctx.fillText("AUTORES MAIS LIDOS", 580, 1325);
   drawFavoriteList(ctx, 580, 1375, 350, topAuthors, (item) => item?.name);
 
-  drawBrandFooter(ctx, { x: 150, y: 1660 });
+  drawBrandFooter(ctx, { x: 150, y: 1660, logoImage: opeLogo });
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Nao foi possivel gerar a arte."))), "image/png");
