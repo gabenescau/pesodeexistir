@@ -158,10 +158,29 @@ export async function updateAuthenticatedProfile(req, res, payload) {
 export async function readProviderResponse(response) {
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
-    const providerMessage = String(payload?.msg || payload?.message || payload?.error_description || "");
-    const providerCode = String(payload?.error_code || payload?.code || "").toLowerCase();
+    const providerMessage = String(
+      payload?.msg ||
+      payload?.message ||
+      payload?.error_description ||
+      payload?.error ||
+      "",
+    );
+    const providerCode = String(
+      payload?.error_code || payload?.code || payload?.error || "",
+    ).toLowerCase();
     let safeMessage = "Nao foi possivel concluir a operacao de autenticacao.";
-    if (providerCode === "user_already_exists" || /already registered|already exists/i.test(providerMessage)) {
+    if (
+      providerCode === "invalid_grant" ||
+      providerCode === "invalid_credentials" ||
+      /invalid login credentials|invalid credentials/i.test(providerMessage)
+    ) {
+      safeMessage = "Email ou senha incorretos.";
+    } else if (
+      providerCode === "email_not_confirmed" ||
+      /email not confirmed|email.*not.*confirmed/i.test(providerMessage)
+    ) {
+      safeMessage = "Confirme seu email antes de entrar.";
+    } else if (providerCode === "user_already_exists" || /already registered|already exists/i.test(providerMessage)) {
       safeMessage = "Esse email ja tem uma conta. Faca login ou use outro email.";
     } else if (/invalid email|email address is invalid/i.test(providerMessage)) {
       safeMessage = "Digite um email valido.";
