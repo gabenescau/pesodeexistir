@@ -71,8 +71,15 @@ async function createAuthorArtwork(author) {
   const cardX = 151;
   const cardY = 166;
   const cardW = 778;
-  const cardH = 1288;
   const cardR = 34;
+
+  const textX = 214;
+  const textY = 968;
+  ctx.font = "700 62px Arial, sans-serif";
+  const nameLines = wrapLines(ctx, authorName, 650, 2);
+  const eraY = textY + 78 + (nameLines.length - 1) * 70 + 66;
+  const footerY = eraY + 104;
+  const cardH = footerY + 82 - cardY;
 
   ctx.fillStyle = "#121214";
   roundedRect(ctx, cardX, cardY, cardW, cardH, cardR);
@@ -112,26 +119,21 @@ async function createAuthorArtwork(author) {
   }
   ctx.restore();
 
-  const textX = 214;
-  const textY = 968;
-
   ctx.fillStyle = "#888888";
   ctx.font = "700 23px Arial, sans-serif";
   ctx.fillText("AUTOR", textX, textY);
 
   ctx.fillStyle = "#ffffff";
   ctx.font = "700 62px Arial, sans-serif";
-  const nameLines = wrapLines(ctx, authorName, 650, 2);
   nameLines.forEach((line, index) => {
     ctx.fillText(line, textX, textY + 78 + index * 70);
   });
 
-  const eraY = textY + 78 + (nameLines.length - 1) * 70 + 66;
   ctx.fillStyle = "#888888";
   ctx.font = "400 30px Arial, sans-serif";
   ctx.fillText(era, textX, eraY);
 
-  drawBrandFooter(ctx, { x: textX, y: 1368, width: 650, logoImage: opeLogo });
+  drawBrandFooter(ctx, { x: textX, y: footerY, width: 650, logoImage: opeLogo });
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Nao foi possivel gerar a arte."))), "image/png");
