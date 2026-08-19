@@ -318,11 +318,15 @@ export function sendError(req, res, error, fallback = "Erro interno") {
     ? String(error?.message || fallback)
     : fallback;
 
-  return res.status(safeStatus).json({
+  const response = {
     success: false,
     error: message,
     requestId: req?.requestId || null,
-  });
+  };
+  if (error?.userSafe && /^[A-Z][A-Z0-9_]{3,60}$/.test(String(error.publicCode || ""))) {
+    response.code = error.publicCode;
+  }
+  return res.status(safeStatus).json(response);
 }
 
 export function sendSuccess(req, res, data = null, status = 200, extra = {}) {

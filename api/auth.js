@@ -237,6 +237,15 @@ export default async function handler(req, res) {
 
     return sendClientError(req, res, 404, "Operacao de autenticacao desconhecida.");
   } catch (error) {
+    if (action === "login" && Number(error?.status) === 400) {
+      console.warn(JSON.stringify({
+        level: "warn",
+        context: "auth_login_rejected",
+        requestId: req.requestId || null,
+        reason: error.publicCode || "AUTH_PROVIDER_ERROR",
+        providerCode: error.providerCode || null,
+      }));
+    }
     const fallback = action === "login"
       ? "Nao foi possivel entrar agora. Tente novamente em alguns minutos."
       : action === "signup"

@@ -80,3 +80,21 @@ test("unconfirmed accounts receive the confirmation guidance", async () => {
     "Confirme seu email antes de entrar.",
   );
 });
+
+test("unknown login rejection remains actionable without exposing provider data", async () => {
+  await assert.rejects(
+    () => readProviderResponse(
+      new Response(JSON.stringify({ error: "unexpected_auth_error", details: "internal provider detail" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      }),
+      { operation: "login" },
+    ),
+    (error) => {
+      assert.equal(error.message, "Confira seu email e senha. Se a conta foi criada agora, confirme o email recebido antes de entrar.");
+      assert.equal(error.publicCode, "AUTH_LOGIN_REJECTED");
+      assert.equal(error.message.includes("internal provider detail"), false);
+      return true;
+    },
+  );
+});

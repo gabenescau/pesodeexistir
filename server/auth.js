@@ -155,7 +155,7 @@ export async function updateAuthenticatedProfile(req, res, payload) {
   return { profile: rows[0] };
 }
 
-export async function readProviderResponse(response) {
+export async function readProviderResponse(response, { operation = "auth" } = {}) {
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
     const providerMessage = String(
@@ -169,30 +169,43 @@ export async function readProviderResponse(response) {
       payload?.error_code || payload?.code || payload?.error || "",
     ).toLowerCase();
     let safeMessage = "Nao foi possivel concluir a operacao de autenticacao.";
+    let publicCode = "AUTH_PROVIDER_ERROR";
     if (
       providerCode === "invalid_grant" ||
       providerCode === "invalid_credentials" ||
       /invalid login credentials|invalid credentials/i.test(providerMessage)
     ) {
       safeMessage = "Email ou senha incorretos.";
+      publicCode = "AUTH_INVALID_CREDENTIALS";
     } else if (
       providerCode === "email_not_confirmed" ||
       /email not confirmed|email.*not.*confirmed/i.test(providerMessage)
     ) {
       safeMessage = "Confirme seu email antes de entrar.";
+      publicCode = "AUTH_EMAIL_NOT_CONFIRMED";
     } else if (providerCode === "user_already_exists" || /already registered|already exists/i.test(providerMessage)) {
       safeMessage = "Esse email ja tem uma conta. Faca login ou use outro email.";
+      publicCode = "AUTH_USER_EXISTS";
     } else if (/invalid email|email address is invalid/i.test(providerMessage)) {
       safeMessage = "Digite um email valido.";
+      publicCode = "AUTH_INVALID_EMAIL";
     } else if (/password.*(weak|short)|weak password/i.test(providerMessage)) {
       safeMessage = "Use uma senha mais forte, com pelo menos 12 caracteres.";
+      publicCode = "AUTH_WEAK_PASSWORD";
     } else if (/email.*(rate|send|deliver)|smtp|mail provider/i.test(providerMessage)) {
       safeMessage = "Nao conseguimos enviar o email de confirmacao agora. Tente novamente mais tarde.";
+      publicCode = "AUTH_EMAIL_DELIVERY_FAILED";
+    } else if (operation === "login" && response.status === 400) {
+      // Keep login failures useful without exposing whether an email exists
+      // or returning the provider's raw response to the browser.
+      safeMessage = "Confira seu email e senha. Se a conta foi criada agora, confirme o email recebido antes de entrar.";
+      publicCode = "AUTH_LOGIN_REJECTED";
     }
     const error = new Error(safeMessage);
     error.status = response.status === 429 ? 429 : response.status >= 500 ? 503 : 400;
     error.userSafe = true;
     error.providerCode = providerCode || null;
+    error.publicCode = publicCode;
     throw error;
   }
   return payload || {};
@@ -214,7 +227,7 @@ export async function loginWithPassword(res, input) {
     method: "POST",
     body: JSON.stringify({ email: input.email, password: input.password }),
   });
-  const payload = await readProviderResponse(response);
+  const payload = await readProviderResponse(response, { operation: "login" });
   setAuthCookies(res, payload);
   return { user: payload.user || null };
 }
