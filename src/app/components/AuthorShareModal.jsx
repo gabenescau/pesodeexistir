@@ -85,35 +85,35 @@ async function createAuthorArtwork(author) {
 
   drawBrandHeader(ctx, { x: 214, y: 228, logoImage: opeLogo });
 
-  const cx = 540;
-  const cy = 620;
-  const radius = 270;
+  const photoX = 270;
+  const photoY = 350;
+  const photoSize = 540;
+  const photoRadius = 28;
 
   ctx.save();
-  ctx.beginPath();
-  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  roundedRect(ctx, photoX, photoY, photoSize, photoSize, photoRadius);
   ctx.clip();
 
   if (image) {
-    const scale = Math.max((radius * 2) / image.width, (radius * 2) / image.height);
+    const scale = Math.max(photoSize / image.width, photoSize / image.height);
     const width = image.width * scale;
     const height = image.height * scale;
-    ctx.drawImage(image, cx - width / 2, cy - height / 2, width, height);
+    ctx.drawImage(image, photoX + (photoSize - width) / 2, photoY + (photoSize - height) / 2, width, height);
   } else {
     ctx.fillStyle = "#222226";
-    ctx.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
+    ctx.fillRect(photoX, photoY, photoSize, photoSize);
     ctx.fillStyle = "#ffffff";
     ctx.font = "700 180px Arial, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(authorName.charAt(0).toUpperCase(), cx, cy);
+    ctx.fillText(authorName.charAt(0).toUpperCase(), photoX + photoSize / 2, photoY + photoSize / 2);
     ctx.textAlign = "start";
     ctx.textBaseline = "alphabetic";
   }
   ctx.restore();
 
   const textX = 214;
-  const textY = 1088;
+  const textY = 968;
 
   ctx.fillStyle = "#888888";
   ctx.font = "700 23px Arial, sans-serif";
