@@ -2,6 +2,7 @@ import {
   allowAuthRequest,
   enforceRateLimit,
   getAuthenticatedUser,
+  getRequestQuery,
   sendClientError,
   sendError,
   sendSuccess,
@@ -32,7 +33,7 @@ import { handleSuggestionsAction } from "../server/suggestions.js";
 import { getRetrospective } from "../server/retrospective.js";
 
 function actionFromRequest(req) {
-  const action = String(req.query?.action || "session").trim().toLowerCase();
+  const action = String(getRequestQuery(req).get("action") || "session").trim().toLowerCase();
   return action || "session";
 }
 

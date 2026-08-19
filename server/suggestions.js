@@ -2,6 +2,7 @@ import {
   allowPost,
   enforceRateLimit,
   getAuthenticatedUser,
+  getRequestQuery,
   logAuditEvent,
   logServerError,
   PERMISSIONS,
@@ -148,7 +149,7 @@ async function handleAdmin(req, res) {
 export async function handleSuggestionsAction(req, res) {
   prepareResponse(req, res);
   try {
-    const action = String(req.query?.suggestionAction || "likes").toLowerCase();
+    const action = String(getRequestQuery(req).get("suggestionAction") || "likes").toLowerCase();
     if (action === "board") return await handleBoard(req, res);
     if (action === "admin") return await handleAdmin(req, res);
     return await handleLikes(req, res);

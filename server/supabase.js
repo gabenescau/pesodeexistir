@@ -243,6 +243,20 @@ export function getRequestId(req) {
   return crypto.randomUUID();
 }
 
+// Vercel's legacy req.query accessor can invoke Node's deprecated url.parse().
+// Parse the request URL with the WHATWG URL API instead so auth and API
+// handlers do not depend on the legacy adapter behavior.
+export function getRequestQuery(req) {
+  try {
+    const requestUrl = typeof req?.url === "string" && req.url
+      ? req.url
+      : "/";
+    return new URL(requestUrl, "https://ope-club.internal").searchParams;
+  } catch {
+    return new URLSearchParams();
+  }
+}
+
 export function prepareResponse(req, res) {
   const requestId = getRequestId(req);
   req.requestId = requestId;
