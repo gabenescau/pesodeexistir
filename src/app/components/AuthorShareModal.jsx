@@ -63,7 +63,7 @@ async function createAuthorArtwork(author) {
   const authorName = text(author?.name, "Albert Camus").slice(0, 80);
   const era = text(author?.era || author?.theme, "Século XX").slice(0, 80);
   const image = await loadImage(author?.image);
-  const opeLogo = await loadImage("/ope-share-logo.png");
+  const opeLogo = await loadImage("/ope-official-logo.png");
 
   ctx.fillStyle = "#09090b";
   ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);

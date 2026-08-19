@@ -77,7 +77,7 @@ async function createPostArtwork(post) {
   const avatar = await loadImage(post?.avatar || post?.authorProfile?.avatar || post?.authorProfile?.avatar_url);
   const imageSource = Array.isArray(post?.images) ? post.images[0] : post?.image;
   const image = await loadImage(imageSource);
-  const opeLogo = await loadImage("/ope-share-logo.png");
+  const opeLogo = await loadImage("/ope-official-logo.png");
 
   ctx.font = "400 38px Arial, sans-serif";
   const contentLines = wrapLines(ctx, content, CONTENT_WIDTH, 10);

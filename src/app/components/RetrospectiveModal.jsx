@@ -140,7 +140,7 @@ export async function createArtwork(snapshot, kind) {
   const books = Number(snapshot?.booksStarted) || 0;
   const ratings = Number(snapshot?.ratings ?? snapshot?.reviews ?? 0) || 0;
   const coverImage = await loadArtworkImage(topBooks[0]?.image || snapshot?.topBook?.image);
-  const opeLogo = await loadArtworkImage("/ope-share-logo.png");
+  const opeLogo = await loadArtworkImage("/ope-official-logo.png");
 
   ctx.fillStyle = "#09090b";
   ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);

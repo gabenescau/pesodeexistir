@@ -68,7 +68,7 @@ async function createBookArtwork(book, authorName, readingProgress, currentPage,
   const page = Math.max(1, Number(currentPage) || 1);
   const pages = Math.max(0, Number(totalPages) || 0);
   const cover = await loadImage(book?.image);
-  const opeLogo = await loadImage("/ope-share-logo.png");
+  const opeLogo = await loadImage("/ope-official-logo.png");
 
   ctx.fillStyle = "#080808";
   ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
