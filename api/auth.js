@@ -69,7 +69,10 @@ export default async function handler(req, res) {
         });
       } catch (error) {
         if (error?.status === 401) {
-          return sendClientError(req, res, 401, "Sessao ausente ou expirada.");
+          // Restaurar a sessao e uma consulta publica: uma pessoa deslogada
+          // nao representa uma falha da API. Retornar 200 evita ruido no
+          // console do navegador sem revelar qualquer dado protegido.
+          return sendSuccess(req, res, { user: null });
         }
         throw error;
       }
