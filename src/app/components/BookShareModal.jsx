@@ -186,7 +186,8 @@ async function createBookArtwork(book, authorName, readingProgress, currentPage,
     ctx.fillText(line, textX + 38, metaY + 26 + index * 28);
   });
 
-  const progBoxY = 1250;
+  // Keep the progress panel clearly separated from the footer band.
+  const progBoxY = 1180;
   ctx.fillStyle = "#171719";
   roundedRect(ctx, 150, progBoxY, 780, 215, 26);
   ctx.fill();
