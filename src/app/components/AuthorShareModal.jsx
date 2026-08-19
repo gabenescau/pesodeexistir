@@ -43,7 +43,7 @@ function wrapLines(ctx, value, maxWidth, maxLines = 4) {
 }
 
 function loadImage(url) {
-  if (!url || !/^https?:\/\//i.test(url)) return Promise.resolve(null);
+  if (!url || (!/^https?:\/\//i.test(url) && !url.startsWith("/"))) return Promise.resolve(null);
   return new Promise((resolve) => {
     const image = new Image();
     image.crossOrigin = "anonymous";

@@ -40,7 +40,7 @@ function wrapLines(ctx, value, maxWidth, maxLines = 3) {
 }
 
 function loadImage(url) {
-  if (!url || !/^https?:\/\//i.test(url)) return Promise.resolve(null);
+  if (!url || (!/^https?:\/\//i.test(url) && !url.startsWith("/"))) return Promise.resolve(null);
   return new Promise((resolve) => {
     const image = new Image();
     image.crossOrigin = "anonymous";
@@ -219,7 +219,7 @@ async function createBookArtwork(book, authorName, readingProgress, currentPage,
   ctx.fillText(pages > 0 ? `página ${Math.min(page, pages)} de ${pages}` : `página ${page}`, 895, progBoxY + 160);
   ctx.textAlign = "start";
 
-  drawBrandFooter(ctx, { x: 112, y: 1460, width: 856, logoImage: opeLogo });
+  drawBrandFooter(ctx, { x: 112, y: 1500, width: 856, logoImage: opeLogo });
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Nao foi possivel gerar a arte."))), "image/png");
