@@ -23,10 +23,12 @@ export function SettingsRetrospective() {
 
   useEffect(() => {
     let active = true;
-    loadRetrospective()
+    const refresh = () => loadRetrospective()
       .then((snapshot) => { if (active) setData(snapshot); })
       .catch((cause) => { if (active) setError(cause?.message || "Nao foi possivel carregar sua retrospectiva."); });
-    return () => { active = false; };
+    refresh();
+    const timer = window.setInterval(refresh, 60_000);
+    return () => { active = false; window.clearInterval(timer); };
   }, []);
 
   const snapshot = data?.[kind] || null;
@@ -50,11 +52,11 @@ export function SettingsRetrospective() {
         ) : (
           <>
             <div className="flex gap-2 border-b border-[var(--border)] p-4 sm:px-5">
-              {["month", "year"].map((option) => (
+              {["month", "previousMonth", "year"].map((option) => (
                 <button key={option} type="button" onClick={() => setKind(option)} className={`min-h-10 rounded-full px-4 text-xs font-semibold ${kind === option ? "bg-[var(--text-primary)] text-[var(--bg-card)]" : "border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"}`}>
-                  {option === "month" ? "Mensal" : "Anual"}
+                  {option === "month" ? "Mensal ao vivo" : option === "previousMonth" ? "Mes encerrado" : "Anual"}
                 </button>
-              ))}
+              )).filter((_, index) => index !== 1 || data?.previousMonth)}
             </div>
             <div className="p-4 sm:p-5">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--accent-mint)]">{snapshot?.label || (kind === "month" ? "Ultimo mes" : "Ultimo ano")}</p>
@@ -75,7 +77,7 @@ export function SettingsRetrospective() {
                   <p className="mt-4 text-sm text-[var(--text-secondary)]">Sua leitura mais marcante foi <strong className="text-[var(--text-primary)]">{snapshot.topBook?.title || "uma descoberta especial"}</strong>{snapshot.topAuthor?.name ? `, de ${snapshot.topAuthor.name}` : ""}.</p>
                 </>
               ) : <p className="mt-5 rounded-2xl border border-dashed border-[var(--border)] p-5 text-sm text-[var(--text-muted)]">Ainda nao ha atividade suficiente neste periodo. Continue lendo e participando da comunidade.</p>}
-              <button type="button" disabled={!snapshot?.hasData} onClick={() => setShareOpen(true)} className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-full bg-[var(--text-primary)] px-4 text-xs font-semibold text-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-50"><ArrowUpRight className="size-4" /> Abrir e compartilhar</button>
+              <button type="button" disabled={!snapshot?.hasData} onClick={() => setShareOpen(true)} className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-full bg-[var(--text-primary)] px-4 text-xs font-semibold text-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-50"><ArrowUpRight className="size-4" /> {snapshot?.canShare === false ? "Ver retrospectiva" : "Abrir e compartilhar"}</button>
             </div>
           </>
         )}

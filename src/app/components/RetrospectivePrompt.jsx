@@ -22,7 +22,7 @@ export function RetrospectivePrompt() {
       .then((snapshot) => {
         if (!active) return;
         if (snapshot?.allowed === false) return;
-        const candidates = [snapshot?.month, snapshot?.year].filter((item) => item?.hasData);
+        const candidates = [snapshot?.previousMonth, snapshot?.month, snapshot?.year].filter((item) => item?.hasData);
         const unseen = candidates.find((item) => {
           const key = seenKey(item);
           return key && window.localStorage.getItem(key) !== "1";
@@ -39,7 +39,7 @@ export function RetrospectivePrompt() {
   }, [loading, user?.id]);
 
   function close() {
-    [data?.month, data?.year].forEach((item) => {
+    [data?.previousMonth, data?.month, data?.year].forEach((item) => {
       const key = seenKey(item);
       if (key && item?.hasData) window.localStorage.setItem(key, "1");
     });

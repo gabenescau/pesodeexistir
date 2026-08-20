@@ -319,7 +319,11 @@ export function RetrospectiveArtworkPreview({ data, kind = "month" }) {
 }
 
 export function RetrospectiveModal({ data, initialKind = "month", open, onClose }) {
-  const available = useMemo(() => ({ month: data?.month || null, year: data?.year || null }), [data]);
+  const available = useMemo(() => ({
+    month: data?.month || null,
+    previousMonth: data?.previousMonth || null,
+    year: data?.year || null,
+  }), [data]);
   const [kind, setKind] = useState(initialKind);
   const [artworkUrl, setArtworkUrl] = useState("");
   const [artworkBlob, setArtworkBlob] = useState(null);
@@ -335,9 +339,10 @@ export function RetrospectiveModal({ data, initialKind = "month", open, onClose 
 
   useEffect(() => {
     if (!open) return undefined;
-    setKind(initialKind === "year" && available.year ? "year" : available.month ? "month" : "year");
+    const preferred = initialKind === "previousMonth" ? "previousMonth" : initialKind === "year" ? "year" : "month";
+    setKind(available[preferred] ? preferred : available.month ? "month" : available.previousMonth ? "previousMonth" : "year");
     return undefined;
-  }, [open, initialKind, available.year, available.month]);
+  }, [open, initialKind, available.year, available.month, available.previousMonth]);
 
   useEffect(() => {
     if (!open || !snapshot || !shareUrl) return undefined;
@@ -367,11 +372,19 @@ export function RetrospectiveModal({ data, initialKind = "month", open, onClose 
   if (!open || !snapshot) return null;
 
   function downloadArtwork() {
+    if (snapshot?.canShare === false) {
+      toast.info("O compartilhamento sera liberado quando o mes terminar.");
+      return;
+    }
     if (!downloadShareFile({ blob: artworkBlob, url: artworkUrl, fileName })) return;
     toast.success("Arte pronta. Publique no Story do Instagram ou em outro app.");
   }
 
   async function shareNative() {
+    if (snapshot?.canShare === false) {
+      toast.info("O compartilhamento sera liberado quando o mes terminar.");
+      return;
+    }
     try {
       const result = await shareArtwork({
         blob: artworkBlob,
@@ -388,11 +401,19 @@ export function RetrospectiveModal({ data, initialKind = "month", open, onClose 
   }
 
   async function copyLink() {
+    if (snapshot?.canShare === false) {
+      toast.info("O compartilhamento sera liberado quando o mes terminar.");
+      return;
+    }
     try { if (await copyShareText(shareUrl)) toast.success("Link da retrospectiva copiado."); else throw new Error("copy_failed"); }
     catch { toast.error("Nao foi possivel copiar o link."); }
   }
 
   function shareWhatsApp() {
+    if (snapshot?.canShare === false) {
+      toast.info("O compartilhamento sera liberado quando o mes terminar.");
+      return;
+    }
     openWhatsAppShare(message);
   }
 
@@ -405,7 +426,7 @@ export function RetrospectiveModal({ data, initialKind = "month", open, onClose 
           <button type="button" onClick={onClose} className="flex size-10 items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--hover-overlay)] hover:text-[var(--text-primary)]" aria-label="Fechar retrospectiva"><X className="size-5" /></button>
         </div>
         <div className="flex flex-wrap gap-2 border-b border-[var(--border)] px-5 py-3">
-          {["month", "year"].map((option) => available[option] ? <button key={option} type="button" onClick={() => setKind(option)} className={`min-h-10 rounded-full px-4 text-xs font-semibold transition-colors ${kind === option ? "bg-[var(--text-primary)] text-[var(--bg-card)]" : "border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"}`}>{option === "month" ? "Mensal" : "Anual"}</button> : null)}
+          {["month", "previousMonth", "year"].map((option) => available[option] ? <button key={option} type="button" onClick={() => setKind(option)} className={`min-h-10 rounded-full px-4 text-xs font-semibold transition-colors ${kind === option ? "bg-[var(--text-primary)] text-[var(--bg-card)]" : "border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"}`}>{option === "month" ? "Mensal ao vivo" : option === "previousMonth" ? "Mes encerrado" : "Anual"}</button> : null)}
         </div>
         <div className="grid min-h-0 gap-5 overflow-y-auto p-5 sm:grid-cols-[240px_1fr] sm:items-center">
           <div className="mx-auto w-[min(55vw,240px)] overflow-hidden rounded-[16px] border border-[var(--border)] bg-black shadow-[var(--shadow-sm)]">
@@ -417,10 +438,10 @@ export function RetrospectiveModal({ data, initialKind = "month", open, onClose 
               <div className="rounded-2xl border border-[var(--border)] p-3"><Clock className="mb-2 size-4 text-[var(--accent-mint)]" /><strong className="block text-[var(--text-primary)]">{formatMinutes(snapshot.minutes)}</strong>de leitura</div>
               <div className="rounded-2xl border border-[var(--border)] p-3"><BookOpen className="mb-2 size-4 text-[var(--accent-mint)]" /><strong className="block text-[var(--text-primary)]">{snapshot.booksStarted || 0}</strong>livros iniciados</div>
             </div>
-            <button type="button" onClick={shareNative} disabled={!artworkUrl || generating} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--text-primary)] px-4 text-sm font-semibold text-[var(--bg-card)] transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-50"><Share2 className="size-5" /> Compartilhar no celular</button>
-            <div className="grid grid-cols-2 gap-2"><button type="button" onClick={downloadArtwork} disabled={!artworkUrl || generating} className="flex min-h-11 items-center justify-center gap-2 rounded-full border border-[var(--border)] px-3 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] disabled:opacity-50"><Download className="size-4" /> Baixar para Story</button><button type="button" onClick={shareWhatsApp} className="flex min-h-11 items-center justify-center gap-2 rounded-full border border-[var(--border)] px-3 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--hover-overlay)]"><WhatsappLogo className="size-4" /> WhatsApp</button></div>
-            <button type="button" onClick={copyLink} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[var(--border)] px-4 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]"><Copy className="size-4" /> Copiar link da retrospectiva</button>
-            <p className="text-center text-[10px] text-[var(--text-muted)]">No celular, o compartilhamento abre Instagram, WhatsApp e outros apps instalados.</p>
+            <button type="button" onClick={shareNative} disabled={!artworkUrl || generating || snapshot?.canShare === false} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--text-primary)] px-4 text-sm font-semibold text-[var(--bg-card)] transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-50"><Share2 className="size-5" /> Compartilhar no celular</button>
+            <div className="grid grid-cols-2 gap-2"><button type="button" onClick={downloadArtwork} disabled={!artworkUrl || generating || snapshot?.canShare === false} className="flex min-h-11 items-center justify-center gap-2 rounded-full border border-[var(--border)] px-3 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] disabled:opacity-50"><Download className="size-4" /> Baixar para Story</button><button type="button" onClick={shareWhatsApp} disabled={snapshot?.canShare === false} className="flex min-h-11 items-center justify-center gap-2 rounded-full border border-[var(--border)] px-3 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] disabled:opacity-50"><WhatsappLogo className="size-4" /> WhatsApp</button></div>
+            <button type="button" onClick={copyLink} disabled={snapshot?.canShare === false} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[var(--border)] px-4 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)] disabled:opacity-50"><Copy className="size-4" /> Copiar link da retrospectiva</button>
+            <p className="text-center text-[10px] text-[var(--text-muted)]">{snapshot?.canShare === false ? "A retrospectiva mensal ao vivo fica disponivel para compartilhar quando o mes terminar." : "No celular, o compartilhamento abre Instagram, WhatsApp e outros apps instalados."}</p>
           </div>
         </div>
       </div>
