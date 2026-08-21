@@ -17,7 +17,13 @@ export function subscribeToasts(callback) {
 
 function push(kind, message, options = {}) {
   const id = nextId++;
-  const toast = { id, kind, message, duration: options.duration ?? 4000 };
+  const action = options.action && typeof options.action.onClick === "function"
+    ? {
+        label: String(options.action.label || "Abrir").slice(0, 32),
+        onClick: options.action.onClick,
+      }
+    : null;
+  const toast = { id, kind, message, action, duration: options.duration ?? 4000 };
   queue = [...queue, toast];
   emit();
   if (toast.duration > 0) {

@@ -1,4 +1,5 @@
 import { handleDoPerfil } from "../../../lib/mentions.js";
+import { isVerifiedProfile } from "../../../lib/social.js";
 import { firstFilled } from "./catalog.js";
 
 export const POST_SELECT = "id,user_id,text,tag,book_id,image,image_paths,images,created_at";
@@ -50,7 +51,7 @@ export function buildPostViewModels(posts, {
       handle: handleDoPerfil(postProfile),
       avatar: firstFilled(postProfile?.avatar, postProfile?.avatar_url, post.avatar) || "L",
       authorProfile: postProfile || null,
-      verified: Boolean(postProfile?.verified || postProfile?.is_verified || postProfile?.role === "admin"),
+      verified: isVerifiedProfile(postProfile) || isVerifiedProfile(post),
       book: postBook ? { ...postBook, author: postBook.authors?.name || "" } : null,
       likedByMe: postLikes.some((like) => like.user_id === currentUserId),
       likes: postLikes.length || post.likes || 0,

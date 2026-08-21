@@ -45,6 +45,18 @@ export function Toaster() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold leading-relaxed text-[var(--text-primary)]">{item.message}</p>
+              {item.action ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    item.action.onClick();
+                    dismissToast(item.id);
+                  }}
+                  className="mt-2 text-xs font-semibold text-[var(--accent-mint)] underline-offset-4 hover:underline"
+                >
+                  {item.action.label}
+                </button>
+              ) : null}
             </div>
             <button
               type="button"

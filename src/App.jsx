@@ -5,6 +5,7 @@ import { Toaster } from '@/components/toaster'
 import { DataProvider } from '@/app/data/DataContext'
 import { RewardsProvider } from '@/app/data/RewardsContext'
 import { Seo } from '@/components/seo'
+import { ConversionNudges } from '@/app/components/ConversionNudges'
 
 const AuthPage = lazy(() => import('@/components/auth-page').then((module) => ({ default: module.AuthPage })))
 const AppShell = lazy(() => import('@/app/AppShell').then((module) => ({ default: module.AppShell })))
@@ -137,6 +138,7 @@ export default function App() {
     <DataProvider>
       <RewardsProvider>
         <SEOHead />
+        <ConversionNudges />
         <Suspense fallback={<RouteLoading />}>
           <Routes>
             <Route path="/" element={<Navigate to="/entrar" replace />} />

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Copy, Download, InstagramLogo, Share2, WhatsappLogo, X } from "@/lib/icons";
 import { toast } from "@/lib/toast";
 import { copyShareText, downloadShareFile, openWhatsAppShare, shareArtwork } from "@/app/components/share-utils";
-import { relativeTime } from "@/lib/social";
+import { isVerifiedProfile, relativeTime } from "@/lib/social";
 import { drawLogoMark } from "@/app/components/share-artwork-style";
 
 const STORY_WIDTH = 1080;
@@ -138,7 +138,7 @@ async function createPostArtwork(post) {
   ctx.fillStyle = "#f5f5f5";
   ctx.font = "700 34px Arial, sans-serif";
   ctx.fillText(author, 270, 210);
-  if (post?.verified) {
+  if (isVerifiedProfile(post)) {
     ctx.fillStyle = "#2997ff";
     ctx.beginPath();
     ctx.arc(270 + ctx.measureText(author).width + 26, 199, 14, 0, Math.PI * 2);

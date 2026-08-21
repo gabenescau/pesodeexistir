@@ -22,7 +22,11 @@ export function relativeTime(value) {
 }
 
 export function isVerifiedProfile(profile) {
-  return Boolean(profile?.verified || profile?.is_verified || profile?.role === "admin");
+  // The backend is authoritative. Accept only explicit true values so a
+  // serialized string such as "false" can never render the badge.
+  const verified = profile?.verified === true || profile?.verified === 1 || profile?.verified === "true";
+  const legacyVerified = profile?.is_verified === true || profile?.is_verified === 1 || profile?.is_verified === "true";
+  return verified || legacyVerified || profile?.role === "admin";
 }
 
 export function safeFileName(name) {
