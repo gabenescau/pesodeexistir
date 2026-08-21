@@ -62,6 +62,9 @@ export function ConversionNudges() {
     window.clearTimeout(timerRef.current);
     setModal(null);
     if (authLoading || dataLoading || !user?.id || isAdmin) return undefined;
+    // A assinatura e a fonte de verdade para esta mensagem. Nao mostre a
+    // conversao enquanto o usuario tem um plano ativo, inclusive no welcome.
+    if (isActiveSubscription(subscription)) return undefined;
     if (location.pathname === "/app/planos" || location.pathname === "/app/configuracoes") return undefined;
 
     const userKey = user.id;
@@ -72,8 +75,6 @@ export function ConversionNudges() {
       ? { key: "welcome", message: "Bem-vindo ao OPE Club. Assinando, você libera a leitura completa, missões e créditos." }
       : routeNudge;
     if (!candidate) return undefined;
-    if (!isWelcome && isActiveSubscription(subscription)) return undefined;
-
     const now = Date.now();
     const lastKey = `ope:nudge:${userKey}:last`;
     const lastShown = Number(

@@ -3,6 +3,7 @@ import { BookOpen, Clock, Copy, Download, Share2, WhatsappLogo, X } from "@/lib/
 import { toast } from "@/lib/toast";
 import { copyShareText, downloadShareFile, openWhatsAppShare, shareArtwork } from "@/app/components/share-utils";
 import { drawBrandFooter, drawBrandHeader, drawDivider, drawMetricIcon } from "@/app/components/share-artwork-style";
+import { publicStorageUrl } from "@/lib/library-media";
 
 const STORY_WIDTH = 1080;
 const STORY_HEIGHT = 1920;
@@ -59,15 +60,57 @@ function safeArtworkImageUrl(value) {
   }
 }
 
-function loadArtworkImage(value) {
-  const source = safeArtworkImageUrl(value);
-  if (!source) return Promise.resolve(null);
+function artworkImageSources(item) {
+  const values = [
+    item?.image,
+    item?.image_url,
+    item?.cover_url,
+    item?.cover,
+    item?.image_path,
+    item?.cover_path,
+  ].filter(Boolean);
+
+  return [...new Set(values.flatMap((value) => {
+    const raw = clean(value);
+    if (!raw) return [];
+    const direct = safeArtworkImageUrl(raw);
+    if (direct) return [direct];
+    const legacyPath = raw.replace(/^\/+/, "");
+    const legacyAsset = /^(?:livros|autores|public\/livros|public\/autores)\//i.test(legacyPath)
+      ? `/${legacyPath}`
+      : /^[^/]+\.(?:png|jpe?g|webp|gif)$/i.test(legacyPath)
+        ? `/livros/${legacyPath}`
+        : "";
+    const storagePath = raw.replace(/^\/?covers\//i, "");
+    const storageUrl = publicStorageUrl("covers", storagePath);
+    return [legacyAsset, storageUrl].filter(Boolean);
+  }))];
+}
+
+function loadArtworkImage(item) {
+  const sources = Array.isArray(item) ? item : artworkImageSources(item);
+  if (!sources.length) return Promise.resolve(null);
   return new Promise((resolve) => {
-    const image = new Image();
-    image.crossOrigin = "anonymous";
-    image.onload = () => resolve(image);
-    image.onerror = () => resolve(null);
-    image.src = source;
+    let index = 0;
+    const tryNext = () => {
+      const source = safeArtworkImageUrl(sources[index]);
+      if (!source) {
+        index += 1;
+        if (index < sources.length) tryNext();
+        else resolve(null);
+        return;
+      }
+      const image = new Image();
+      image.crossOrigin = "anonymous";
+      image.onload = () => resolve(image);
+      image.onerror = () => {
+        index += 1;
+        if (index < sources.length) tryNext();
+        else resolve(null);
+      };
+      image.src = source;
+    };
+    tryNext();
   });
 }
 
@@ -139,7 +182,7 @@ export async function createArtwork(snapshot, kind) {
   const minutes = formatMinutes(snapshot?.minutes);
   const books = Number(snapshot?.booksStarted) || 0;
   const ratings = Number(snapshot?.ratings ?? snapshot?.reviews ?? 0) || 0;
-  const coverImage = await loadArtworkImage(topBooks[0]?.image || snapshot?.topBook?.image);
+  const coverImage = await loadArtworkImage(topBooks[0] || snapshot?.topBook);
   const opeLogo = await loadArtworkImage("/ope-official-logo.png");
 
   ctx.fillStyle = "#09090b";
