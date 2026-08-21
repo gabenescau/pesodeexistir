@@ -7,6 +7,7 @@ import { Info, X } from "@/lib/icons";
 
 const NUDGE_COOLDOWN_MS = 12 * 60 * 60 * 1000;
 const NEW_ACCOUNT_WINDOW_MS = 30 * 60 * 1000;
+const FREE_PLAN_MESSAGE = "Voc\u00ea est\u00e1 usando a vers\u00e3o gratuita do Club. Escolha o plano ideal para o seu perfil.";
 
 function readStorage(storage, key) {
   try {
@@ -73,7 +74,8 @@ export function ConversionNudges() {
     const isWelcome = isNewAccount(user, profile) && !readStorage(window.localStorage, welcomeKey);
     const candidate = isWelcome
       ? { key: "welcome", message: "Bem-vindo ao OPE Club. Assinando, você libera a leitura completa, missões e créditos." }
-      : routeNudge;
+      : routeNudge && { ...routeNudge, message: FREE_PLAN_MESSAGE };
+    const resolvedCandidate = candidate && { ...candidate, message: FREE_PLAN_MESSAGE };
     if (!candidate) return undefined;
     const now = Date.now();
     const lastKey = `ope:nudge:${userKey}:last`;
@@ -89,7 +91,7 @@ export function ConversionNudges() {
       writeStorage(window.sessionStorage, lastKey, String(Date.now()));
       writeStorage(window.sessionStorage, seenKey, "1");
       if (candidate.key === "welcome") writeStorage(window.localStorage, seenKey, "1");
-      setModal(candidate);
+      setModal(resolvedCandidate);
     }, candidate.key === "welcome" ? 1800 : 3200);
 
     return () => window.clearTimeout(timerRef.current);
@@ -143,9 +145,12 @@ export function ConversionNudges() {
           <div className="flex size-11 shrink-0 items-center justify-center rounded-full border border-[var(--accent-mint)]/30 bg-[var(--accent-mint)]/10 text-[var(--accent-mint)]">
             <Info className="size-5" weight="fill" />
           </div>
-          <p id="conversion-nudge-message" className="pt-1 text-[15px] font-medium leading-7 text-white/90">
-            {modal.message}
-          </p>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">Lembrete</p>
+            <p id="conversion-nudge-message" className="mt-2 text-[15px] font-medium leading-7 text-white/90">
+              {modal.message}
+            </p>
+          </div>
         </div>
 
         <div className="mt-5 pl-[3.75rem]">
@@ -157,7 +162,7 @@ export function ConversionNudges() {
             }}
             className="text-[15px] font-semibold text-[var(--accent-mint)] transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-mint)] focus-visible:ring-offset-4 focus-visible:ring-offset-[#080808]"
           >
-            Ver planos
+            Acessar planos
           </button>
         </div>
       </div>

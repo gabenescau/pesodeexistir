@@ -84,6 +84,26 @@ export async function copyShareText(value) {
   return copied;
 }
 
+export async function copyShareImage({ blob, url }) {
+  if (typeof navigator.clipboard?.write !== "function" || typeof ClipboardItem === "undefined") {
+    return false;
+  }
+
+  try {
+    const imageBlob = blob || (url ? await fetch(url).then((response) => {
+      if (!response.ok) throw new Error("image_fetch_failed");
+      return response.blob();
+    }) : null);
+    if (!imageBlob) return false;
+
+    const type = imageBlob.type || "image/png";
+    await navigator.clipboard.write([new ClipboardItem({ [type]: imageBlob })]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function openWhatsAppShare(message) {
   const url = `https://wa.me/?text=${encodeURIComponent(message || "")}`;
   const opened = window.open(url, "_blank", "noopener,noreferrer");

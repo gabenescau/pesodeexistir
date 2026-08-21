@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { BookOpen, Clock, Copy, Download, Share2, WhatsappLogo, X } from "@/lib/icons";
 import { toast } from "@/lib/toast";
-import { copyShareText, downloadShareFile, openWhatsAppShare, shareArtwork } from "@/app/components/share-utils";
+import { copyShareImage, copyShareText, downloadShareFile, openWhatsAppShare, shareArtwork } from "@/app/components/share-utils";
 import { drawBrandFooter, drawBrandHeader, drawDivider, drawMetricIcon } from "@/app/components/share-artwork-style";
 import { publicStorageUrl } from "@/lib/library-media";
 
@@ -443,6 +443,16 @@ export function RetrospectiveModal({ data, initialKind = "month", open, onClose 
     }
   }
 
+  async function copyImage() {
+    if (snapshot?.canShare === false) {
+      toast.info("O compartilhamento sera liberado quando o mes terminar.");
+      return;
+    }
+    const copied = await copyShareImage({ blob: artworkBlob, url: artworkUrl });
+    if (copied) toast.success("Imagem copiada. Cole no Story ou em uma conversa.");
+    else toast.info("Seu navegador nao permite copiar imagens diretamente. Use Compartilhar no celular.");
+  }
+
   async function copyLink() {
     if (snapshot?.canShare === false) {
       toast.info("O compartilhamento sera liberado quando o mes terminar.");
@@ -483,7 +493,8 @@ export function RetrospectiveModal({ data, initialKind = "month", open, onClose 
             </div>
             <button type="button" onClick={shareNative} disabled={!artworkUrl || generating || snapshot?.canShare === false} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--text-primary)] px-4 text-sm font-semibold text-[var(--bg-card)] transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-50"><Share2 className="size-5" /> Compartilhar no celular</button>
             <div className="grid grid-cols-2 gap-2"><button type="button" onClick={downloadArtwork} disabled={!artworkUrl || generating || snapshot?.canShare === false} className="flex min-h-11 items-center justify-center gap-2 rounded-full border border-[var(--border)] px-3 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] disabled:opacity-50"><Download className="size-4" /> Baixar para Story</button><button type="button" onClick={shareWhatsApp} disabled={snapshot?.canShare === false} className="flex min-h-11 items-center justify-center gap-2 rounded-full border border-[var(--border)] px-3 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--hover-overlay)] disabled:opacity-50"><WhatsappLogo className="size-4" /> WhatsApp</button></div>
-            <button type="button" onClick={copyLink} disabled={snapshot?.canShare === false} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[var(--border)] px-4 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)] disabled:opacity-50"><Copy className="size-4" /> Copiar link da retrospectiva</button>
+             <button type="button" onClick={copyLink} disabled={snapshot?.canShare === false} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[var(--border)] px-4 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)] disabled:opacity-50"><Copy className="size-4" /> Copiar link da retrospectiva</button>
+             <button type="button" onClick={copyImage} disabled={!artworkUrl || generating || snapshot?.canShare === false} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[var(--border)] px-4 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)] disabled:opacity-50"><Copy className="size-4" /> Copiar imagem</button>
             <p className="text-center text-[10px] text-[var(--text-muted)]">{snapshot?.canShare === false ? "A retrospectiva mensal ao vivo fica disponivel para compartilhar quando o mes terminar." : "No celular, o compartilhamento abre Instagram, WhatsApp e outros apps instalados."}</p>
           </div>
         </div>

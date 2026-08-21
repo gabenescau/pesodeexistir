@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { BookOpen, Copy, InstagramLogo, Share2, WhatsappLogo, X } from "@/lib/icons";
 import { toast } from "@/lib/toast";
-import { copyShareText, downloadShareFile, openWhatsAppShare, shareArtwork } from "@/app/components/share-utils";
+import { copyShareImage, copyShareText, downloadShareFile, openWhatsAppShare, shareArtwork } from "@/app/components/share-utils";
 import { drawBookmarkIcon, drawBrandFooter, drawBrandHeader, drawDivider, drawPersonIcon, drawQuoteIcon } from "@/app/components/share-artwork-style";
 
 const STORY_WIDTH = 1080;
@@ -297,6 +297,12 @@ export function BookShareModal({ book, authorName, readingProgress, currentPage,
     openWhatsAppShare(message);
   }
 
+  async function copyImage() {
+    const copied = await copyShareImage({ blob: artworkBlob, url: artworkUrl });
+    if (copied) toast.success("Imagem copiada. Cole no Story ou em uma conversa.");
+    else toast.info("Seu navegador nao permite copiar imagens diretamente. Use Compartilhar no celular.");
+  }
+
   async function copyLink() {
     try {
       if (await copyShareText(bookUrl)) toast.success("Link do livro copiado.");
@@ -346,6 +352,9 @@ export function BookShareModal({ book, authorName, readingProgress, currentPage,
             </div>
             <button type="button" onClick={copyLink} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[var(--border)] px-4 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)]">
               <Copy className="size-4" /> Copiar link do livro
+            </button>
+            <button type="button" onClick={copyImage} disabled={!artworkUrl || generating} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[var(--border)] px-4 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--hover-overlay)] disabled:opacity-50">
+              <Copy className="size-4" /> Copiar imagem
             </button>
             <p className="flex items-center justify-center gap-1 text-[10px] text-[var(--text-muted)]"><BookOpen className="size-3" /> OPE Club no rodape da arte</p>
           </div>
