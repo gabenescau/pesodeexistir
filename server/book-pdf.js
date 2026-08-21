@@ -1,3 +1,4 @@
+import { Readable } from "node:stream";
 import {
   applyCors,
   createSignedStorageUrl,
@@ -84,6 +85,44 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function wantsPdfStream(req) {
+  const url = new URL(req.url || "/api/book-pdf", "https://app.pesodeexistir.online");
+  return url.searchParams.get("stream") === "1";
+}
+
+async function streamPdf(req, res, signedUrl) {
+  const range = String(req.headers.range || "").trim();
+  const headers = {};
+  if (range && /^bytes=\d*-\d*$/.test(range)) headers.Range = range;
+
+  const upstream = await fetch(signedUrl, { headers, redirect: "error" });
+  if (!upstream.ok || !upstream.body) {
+    const error = new Error("Storage nao conseguiu entregar o PDF");
+    error.status = upstream.status === 404 ? 404 : 502;
+    error.userSafe = upstream.status === 404;
+    throw error;
+  }
+
+  res.statusCode = upstream.status;
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", 'inline; filename="livro.pdf"');
+  res.setHeader("Accept-Ranges", "bytes");
+  res.setHeader("Cache-Control", "private, no-store");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  for (const header of ["content-length", "content-range", "etag", "last-modified"]) {
+    const value = upstream.headers.get(header);
+    if (value) res.setHeader(header, value);
+  }
+
+  await new Promise((resolve, reject) => {
+    const readable = Readable.fromWeb(upstream.body);
+    readable.on("error", reject);
+    res.on("finish", resolve);
+    res.on("close", resolve);
+    readable.pipe(res);
+  });
+}
+
 export async function handleBookPdf(req, res) {
   prepareResponse(req, res);
   if (!applyCors(req, res)) return sendClientError(req, res, 403, "Origem nao permitida");
@@ -141,9 +180,16 @@ export async function handleBookPdf(req, res) {
       if (lastStorageError) throw lastStorageError;
       return sendClientError(req, res, 404, "Este livro ainda nao possui um PDF");
     }
+
+    if (wantsPdfStream(req)) {
+      // Keep the signed Storage URL server-side. PDF.js receives only this
+      // authenticated same-origin stream and can request byte ranges safely.
+      return streamPdf(req, res, signedUrl);
+    }
+
     res.setHeader("Cache-Control", "private, no-store");
     return sendSuccess(req, res, {
-      url: signedUrl,
+      url: `/api/stripe-session?mode=book-pdf&bookId=${encodeURIComponent(bookId)}&stream=1`,
       expiresAt: new Date(Date.now() + SIGNED_URL_TTL_SECONDS * 1000).toISOString(),
     });
   } catch (error) {

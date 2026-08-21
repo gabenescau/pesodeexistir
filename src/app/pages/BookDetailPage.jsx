@@ -9,6 +9,7 @@ import { relatedBooks as recomendarLivros } from "@/lib/recommendations";
 import { CreatePost } from "../components/CreatePost";
 import { PostCard } from "../components/PostCard";
 import { BookShareModal } from "../components/BookShareModal";
+import { BookCover } from "../components/BookCover";
 
 const DEFAULT_LANGUAGE = "Portugues";
 
@@ -152,8 +153,9 @@ export function BookDetailPage() {
           <div className="mt-6 w-[58%] max-w-[260px] sm:mt-8 sm:w-[52%] sm:max-w-[300px]">
             <div className="overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)] shadow-[var(--shadow-sm)]">
               <div className="aspect-[2/3]">
-                <img
+                <BookCover
                   src={book.image}
+                  storagePath={book.image_path}
                   alt={book.title}
                   className="h-full w-full object-cover"
                 />
@@ -314,7 +316,7 @@ export function BookDetailPage() {
                     className="w-[120px] shrink-0 text-left"
                   >
                     <div className="aspect-[2/3] overflow-hidden rounded-[8px] border border-[var(--border)] bg-[var(--bg-card)]">
-                      <img src={rb.image} alt="" className="h-full w-full object-cover" />
+                      <BookCover src={rb.image} storagePath={rb.image_path} alt={rb.title} title={rb.title} className="h-full w-full object-cover" />
                     </div>
                     <p className="mt-1.5 truncate text-xs font-medium text-[var(--text-primary)]">{rb.title}</p>
                     {rb.ratingCount > 0 ? (

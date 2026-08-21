@@ -5,6 +5,7 @@ import { useData } from "../data/DataContext";
 import { CreatePost } from "../components/CreatePost";
 import { PostCard } from "../components/PostCard";
 import { AuthorShareModal } from "../components/AuthorShareModal";
+import { BookCover } from "../components/BookCover";
 
 function formatStat(n) {
   if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k+`;
@@ -16,7 +17,7 @@ const AuthorBookCard = memo(function AuthorBookCard({ book, authorName }) {
   return (
     <Link to={`/app/livro/${book.id}`} className="w-[140px] shrink-0">
       <div className="aspect-[2/3] overflow-hidden rounded-[10px] border border-[var(--border)] bg-[var(--bg-card)]">
-        <img src={book.image} alt="" loading="lazy" className="h-full w-full object-cover" />
+        <BookCover src={book.image} storagePath={book.image_path} alt={book.title} title={book.title} className="h-full w-full object-cover" />
       </div>
       <h3 className="mt-2 truncate text-xs font-semibold text-[var(--text-primary)]">{book.title}</h3>
       <p className="truncate text-[10px] text-[var(--text-muted)]">por {authorName}</p>

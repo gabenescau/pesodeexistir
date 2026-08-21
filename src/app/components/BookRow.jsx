@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, ChevronDown } from "@/lib/icons";
+import { BookCover } from "./BookCover";
 
 export function BookRow({ title, books, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -28,8 +29,9 @@ export function BookRow({ title, books, defaultOpen = false }) {
               className="group cursor-pointer w-28 sm:w-32 shrink-0"
             >
               <div className="aspect-[2/3] rounded-[8px] sm:rounded-[12px] overflow-hidden border border-[var(--border)] bg-[var(--bg-card)] relative">
-                <img
+                <BookCover
                   src={book.image}
+                  storagePath={book.image_path}
                   alt={book.title}
                   className="w-full h-full object-cover"
                 />

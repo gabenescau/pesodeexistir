@@ -53,11 +53,11 @@ async function resolvePdfUrl(bookId) {
     throw new Error(payload?.error || "Nao foi possivel liberar este livro para sua conta.");
   }
 
-  const signedUrl = payload?.success === true && payload?.data?.url;
-  if (typeof signedUrl !== "string" || !/^https:\/\//i.test(signedUrl)) {
+  const approvedUrl = payload?.success === true && payload?.data?.url;
+  if (typeof approvedUrl !== "string" || !approvedUrl.includes("mode=book-pdf")) {
     throw new Error("Nao foi possivel confirmar a liberacao deste livro. Tente novamente.");
   }
-  return signedUrl;
+  return `/api/stripe-session?mode=book-pdf&bookId=${encodeURIComponent(bookId)}&stream=1`;
 }
 
 export function BookReaderPage() {
@@ -154,7 +154,7 @@ export function BookReaderPage() {
       try {
         const doc = await pdfjsLib.getDocument({
           url: pdfUrl,
-          withCredentials: false,
+          withCredentials: true,
           disableAutoFetch: false,
           disableStream: false,
         }).promise;
@@ -257,7 +257,15 @@ export function BookReaderPage() {
     async function renderPage() {
       if (!pdf || !canvasRef.current || !containerSize.width) return;
       renderTaskRef.current?.cancel?.();
-      const currentPage = await pdf.getPage(page);
+      let currentPage;
+      try {
+        currentPage = await pdf.getPage(page);
+      } catch (err) {
+        if (err?.name !== "RenderingCancelledException" && !cancelled) {
+          setError("Nao foi possivel renderizar esta pagina.");
+        }
+        return;
+      }
       if (cancelled) return;
       const baseViewport = currentPage.getViewport({ scale: 1 });
       const largura = Math.max(240, containerSize.width - 24);
@@ -267,6 +275,10 @@ export function BookReaderPage() {
       const viewport = currentPage.getViewport({ scale });
       const canvas = canvasRef.current;
       const context = canvas.getContext("2d");
+      if (!context) {
+        if (!cancelled) setError("Nao foi possivel renderizar esta pagina.");
+        return;
+      }
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       canvas.width = Math.floor(viewport.width * dpr);
       canvas.height = Math.floor(viewport.height * dpr);

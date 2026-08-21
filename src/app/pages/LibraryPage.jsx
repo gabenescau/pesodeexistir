@@ -11,6 +11,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { useData } from "../data/DataContext";
+import { publicStorageUrl } from "@/lib/library-media";
 
 const GRID_PAGE_SIZE = 24;
 
@@ -25,10 +26,17 @@ function getPageItems(current, total) {
   return items;
 }
 
-function BookCover({ src, alt, title = "", className = "h-full w-full object-cover" }) {
+function BookCover({ src, storagePath, alt, title = "", className = "h-full w-full object-cover" }) {
+  const stableSrc = storagePath ? publicStorageUrl("covers", storagePath) : "";
+  const [source, setSource] = useState(src || stableSrc);
   const [error, setError] = useState(false);
 
-  if (error || !src) {
+  useEffect(() => {
+    setSource(src || stableSrc);
+    setError(false);
+  }, [src, stableSrc]);
+
+  if (error || !source) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center bg-[var(--bg-canvas)] p-1.5 text-center">
         <span className="mb-0.5 text-[10px] font-bold text-[var(--accent-mint)] uppercase tracking-wider">OPE</span>
@@ -39,11 +47,14 @@ function BookCover({ src, alt, title = "", className = "h-full w-full object-cov
 
   return (
     <img
-      src={src}
+      src={source}
       alt={alt || title || ""}
       loading="lazy"
       className={className}
-      onError={() => setError(true)}
+      onError={() => {
+        if (stableSrc && source !== stableSrc) setSource(stableSrc);
+        else setError(true);
+      }}
     />
   );
 }
@@ -54,6 +65,7 @@ const BookCard = memo(function BookCard({ book }) {
       <div className="relative aspect-[2/3] overflow-hidden rounded-[10px] border border-[var(--border)] bg-[var(--bg-card)]">
         <BookCover
           src={book.image}
+          storagePath={book.image_path}
           title={book.title}
           className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
         />
@@ -88,7 +100,7 @@ const ContinueCard = memo(function ContinueCard({ book }) {
       className="group flex w-[220px] shrink-0 items-center gap-3 rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)] p-3 transition-all duration-200 hover:border-blue-500/30 hover:bg-[var(--hover-overlay)] sm:w-[250px]"
     >
       <div className="relative w-12 shrink-0 overflow-hidden rounded-[8px] border border-[var(--border)] aspect-[2/3]">
-        <BookCover src={book.image} title={book.title} className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105" />
+        <BookCover src={book.image} storagePath={book.image_path} title={book.title} className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105" />
       </div>
       <div className="min-w-0 flex-1 space-y-1">
         <h3 className="truncate text-xs font-semibold text-[var(--text-primary)] group-hover:text-blue-500 transition-colors">{book.title}</h3>
@@ -125,7 +137,7 @@ const Top10Card = memo(function Top10Card({ book, rank }) {
       <div className={`relative ml-5 overflow-hidden rounded-[10px] border bg-[var(--bg-card)] aspect-[2/3] transition-transform duration-200 group-hover:scale-[1.03] ${
         isTop3 ? "border-blue-500/40 shadow-[0_0_16px_rgba(37,99,235,0.18)]" : "border-[var(--border)]"
       }`}>
-        <BookCover src={book.image} title={book.title} />
+        <BookCover src={book.image} storagePath={book.image_path} title={book.title} />
         {isTop3 && <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-blue-950/70 to-transparent" />}
       </div>
       <p className="mt-1.5 ml-5 line-clamp-2 text-[10px] font-semibold leading-tight text-[var(--text-primary)] sm:text-[11px]">{book.title}</p>
@@ -144,7 +156,7 @@ function FeaturedBook({ book }) {
       <div className="flex gap-4 sm:gap-5">
         <div className="w-[100px] shrink-0 sm:w-[130px]">
           <div className="aspect-[2/3] overflow-hidden rounded-[8px]">
-            <BookCover src={book.image} title={book.title} />
+            <BookCover src={book.image} storagePath={book.image_path} title={book.title} />
           </div>
         </div>
         <div className="min-w-0 flex-1">

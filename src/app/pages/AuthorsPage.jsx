@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/pagination";
 import { useData } from "../data/DataContext";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { BookCover } from "../components/BookCover";
 
 const PAGE_SIZE = 12;
 
@@ -81,9 +82,11 @@ export function AuthorsPage() {
             {visible.map((a) => (
               <Link key={a.id} to={`/app/autor/${a.id}`} className="group cursor-pointer">
                 <div className="relative aspect-[3/4] overflow-hidden rounded-[12px] border border-[var(--border)] bg-[var(--bg-card)]">
-                  <img
+                  <BookCover
                     src={a.image}
+                    storagePath={a.image_path}
                     alt={a.name}
+                    title={a.name}
                     className="h-full w-full object-cover opacity-70 transition-opacity group-hover:opacity-90"
                   />
                   <div className="absolute inset-0 bg-linear-to-t from-[var(--bg-card)] via-transparent to-transparent" />
