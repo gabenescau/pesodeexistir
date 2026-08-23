@@ -18,7 +18,7 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@/components/ui/input-group";
-import { AtSignIcon, Eye, EyeSlash, GiftIcon, LockIcon, UserIcon } from "@/lib/icons";
+import { AtSignIcon, Eye, EyeSlash, LockIcon, UserIcon } from "@/lib/icons";
 import { useAuth } from "@/app/data/AuthContext";
 import { isSupabaseReady } from "@/app/data/supabase";
 import { getSupabaseErrorMessage } from "@/lib/supabase-error";
@@ -57,8 +57,6 @@ export function AuthPage() {
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [lockedUntil, setLockedUntil] = useState(0);
   const [termsAccepted, setTermsAccepted] = useState(false);
-  const [marketingOptIn, setMarketingOptIn] = useState(false);
-  const [referralCode, setReferralCode] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -109,14 +107,14 @@ export function AuthPage() {
           throw new Error("Para criar a conta voce precisa aceitar os Termos de Servico e a Politica de Privacidade (LGPD).");
         }
         const refParam = sanitizeSingleLine(
-          referralCode.trim() || new URLSearchParams(location.search).get("ref") || "",
+          new URLSearchParams(location.search).get("ref") || "",
           40
         );
         const data = await authApi.signup({
           email: cleanEmail,
           password,
           name: cleanName,
-          marketingOptIn,
+          marketingOptIn: false,
           referralCode: refParam,
         });
 
@@ -299,24 +297,7 @@ export function AuthPage() {
             </label>
 
             {mode === "signup" && (
-              <label className="block space-y-2" htmlFor="auth-referral">
-                <span className="block text-xs font-medium text-[var(--text-secondary)]">Codigo de indicacao <span className="font-normal text-[var(--text-muted)]">(opcional)</span></span>
-              <InputGroup className="h-12 rounded-[10px] border-[var(--border)] bg-[var(--bg-surface)] focus-within:border-[var(--accent-mint)] focus-within:ring-2 focus-within:ring-[var(--accent-mint)]/20">
-                <InputGroupInput
-                  id="auth-referral"
-                  className="h-full text-sm placeholder:text-[var(--text-muted)]"
-                  placeholder="Digite o codigo"
-                  type="text"
-                  value={referralCode}
-                  maxLength={40}
-                  autoComplete="off"
-                  onChange={e => setReferralCode(e.target.value)}
-                />
-                <InputGroupAddon align="inline-start">
-                  <GiftIcon />
-                </InputGroupAddon>
-              </InputGroup>
-              </label>
+              <p className="-mt-3 text-[11px] text-[var(--text-muted)]">Minimo de 8 caracteres, com letras e numeros.</p>
             )}
 
             {mode === "signup" && (
@@ -332,39 +313,33 @@ export function AuthPage() {
                     Li e aceito os <TermsDialog trigger={<span className="cursor-pointer underline underline-offset-4 hover:text-[var(--accent-mint)]">Termos de Servico</span>} /> e a <PrivacyDialog trigger={<span className="cursor-pointer underline underline-offset-4 hover:text-[var(--accent-mint)]">Politica de Privacidade</span>} /> do OPE Club.
                   </span>
                 </label>
-                <label className="flex items-start gap-3 text-left text-xs leading-5 text-[var(--text-muted)]">
-                  <Checkbox
-                    checked={marketingOptIn}
-                    onCheckedChange={(value) => setMarketingOptIn(value === true)}
-                    className="mt-0.5"
-                  />
-                  <span>Quero receber novidades e recomendacoes por email. <span className="text-[var(--text-muted)]">(opcional)</span></span>
-                </label>
               </div>
             )}
 
-            {error && !notice && (
-              <p role="alert" className="text-xs text-red-500">
-                {error}
-              </p>
-            )}
-
-            {notice && (
-              <div role="status" aria-live="polite" className="space-y-2 rounded-[10px] border border-[var(--accent-mint)]/30 bg-[var(--accent-mint)]/10 px-3 py-2.5 text-xs">
-                <p className="text-[var(--accent-mint)]">{notice}</p>
-                <p className="text-amber-300">
-                  Se não encontrar, verifique também a pasta de spam ou lixo eletrônico.
-                </p>
-                {mode === "login" && /confirm/i.test(notice) ? (
-                  <button
-                    type="button"
-                    onClick={resendConfirmation}
-                    disabled={resendingConfirmation || !email}
-                    className="font-medium underline underline-offset-2 disabled:opacity-50"
-                  >
-                    {resendingConfirmation ? "Reenviando..." : "Reenviar confirmacao"}
-                  </button>
-                ) : null}
+            {(error || notice) && (
+              <div
+                role={error ? "alert" : "status"}
+                aria-live="polite"
+                className="space-y-2 rounded-[10px] border border-red-500/40 bg-red-500/10 px-3 py-2.5 text-xs leading-5 text-red-400"
+              >
+                {error ? (
+                  <p>{error}</p>
+                ) : (
+                  <>
+                    <p>{notice}</p>
+                    <p>Se nao encontrar, verifique tambem a pasta de spam ou lixo eletronico.</p>
+                    {mode === "login" && /confirm/i.test(notice) ? (
+                      <button
+                        type="button"
+                        onClick={resendConfirmation}
+                        disabled={resendingConfirmation || !email}
+                        className="font-medium underline underline-offset-2 disabled:opacity-50"
+                      >
+                        {resendingConfirmation ? "Reenviando..." : "Reenviar confirmacao"}
+                      </button>
+                    ) : null}
+                  </>
+                )}
               </div>
             )}
 
@@ -381,7 +356,6 @@ export function AuthPage() {
                 setError("");
                 setNotice("");
                 setTermsAccepted(false);
-                setMarketingOptIn(false);
               }}
               className="text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--accent-mint)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-mint)]"
             >

@@ -22,8 +22,14 @@ function safeEmail(value) {
 }
 
 function safePassword(value, { requireStrong = false } = {}) {
-  if (typeof value !== "string" || value.length < (requireStrong ? 12 : 1) || value.length > 256) {
-    const error = new Error(requireStrong ? "Use uma senha com pelo menos 12 caracteres." : "Digite sua senha.");
+  if (typeof value !== "string" || value.length < (requireStrong ? 8 : 1) || value.length > 256) {
+    const error = new Error(requireStrong ? "A senha precisa ter pelo menos 8 caracteres." : "Digite sua senha.");
+    error.status = 400;
+    error.userSafe = true;
+    throw error;
+  }
+  if (requireStrong && (!/[A-Za-z]/.test(value) || !/\d/.test(value))) {
+    const error = new Error("Use letras e numeros na senha.");
     error.status = 400;
     error.userSafe = true;
     throw error;
@@ -190,7 +196,7 @@ export async function readProviderResponse(response, { operation = "auth" } = {}
       safeMessage = "Digite um email valido.";
       publicCode = "AUTH_INVALID_EMAIL";
     } else if (/password.*(weak|short)|weak password/i.test(providerMessage)) {
-      safeMessage = "Use uma senha mais forte, com pelo menos 12 caracteres.";
+      safeMessage = "A senha e muito curta. Use pelo menos 8 caracteres, com letras e numeros.";
       publicCode = "AUTH_WEAK_PASSWORD";
     } else if (/email.*(rate|send|deliver)|smtp|mail provider/i.test(providerMessage)) {
       safeMessage = "Nao conseguimos enviar o email de confirmacao agora. Tente novamente mais tarde.";

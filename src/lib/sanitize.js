@@ -34,15 +34,15 @@ export function normalizeEmail(value) {
   return sanitizeSingleLine(value, 254).toLowerCase();
 }
 
-export const PASSWORD_MIN_LENGTH = 12;
+export const PASSWORD_MIN_LENGTH = 8;
 
 export function validateStrongPassword(password) {
   const value = String(password || "");
   if (value.length < PASSWORD_MIN_LENGTH || value.length > 128) {
     throw new Error(`A senha precisa ter entre ${PASSWORD_MIN_LENGTH} e 128 caracteres.`);
   }
-  if (!/[a-z]/.test(value) || !/[A-Z]/.test(value) || !/\d/.test(value) || !/[^A-Za-z0-9]/.test(value)) {
-    throw new Error("Use letra maiuscula, minuscula, numero e simbolo na senha.");
+  if (!/[A-Za-z]/.test(value) || !/\d/.test(value)) {
+    throw new Error("Use letras e numeros na senha.");
   }
   return value;
 }

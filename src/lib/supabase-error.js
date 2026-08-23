@@ -1,4 +1,4 @@
-export function getSupabaseErrorMessage(error, fallback = "Erro ao autenticar.") {
+export function getSupabaseErrorMessage(error, fallback = "Nao foi possivel concluir agora. Tente novamente em alguns minutos.") {
   if (!error) return fallback;
 
   if (typeof error === "string") return error;
@@ -28,6 +28,22 @@ export function getSupabaseErrorMessage(error, fallback = "Erro ao autenticar.")
 
   if (/email not confirmed/i.test(message)) {
     return "Confirme seu email antes de entrar.";
+  }
+
+  if (/password.*(weak|short)|weak password|at least \d+ characters/i.test(message)) {
+    return "A senha e muito curta. Use pelo menos 8 caracteres, com letras e numeros.";
+  }
+
+  if (/same password|should be different/i.test(message)) {
+    return "A nova senha precisa ser diferente da senha atual.";
+  }
+
+  if (/signups not allowed|signup disabled/i.test(message)) {
+    return "Novos cadastros estao temporariamente desativados. Tente novamente mais tarde.";
+  }
+
+  if (/user not found|user does not exist/i.test(message)) {
+    return "Email ou senha incorretos.";
   }
 
   if (/user already registered|already registered/i.test(message)) {

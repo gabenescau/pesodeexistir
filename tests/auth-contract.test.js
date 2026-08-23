@@ -61,6 +61,11 @@ test("signup input is bounded and normalized", () => {
   });
 });
 
+test("signup rejects short passwords and passwords without numbers", () => {
+  assert.throws(() => parseSignupBody({ name: "Ray", email: "ray@example.com", password: "abc1234" }), /pelo menos 8/);
+  assert.throws(() => parseSignupBody({ name: "Ray", email: "ray@example.com", password: "somenteletras" }), /letras e numeros/);
+});
+
 test("login errors expose a safe invalid-credentials message", async () => {
   await rejectsWithMessage(
     new Response(JSON.stringify({ error: "invalid_grant", error_description: "Invalid login credentials" }), {

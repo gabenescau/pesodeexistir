@@ -66,6 +66,35 @@ function formatCount(value) {
   return count.toLocaleString("pt-BR");
 }
 
+function drawSealBadge(ctx, centerX, centerY, radius) {
+  const points = 12;
+  const inner = radius * 0.88;
+  ctx.save();
+  ctx.beginPath();
+  for (let i = 0; i < points * 2; i++) {
+    const angle = (Math.PI * 2 * i) / (points * 2) - Math.PI / 2;
+    const r = i % 2 === 0 ? radius : inner;
+    const x = centerX + Math.cos(angle) * r;
+    const y = centerY + Math.sin(angle) * r;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fillStyle = "#2997ff";
+  ctx.fill();
+
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = Math.max(3.5, radius * 0.24);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(centerX - radius * 0.42, centerY + radius * 0.02);
+  ctx.lineTo(centerX - radius * 0.1, centerY + radius * 0.34);
+  ctx.lineTo(centerX + radius * 0.46, centerY - radius * 0.28);
+  ctx.stroke();
+  ctx.restore();
+}
+
 async function createPostArtwork(post) {
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
@@ -138,14 +167,8 @@ async function createPostArtwork(post) {
   ctx.fillStyle = "#f5f5f5";
   ctx.font = "700 34px Arial, sans-serif";
   ctx.fillText(author, 270, 210);
-  if (isVerifiedProfile(post)) {
-    ctx.fillStyle = "#2997ff";
-    ctx.beginPath();
-    ctx.arc(270 + ctx.measureText(author).width + 26, 199, 14, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "700 18px Arial, sans-serif";
-    ctx.fillText("✓", 270 + ctx.measureText(author).width + 19, 206);
+  if (post.verified || isVerifiedProfile(post?.authorProfile)) {
+    drawSealBadge(ctx, 270 + ctx.measureText(author).width + 30, 199, 17);
   }
   ctx.fillStyle = "#8d8d8d";
   ctx.font = "400 25px Arial, sans-serif";
