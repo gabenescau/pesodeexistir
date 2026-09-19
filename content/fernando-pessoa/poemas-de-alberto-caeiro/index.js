@@ -1,0 +1,1 @@
+﻿export default { "title": "Poemas de Alberto Caeiro", "image": "/placeholder-book.svg" }

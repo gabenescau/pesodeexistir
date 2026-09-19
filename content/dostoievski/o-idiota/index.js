@@ -1,0 +1,1 @@
+﻿export default { "title": "O Idiota", "image": "/placeholder-book.svg" }

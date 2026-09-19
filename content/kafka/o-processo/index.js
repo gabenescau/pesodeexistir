@@ -1,0 +1,1 @@
+﻿export default { "title": "O Processo", "image": "/placeholder-book.svg" }

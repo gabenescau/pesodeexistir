@@ -1,0 +1,1 @@
+﻿export default { "title": "Um Sopro de Vida", "image": "/placeholder-book.svg" }

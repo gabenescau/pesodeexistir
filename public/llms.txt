@@ -1,0 +1,25 @@
+# OPE Club
+
+> OPE Club e uma biblioteca digital por assinatura e uma comunidade para leitores interessados em filosofia, literatura e pensamento critico.
+
+## Sobre o produto
+
+- Biblioteca curada de filosofia, literatura e psicanalise.
+- Leitor digital para livros disponiveis no acervo.
+- Comunidade com posts, comentarios e discussoes.
+- Lancamentos, missoes e beneficios para assinantes.
+- Loja com livros e produtos fisicos resgataveis conforme as regras do catalogo.
+
+## Acesso
+
+- Login: https://pesodeexistir.online/entrar
+- Cadastro: https://pesodeexistir.online/cadastro
+- Planos: https://pesodeexistir.online/assinar
+
+## Precos e planos
+
+Os valores e beneficios atuais estao em https://pesodeexistir.online/pricing.md. O checkout e protegido e valida o plano no servidor.
+
+## Observacao
+
+As areas `/app/`, `/assinar`, `/entrar` e `/cadastro` exigem autenticacao ou sao destinadas ao fluxo de acesso. Nao indexe dados privados de usuarios, livros protegidos, pedidos, assinaturas ou painel administrativo.
